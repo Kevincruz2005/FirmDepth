@@ -30,6 +30,8 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     error QuoteExpired(uint64 expiry);
     error ExpiryTooLarge(uint64 expiry);
     error NonceAlreadyUsed(address maker, uint256 nonce);
+    error NonceBelowMinimum(address maker, uint256 nonce, uint256 minimum);
+    error NonceFloorNotIncreasing(uint256 current, uint256 requested);
     error InvalidMakerSignature(address maker);
     error CommitmentAlreadyExists(bytes32 commitmentId);
     error CommitmentNotAccepted(bytes32 commitmentId, CommitmentStatus status);
@@ -45,8 +47,11 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
 
     mapping(bytes32 commitmentId => Commitment) private _commitments;
     mapping(address maker => mapping(uint256 nonce => bool used)) public nonceUsed;
+    mapping(address maker => uint256) public minimumValidNonce;
 
     event ExecutorSet(address indexed executor);
+    event NonceCancelled(address indexed maker, uint256 indexed nonce);
+    event NonceFloorRaised(address indexed maker, uint256 previousMinimum, uint256 newMinimum);
     event CommitmentAccepted(
         bytes32 indexed commitmentId,
         address indexed maker,
@@ -107,6 +112,8 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         if (quote.requiredBond != quote.minOut) revert BondMustEqualMinOut(quote.requiredBond, quote.minOut);
         if (quote.expiry <= block.timestamp) revert QuoteExpired(quote.expiry);
         if (quote.expiry > type(uint40).max) revert ExpiryTooLarge(quote.expiry);
+        uint256 nonceFloor = minimumValidNonce[quote.maker];
+        if (quote.nonce < nonceFloor) revert NonceBelowMinimum(quote.maker, quote.nonce, nonceFloor);
         if (nonceUsed[quote.maker][quote.nonce]) revert NonceAlreadyUsed(quote.maker, quote.nonce);
 
         commitmentId = quoteDigest(quote);
@@ -147,6 +154,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
 
     function finalizeAqua(bytes32 commitmentId) external onlyExecutor nonReentrant {
         Commitment storage commitment = _accepted(commitmentId);
+        if (block.timestamp > commitment.quote.expiry) revert QuoteExpired(commitment.quote.expiry);
         commitment.status = CommitmentStatus.FILLED_AQUA;
         commitment.settledAt = uint64(block.timestamp);
 
@@ -157,6 +165,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
 
     function finalizeBond(bytes32 commitmentId) external onlyExecutor nonReentrant {
         Commitment storage commitment = _accepted(commitmentId);
+        if (block.timestamp > commitment.quote.expiry) revert QuoteExpired(commitment.quote.expiry);
         commitment.status = CommitmentStatus.FILLED_BOND;
         commitment.settledAt = uint64(block.timestamp);
 
@@ -176,6 +185,18 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         vault.unlock(commitmentId);
         if (commitment.quote.premium != 0) premiumToken.safeTransfer(commitment.quote.maker, commitment.quote.premium);
         emit CommitmentSettled(commitmentId, CommitmentStatus.EXPIRED, commitment.quote.maker);
+    }
+
+    function cancelNonce(uint256 nonce) external {
+        nonceUsed[msg.sender][nonce] = true;
+        emit NonceCancelled(msg.sender, nonce);
+    }
+
+    function raiseMinimumValidNonce(uint256 newMinimum) external {
+        uint256 current = minimumValidNonce[msg.sender];
+        if (newMinimum <= current) revert NonceFloorNotIncreasing(current, newMinimum);
+        minimumValidNonce[msg.sender] = newMinimum;
+        emit NonceFloorRaised(msg.sender, current, newMinimum);
     }
 
     function quoteDigest(FirmQuote calldata quote) public view returns (bytes32) {
