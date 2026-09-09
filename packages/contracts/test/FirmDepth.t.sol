@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: LicenseRef-Degensoft-SwapVM-1.1
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
@@ -6,6 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { Aqua } from "@1inch/aqua/src/Aqua.sol";
 import { ISwapVM } from "@1inch/swap-vm/src/interfaces/ISwapVM.sol";
 import { MakerTraitsLib } from "@1inch/swap-vm/src/libs/MakerTraits.sol";
+import { TakerTraitsLib } from "@1inch/swap-vm/src/libs/TakerTraits.sol";
 
 import { BondVault } from "../contracts/BondVault.sol";
 import { FirmAquaSwapVMRouter } from "../contracts/FirmAquaSwapVMRouter.sol";
@@ -102,6 +103,38 @@ contract FirmDepthTest is Test {
         (uint248 virtualUsdc,) = aqua.rawBalances(maker, address(router), settled.quote.orderHash, address(usdc));
         assertEq(uint256(virtualWeth), AMOUNT_IN);
         assertEq(uint256(virtualUsdc), AQUA_OUTPUT - MIN_OUT);
+    }
+
+    function testOfficialAquaSoftDepthCanExceedRealSharedInventory() public {
+        ISwapVM.Order memory first = _softOrder(1);
+        ISwapVM.Order memory second = _softOrder(2);
+        _shipOrder(first, AQUA_OUTPUT);
+        _shipOrder(second, AQUA_OUTPUT);
+
+        (uint248 firstVirtual,) = aqua.rawBalances(
+            maker,
+            address(router),
+            router.hash(first),
+            address(usdc)
+        );
+        (uint248 secondVirtual,) = aqua.rawBalances(
+            maker,
+            address(router),
+            router.hash(second),
+            address(usdc)
+        );
+        assertEq(uint256(firstVirtual) + uint256(secondVirtual), 10_000e6);
+        assertEq(usdc.balanceOf(maker), 8_000e6);
+
+        weth.mint(address(this), 2 ether);
+        weth.approve(address(router), type(uint256).max);
+        (, uint256 firstOutput,) = router.swap(first, 1 ether, _softTakerTraits());
+        assertEq(firstOutput, AQUA_OUTPUT);
+        assertEq(usdc.balanceOf(maker), 3_000e6);
+
+        vm.expectRevert();
+        router.swap(second, 1 ether, _softTakerTraits());
+        assertEq(weth.balanceOf(address(this)), 1 ether);
     }
 
     function testBondPathWhenRealAllowanceIsRemoved() public {
@@ -298,14 +331,72 @@ contract FirmDepthTest is Test {
         }));
     }
 
+    function _softOrder(uint64 salt) private view returns (ISwapVM.Order memory) {
+        (address tokenA, address tokenB) = address(weth) < address(usdc)
+            ? (address(weth), address(usdc))
+            : (address(usdc), address(weth));
+        return MakerTraitsLib.build(MakerTraitsLib.Args({
+            maker: maker,
+            receiver: maker,
+            tokenA: tokenA,
+            tokenB: tokenB,
+            shouldUnwrapWeth: false,
+            useAquaInsteadOfSignature: true,
+            allowZeroAmountIn: false,
+            hasPreTransferInHook: false,
+            hasPostTransferInHook: false,
+            hasPreTransferOutHook: false,
+            hasPostTransferOutHook: false,
+            preTransferInTarget: address(0),
+            preTransferInData: "",
+            postTransferInTarget: address(0),
+            postTransferInData: "",
+            preTransferOutTarget: address(0),
+            preTransferOutData: "",
+            postTransferOutTarget: address(0),
+            postTransferOutData: "",
+            program: abi.encodePacked(bytes2(0x5000), bytes2(0x0208), salt)
+        }));
+    }
+
+    function _softTakerTraits() private view returns (bytes memory) {
+        return TakerTraitsLib.build(TakerTraitsLib.Args({
+            taker: address(this),
+            isExactIn: true,
+            shouldUnwrapWeth: false,
+            isStrictThresholdAmount: false,
+            isFirstTransferFromTaker: true,
+            useTransferFromAndAquaPush: true,
+            isAToB: address(weth) < address(usdc),
+            allowPartialFill: false,
+            threshold: "",
+            to: address(this),
+            deadline: 0,
+            hasPreTransferInCallback: false,
+            hasPreTransferOutCallback: false,
+            preTransferInHookData: "",
+            postTransferInHookData: "",
+            preTransferOutHookData: "",
+            postTransferOutHookData: "",
+            preTransferInCallbackData: "",
+            preTransferOutCallbackData: "",
+            instructionsArgs: "",
+            signature: ""
+        }));
+    }
+
     function _shipStrategy() private {
         ISwapVM.Order memory order = _order();
+        _shipOrder(order, AQUA_OUTPUT);
+    }
+
+    function _shipOrder(ISwapVM.Order memory order, uint256 outputBalance) private {
         address[] memory tokens = new address[](2);
         uint256[] memory balances = new uint256[](2);
         tokens[0] = address(weth);
         tokens[1] = address(usdc);
         balances[0] = 0;
-        balances[1] = AQUA_OUTPUT;
+        balances[1] = outputBalance;
 
         vm.prank(maker);
         bytes32 strategyHash = aqua.ship(address(router), abi.encode(order), tokens, balances);
