@@ -9,7 +9,7 @@ FirmDepth adds a paid, fully bond-backed execution class around Aqua reusable li
 
 This repository contains the backend MVP, pinned upstream integration notes, Solidity tests, a live-data TypeScript SDK, deterministic local and Sepolia deployment workflows, and the Google AI Stitch prompt for the deferred frontend.
 
-Start with [`docs/PRD.md`](docs/PRD.md), then use [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) and [`docs/TESTNET.md`](docs/TESTNET.md).
+Start with [`docs/PRD.md`](docs/PRD.md), then use [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/CONTRACT_SPEC.md`](docs/CONTRACT_SPEC.md), and [`docs/TESTNET.md`](docs/TESTNET.md).
 
 ## Core idea
 
