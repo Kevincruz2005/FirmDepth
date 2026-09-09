@@ -5,19 +5,25 @@
   "type": "module",
   "scripts": {
     "compile": "hardhat compile",
+    "deploy:local": "hardhat run scripts/deploy.ts",
     "test": "hardhat test solidity",
     "test:node": "hardhat test nodejs",
     "clean": "hardhat clean"
   },
   "dependencies": {
-    "@1inch/aqua": "file:../../../dependencies/swap-vm/node_modules/@1inch/aqua",
+    "@1inch/aqua": "github:1inch/aqua#9c5c42e5840e8741fba3597c48456c9510212b66",
     "@1inch/solidity-utils": "6.9.10",
-    "@1inch/swap-vm": "file:../../../dependencies/swap-vm",
+    "@1inch/swap-vm": "github:1inch/swap-vm#f09a41e689240adc645934f965c8061749397cd2",
     "@openzeppelin/contracts": "5.4.0"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.0.15",
     "@nomicfoundation/hardhat-node-test-runner": "^3.0.17",
-    "forge-std": "file:../../../dependencies/swap-vm/node_modules/forge-std",
+    "ethers": "^6.15.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.11.0",
     "hardhat": "^3.11.0"
+  },
+  "overrides": {
+    "@1inch/solidity-utils": "6.9.10"
   }
 }
