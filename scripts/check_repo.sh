@@ -13,7 +13,7 @@ git ls-files | grep -E '(^|/)\.env$|\.pem$|\.key$|keystore' && {
 
 echo
 echo "== TODO/PENDING markers =="
-git grep -nE 'PENDING|TODO|FIXME' -- ':!ERROR_LOG.md' ':!scripts/check_repo.sh' || true
+git grep -nE 'PENDING|TODO|FIXME' -- ':!scripts/check_repo.sh' || true
 
 echo
 echo "Run the project-specific full tests before submission."
