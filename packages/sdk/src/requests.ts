@@ -10,6 +10,8 @@ export const bondVaultAbi = parseAbi([
 ]);
 
 export const registryAbi = parseAbi([
+  "event CommitmentAccepted(bytes32 indexed commitmentId,address indexed maker,address indexed trader,bytes32 orderHash,uint256 amountIn,uint256 minOut,uint256 premium,uint64 expiry,uint256 nonce)",
+  "event CommitmentSettled(bytes32 indexed commitmentId,uint8 indexed status,address indexed beneficiary)",
   "function accept((address maker,address trader,address executor,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 minOut,uint256 premium,uint256 requiredBond,uint64 expiry,uint256 nonce,uint256 chainId) quote,bytes makerSignature) returns (bytes32)",
   "function expire(bytes32 commitmentId)",
   "function cancelNonce(uint256 nonce)",
@@ -18,6 +20,8 @@ export const registryAbi = parseAbi([
 ]);
 
 export const executorAbi = parseAbi([
+  "event PathSelected(bytes32 indexed commitmentId,bool indexed aquaPath,uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,uint256 requiredOutput)",
+  "event FirmTradeExecuted(bytes32 indexed commitmentId,uint8 indexed status,address indexed trader,address maker,uint256 amountIn,uint256 amountOut)",
   "function execute(bytes32 commitmentId,(address maker,uint256 traits,bytes data) order) returns (uint8 terminalStatus,uint256 amountOut)",
   "function capacity(bytes32 commitmentId) view returns ((uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,bool strategyActive))",
 ]);

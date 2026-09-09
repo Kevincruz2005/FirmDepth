@@ -40,3 +40,11 @@ export function firmQuoteTypedData(registry: Address, quote: FirmQuote) {
 export function hashFirmQuote(registry: Address, quote: FirmQuote): Hex {
   return hashTypedData(firmQuoteTypedData(registry, quote));
 }
+
+export interface FirmQuoteSigner {
+  signTypedData(data: ReturnType<typeof firmQuoteTypedData>): Promise<Hex>;
+}
+
+export function signFirmQuote(signer: FirmQuoteSigner, registry: Address, quote: FirmQuote): Promise<Hex> {
+  return signer.signTypedData(firmQuoteTypedData(registry, quote));
+}

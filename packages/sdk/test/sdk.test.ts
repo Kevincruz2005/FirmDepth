@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { effectiveAquaCapacity, canUseAqua } from "../src/capacity.js";
+import { hashFirmQuote } from "../src/eip712.js";
 import { buildFirmInstructionArgs, buildFirmProgram, encodeInstruction } from "../src/swapvm.js";
 
 test("encodes the exact FirmDepth SwapVM program", () => {
@@ -25,4 +26,26 @@ test("computes capacity as virtual-real-allowance minimum", () => {
 test("rejects oversized instruction arguments and malformed ids", () => {
   assert.throws(() => encodeInstruction(0x21, `0x${"00".repeat(256)}`), RangeError);
   assert.throws(() => buildFirmInstructionArgs("0x1234"), RangeError);
+});
+
+test("hashes every signed quote field deterministically", () => {
+  const registry = "0x0000000000000000000000000000000000000010";
+  const quote = {
+    maker: "0x0000000000000000000000000000000000000001",
+    trader: "0x0000000000000000000000000000000000000002",
+    executor: "0x0000000000000000000000000000000000000003",
+    orderHash: `0x${"11".repeat(32)}` as const,
+    tokenIn: "0x0000000000000000000000000000000000000004",
+    tokenOut: "0x0000000000000000000000000000000000000005",
+    amountIn: 250000000000000000n,
+    minOut: 625000000n,
+    premium: 2500000n,
+    requiredBond: 625000000n,
+    expiry: 2000000000n,
+    nonce: 1n,
+    chainId: 31337n,
+  } as const;
+  const digest = hashFirmQuote(registry, quote);
+  assert.equal(digest, hashFirmQuote(registry, quote));
+  assert.notEqual(digest, hashFirmQuote(registry, { ...quote, nonce: 2n }));
 });
