@@ -1,0 +1,26 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+build/
+cache/
+out/
+broadcast/
+coverage/
+
+.idea/
+.vscode/
+*.log
+
+.DS_Store
+
+# Local fork/deployment state
+ignition/deployments/chain-31337/
+anvil-state.json
+
+# Secrets
+*.pem
+*.key
+keystore/
