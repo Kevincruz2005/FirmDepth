@@ -186,7 +186,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         commitment.settledAt = uint64(block.timestamp);
 
         vault.unlock(commitmentId);
-        if (commitment.quote.premium != 0) premiumToken.safeTransfer(commitment.quote.maker, commitment.quote.premium);
+        _payPremium(commitment.quote.maker, commitment.quote.premium);
         emit CommitmentSettled(commitmentId, CommitmentStatus.FILLED_AQUA, commitment.quote.maker);
     }
 
@@ -197,7 +197,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         commitment.settledAt = uint64(block.timestamp);
 
         vault.release(commitmentId, commitment.quote.trader);
-        if (commitment.quote.premium != 0) premiumToken.safeTransfer(commitment.quote.trader, commitment.quote.premium);
+        _payPremium(commitment.quote.trader, commitment.quote.premium);
         emit CommitmentSettled(commitmentId, CommitmentStatus.FILLED_BOND, commitment.quote.trader);
     }
 
@@ -210,7 +210,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         commitment.settledAt = uint64(block.timestamp);
 
         vault.unlock(commitmentId);
-        if (commitment.quote.premium != 0) premiumToken.safeTransfer(commitment.quote.maker, commitment.quote.premium);
+        _payPremium(commitment.quote.maker, commitment.quote.premium);
         emit CommitmentSettled(commitmentId, CommitmentStatus.EXPIRED, commitment.quote.maker);
     }
 
@@ -252,6 +252,21 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     function premiumBounds(uint256 minOut) public view returns (uint256 minimum, uint256 maximum) {
         minimum = Math.mulDiv(minOut, minimumPremiumBps, 10_000, Math.Rounding.Ceil);
         maximum = Math.mulDiv(minOut, maximumPremiumBps, 10_000);
+    }
+
+    function _payPremium(address recipient, uint256 amount) private {
+        if (amount == 0) return;
+        uint256 registryBefore = premiumToken.balanceOf(address(this));
+        uint256 recipientBefore = premiumToken.balanceOf(recipient);
+        premiumToken.safeTransfer(recipient, amount);
+        uint256 registryAfter = premiumToken.balanceOf(address(this));
+        uint256 recipientAfter = premiumToken.balanceOf(recipient);
+        if (
+            registryAfter > registryBefore
+                || registryBefore - registryAfter != amount
+                || recipientAfter < recipientBefore
+                || recipientAfter - recipientBefore != amount
+        ) revert DeflationaryTokenUnsupported();
     }
 
     function _accepted(bytes32 commitmentId) private view returns (Commitment storage commitment) {

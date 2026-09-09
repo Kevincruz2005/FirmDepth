@@ -111,7 +111,17 @@ contract BondVault is ReentrancyGuard {
     function release(bytes32 commitmentId, address to) external onlyRegistry nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         BondLock memory bond = _consumeLock(commitmentId);
+        uint256 vaultBefore = bondToken.balanceOf(address(this));
+        uint256 recipientBefore = bondToken.balanceOf(to);
         bondToken.safeTransfer(to, bond.amount);
+        uint256 vaultAfter = bondToken.balanceOf(address(this));
+        uint256 recipientAfter = bondToken.balanceOf(to);
+        if (
+            vaultBefore < vaultAfter
+                || vaultBefore - vaultAfter != bond.amount
+                || recipientAfter < recipientBefore
+                || recipientAfter - recipientBefore != bond.amount
+        ) revert DeflationaryTokenUnsupported();
         emit BondReleased(commitmentId, bond.maker, to, bond.amount);
     }
 

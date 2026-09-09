@@ -342,6 +342,60 @@ contract FirmDepthTest is Test {
         executor.execute(commitmentId, _order());
     }
 
+    function testBondSettlementIsTerminalAndLockedCollateralCannotBeWithdrawn() public {
+        (bytes32 commitmentId,) = _accept(6);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(BondVault.InsufficientAvailable.selector, BOND_DEPOSIT - MIN_OUT, BOND_DEPOSIT)
+        );
+        vm.prank(maker);
+        vault.withdraw(BOND_DEPOSIT, maker);
+
+        vm.prank(maker);
+        usdc.approve(address(aqua), 0);
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmExecutor.CommitmentNotAccepted.selector,
+                commitmentId,
+                CommitmentStatus.FILLED_BOND
+            )
+        );
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+    }
+
+    function testBondSettlementRevertsIfOutputTokenDoesNotMove() public {
+        (bytes32 commitmentId,) = _accept(8);
+        vm.prank(maker);
+        usdc.approve(address(aqua), 0);
+        usdc.setTransferSkips(true);
+
+        uint256 traderWethBefore = weth.balanceOf(trader);
+        uint256 makerWethBefore = weth.balanceOf(maker);
+        vm.expectRevert(BondVault.DeflationaryTokenUnsupported.selector);
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+
+        assertEq(weth.balanceOf(trader), traderWethBefore);
+        assertEq(weth.balanceOf(maker), makerWethBefore);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+    }
+
+    function testExecutionAtExactExpiryBoundaryIsAllowedByDeadlinePolicy() public {
+        (bytes32 commitmentId, FirmQuote memory quote) = _accept(7);
+        vm.warp(uint256(quote.expiry));
+
+        vm.prank(trader);
+        (CommitmentStatus result,) = executor.execute(commitmentId, _order());
+
+        assertEq(uint8(result), uint8(CommitmentStatus.FILLED_AQUA));
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.FILLED_AQUA));
+    }
+
     function testExpiryReturnsBondAndPaysPremiumToMaker() public {
         (bytes32 commitmentId, FirmQuote memory quote) = _accept(5);
         uint256 makerBefore = usdc.balanceOf(maker);
