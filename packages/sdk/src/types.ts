@@ -40,11 +40,31 @@ export interface Capacity {
   strategyActive: boolean;
 }
 
+export interface Commitment {
+  quote: FirmQuote;
+  status: CommitmentStatus;
+  acceptedAt: bigint;
+  settledAt: bigint;
+}
+
+export interface MakerBondState {
+  available: bigint;
+  locked: bigint;
+  total: bigint;
+}
+
+export interface FirmDepthSnapshot {
+  capacity: Capacity;
+  makerBond: MakerBondState;
+  commitment: Commitment;
+  blockNumber: bigint;
+}
+
 export interface DeploymentArtifact {
   schemaVersion: "1";
   chainId: number;
   networkName: string;
-  forkBlock?: bigint;
+  forkBlock?: number;
   createdAt: string;
   sourceRevisions: {
     aqua: string;

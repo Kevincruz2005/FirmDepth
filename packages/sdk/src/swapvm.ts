@@ -1,4 +1,4 @@
-import { concatHex, numberToHex, size, type Hex } from "viem";
+import { concatHex, numberToHex, padHex, size, toHex, zeroHash, type Hex } from "viem";
 
 export const FIRM_GUARD_OPCODE = 0x21;
 export const FIRM_PRICE_OPCODE = 0x52;
@@ -19,7 +19,10 @@ export function buildFirmProgram(): Hex {
   ]);
 }
 
-export function buildFirmInstructionArgs(commitmentId: Hex): Hex {
+export function buildFirmInstructionArgs(amountOut: bigint, commitmentId: Hex = zeroHash): Hex {
+  if (amountOut <= 0n || amountOut > 2n ** 256n - 1n) {
+    throw new RangeError("amountOut must fit in uint256 and be greater than zero");
+  }
   if (size(commitmentId) !== 32) throw new RangeError("commitmentId must be bytes32");
-  return concatHex([commitmentId, commitmentId]);
+  return concatHex([padHex(toHex(amountOut), { size: 32 }), commitmentId]);
 }
