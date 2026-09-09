@@ -6,6 +6,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { BondVault } from "./BondVault.sol";
 import { Commitment, CommitmentStatus, FirmQuote } from "./types/FirmTypes.sol";
@@ -29,6 +30,9 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     error BondMustEqualMinOut(uint256 bond, uint256 minOut);
     error QuoteExpired(uint64 expiry);
     error ExpiryTooLarge(uint64 expiry);
+    error QuoteTtlTooLong(uint64 expiry, uint64 maximumExpiry);
+    error InvalidPremiumPolicy(uint16 minimumBps, uint16 maximumBps, uint64 maxQuoteTtl);
+    error PremiumOutOfRange(uint256 premium, uint256 minimum, uint256 maximum);
     error NonceAlreadyUsed(address maker, uint256 nonce);
     error NonceBelowMinimum(address maker, uint256 nonce, uint256 minimum);
     error NonceFloorNotIncreasing(uint256 current, uint256 requested);
@@ -43,6 +47,9 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     address public immutable tokenIn;
     address public immutable tokenOut;
     address public immutable owner;
+    uint16 public immutable minimumPremiumBps;
+    uint16 public immutable maximumPremiumBps;
+    uint64 public immutable maxQuoteTtl;
     address public executor;
 
     mapping(bytes32 commitmentId => Commitment) private _commitments;
@@ -65,17 +72,31 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     );
     event CommitmentSettled(bytes32 indexed commitmentId, CommitmentStatus indexed status, address indexed beneficiary);
 
-    constructor(address vault_, address tokenIn_, address tokenOut_, address owner_)
+    constructor(
+        address vault_,
+        address tokenIn_,
+        address tokenOut_,
+        address owner_,
+        uint16 minimumPremiumBps_,
+        uint16 maximumPremiumBps_,
+        uint64 maxQuoteTtl_
+    )
         EIP712("FirmDepth", "1")
     {
         if (vault_ == address(0) || tokenIn_ == address(0) || tokenOut_ == address(0) || owner_ == address(0)) {
             revert ZeroAddress();
+        }
+        if (maximumPremiumBps_ > 10_000 || minimumPremiumBps_ > maximumPremiumBps_ || maxQuoteTtl_ == 0) {
+            revert InvalidPremiumPolicy(minimumPremiumBps_, maximumPremiumBps_, maxQuoteTtl_);
         }
         vault = BondVault(vault_);
         premiumToken = IERC20(tokenOut_);
         tokenIn = tokenIn_;
         tokenOut = tokenOut_;
         owner = owner_;
+        minimumPremiumBps = minimumPremiumBps_;
+        maximumPremiumBps = maximumPremiumBps_;
+        maxQuoteTtl = maxQuoteTtl_;
     }
 
     modifier onlyOwner() {
@@ -112,6 +133,12 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         if (quote.requiredBond != quote.minOut) revert BondMustEqualMinOut(quote.requiredBond, quote.minOut);
         if (quote.expiry <= block.timestamp) revert QuoteExpired(quote.expiry);
         if (quote.expiry > type(uint40).max) revert ExpiryTooLarge(quote.expiry);
+        uint64 maximumExpiry = uint64(block.timestamp) + maxQuoteTtl;
+        if (quote.expiry > maximumExpiry) revert QuoteTtlTooLong(quote.expiry, maximumExpiry);
+        (uint256 minimumPremium, uint256 maximumPremium) = premiumBounds(quote.minOut);
+        if (quote.premium < minimumPremium || quote.premium > maximumPremium) {
+            revert PremiumOutOfRange(quote.premium, minimumPremium, maximumPremium);
+        }
         uint256 nonceFloor = minimumValidNonce[quote.maker];
         if (quote.nonce < nonceFloor) revert NonceBelowMinimum(quote.maker, quote.nonce, nonceFloor);
         if (nonceUsed[quote.maker][quote.nonce]) revert NonceAlreadyUsed(quote.maker, quote.nonce);
@@ -220,6 +247,11 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
 
     function getCommitment(bytes32 commitmentId) external view returns (Commitment memory) {
         return _commitments[commitmentId];
+    }
+
+    function premiumBounds(uint256 minOut) public view returns (uint256 minimum, uint256 maximum) {
+        minimum = Math.mulDiv(minOut, minimumPremiumBps, 10_000, Math.Rounding.Ceil);
+        maximum = Math.mulDiv(minOut, maximumPremiumBps, 10_000);
     }
 
     function _accepted(bytes32 commitmentId) private view returns (Commitment storage commitment) {

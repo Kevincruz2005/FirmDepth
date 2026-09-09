@@ -32,6 +32,8 @@ library FirmGuard {
         BondVault vault
     ) internal view {
         if (args.length != 0) revert UnexpectedStaticArgs(args.length);
+        if (ctx.vm.isStaticContext) return;
+
         bytes calldata dynamicArgs = ctx.tryChopTakerArgs(32);
         if (dynamicArgs.length != 32) revert MissingCommitmentId();
         bytes32 commitmentId;
@@ -57,7 +59,7 @@ library FirmGuard {
         if (ctx.swap.amountIn != commitment.quote.amountIn) {
             revert InputAmountMismatch(commitment.quote.amountIn, ctx.swap.amountIn);
         }
-        if (ctx.swap.amountOut != commitment.quote.minOut) {
+        if (ctx.swap.amountOut < commitment.quote.minOut) {
             revert OutputAmountMismatch(commitment.quote.minOut, ctx.swap.amountOut);
         }
 

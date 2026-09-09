@@ -18,6 +18,9 @@ const registry = await ethers.deployContract("FirmCommitmentRegistry", [
   await weth.getAddress(),
   await usdc.getAddress(),
   ownerAddress,
+  20,
+  100,
+  120,
 ]);
 await registry.waitForDeployment();
 const router = await ethers.deployContract("FirmAquaSwapVMRouter", [

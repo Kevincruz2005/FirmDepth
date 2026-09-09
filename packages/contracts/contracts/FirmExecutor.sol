@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import { IAqua } from "@1inch/aqua/src/interfaces/IAqua.sol";
 import { ISwapVM } from "@1inch/swap-vm/src/interfaces/ISwapVM.sol";
+import { MakerTraits, MakerTraitsLib } from "@1inch/swap-vm/src/libs/MakerTraits.sol";
 import { TakerTraitsLib } from "@1inch/swap-vm/src/libs/TakerTraits.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,6 +14,9 @@ import { Commitment, CommitmentStatus, FirmQuote, IFirmCommitmentRegistry } from
 
 contract FirmExecutor is ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using MakerTraitsLib for MakerTraits;
+
+    bytes4 public constant FIRM_PROGRAM = 0x52002100;
 
     struct Capacity {
         uint256 virtualBalance;
@@ -26,9 +30,11 @@ contract FirmExecutor is ReentrancyGuard {
     error CommitmentNotAccepted(bytes32 commitmentId, CommitmentStatus status);
     error CommitmentExpired(uint64 expiry);
     error OrderHashMismatch(bytes32 expected, bytes32 actual);
-    error QuoteResultMismatch();
     error SwapResultMismatch();
     error DeflationaryTokenUnsupported();
+    error ZeroAddress();
+    error InvalidFirmOrder();
+    error AquaFailureNotEligible(bytes reason);
 
     IFirmCommitmentRegistry public immutable registry;
     IAqua public immutable aqua;
@@ -51,8 +57,10 @@ contract FirmExecutor is ReentrancyGuard {
         uint256 amountIn,
         uint256 amountOut
     );
+    event FirmAquaUnavailable(bytes32 indexed commitmentId, bytes reason);
 
     constructor(address registry_, address aqua_, address router_) {
+        if (registry_ == address(0) || aqua_ == address(0) || router_ == address(0)) revert ZeroAddress();
         registry = IFirmCommitmentRegistry(registry_);
         aqua = IAqua(aqua_);
         router = FirmAquaSwapVMRouter(payable(router_));
@@ -71,31 +79,60 @@ contract FirmExecutor is ReentrancyGuard {
         if (msg.sender != quote.trader) revert UnauthorizedTrader(quote.trader, msg.sender);
         if (block.timestamp > quote.expiry) revert CommitmentExpired(quote.expiry);
 
-        bytes32 actualOrderHash = router.hash(order);
-        if (actualOrderHash != quote.orderHash) revert OrderHashMismatch(quote.orderHash, actualOrderHash);
+        _validateFirmOrder(quote, order);
 
-        Capacity memory available = _capacity(quote);
-        bool useAqua = available.strategyActive && available.effectiveCapacity >= quote.minOut;
-        emit PathSelected(
-            commitmentId,
-            useAqua,
-            available.virtualBalance,
-            available.realBalance,
-            available.aquaAllowance,
-            available.effectiveCapacity,
-            quote.minOut
-        );
+        Capacity memory beforeAttempt = _capacity(quote);
+        IERC20 inputToken = IERC20(quote.tokenIn);
+        IERC20 outputToken = IERC20(quote.tokenOut);
+        _pullExact(inputToken, quote.trader, quote.amountIn);
+        inputToken.forceApprove(address(router), quote.amountIn);
+        uint256 traderOutputBefore = outputToken.balanceOf(quote.trader);
+        bytes memory takerTraits = _buildTakerTraits(commitmentId, quote);
 
-        if (useAqua) {
-            amountOut = _executeAqua(commitmentId, quote, order);
+        try router.swap(order, quote.amountIn, takerTraits) returns (
+            uint256 swappedIn,
+            uint256 swappedOut,
+            bytes32 swappedHash
+        ) {
+            inputToken.forceApprove(address(router), 0);
+            if (swappedIn != quote.amountIn || swappedOut < quote.minOut || swappedHash != quote.orderHash) {
+                revert SwapResultMismatch();
+            }
+            uint256 received = outputToken.balanceOf(quote.trader) - traderOutputBefore;
+            if (received < quote.minOut || received != swappedOut) revert SwapResultMismatch();
+            amountOut = swappedOut;
             terminalStatus = CommitmentStatus.FILLED_AQUA;
             registry.finalizeAqua(commitmentId);
-        } else {
-            _pullExact(IERC20(quote.tokenIn), quote.trader, quote.amountIn);
-            IERC20(quote.tokenIn).safeTransfer(quote.maker, quote.amountIn);
+            emit PathSelected(
+                commitmentId,
+                true,
+                beforeAttempt.virtualBalance,
+                beforeAttempt.realBalance,
+                beforeAttempt.aquaAllowance,
+                beforeAttempt.effectiveCapacity,
+                quote.minOut
+            );
+        } catch (bytes memory reason) {
+            inputToken.forceApprove(address(router), 0);
+            Capacity memory afterFailure = _capacity(quote);
+            if (afterFailure.strategyActive && afterFailure.effectiveCapacity >= quote.minOut) {
+                revert AquaFailureNotEligible(reason);
+            }
+
+            _transferExact(inputToken, quote.maker, quote.amountIn);
             amountOut = quote.minOut;
             terminalStatus = CommitmentStatus.FILLED_BOND;
             registry.finalizeBond(commitmentId);
+            emit FirmAquaUnavailable(commitmentId, reason);
+            emit PathSelected(
+                commitmentId,
+                false,
+                afterFailure.virtualBalance,
+                afterFailure.realBalance,
+                afterFailure.aquaAllowance,
+                afterFailure.effectiveCapacity,
+                quote.minOut
+            );
         }
 
         emit FirmTradeExecuted(
@@ -117,27 +154,6 @@ contract FirmExecutor is ReentrancyGuard {
         return _buildTakerTraits(commitmentId, commitment.quote);
     }
 
-    function _executeAqua(bytes32 commitmentId, FirmQuote memory quote, ISwapVM.Order calldata order)
-        private
-        returns (uint256 amountOut)
-    {
-        bytes memory takerTraits = _buildTakerTraits(commitmentId, quote);
-        (uint256 quotedIn, uint256 quotedOut, bytes32 quotedHash) = router.quote(order, quote.amountIn, takerTraits);
-        if (quotedIn != quote.amountIn || quotedOut != quote.minOut || quotedHash != quote.orderHash) {
-            revert QuoteResultMismatch();
-        }
-
-        IERC20 inputToken = IERC20(quote.tokenIn);
-        _pullExact(inputToken, quote.trader, quote.amountIn);
-        inputToken.forceApprove(address(router), quote.amountIn);
-        (uint256 swappedIn, uint256 swappedOut, bytes32 swappedHash) = router.swap(order, quote.amountIn, takerTraits);
-        inputToken.forceApprove(address(router), 0);
-        if (swappedIn != quote.amountIn || swappedOut != quote.minOut || swappedHash != quote.orderHash) {
-            revert SwapResultMismatch();
-        }
-        return swappedOut;
-    }
-
     function _capacity(FirmQuote memory quote) private view returns (Capacity memory result) {
         (uint248 virtualOut, uint8 outTokenCount) = aqua.rawBalances(
             quote.maker,
@@ -155,8 +171,10 @@ contract FirmExecutor is ReentrancyGuard {
         result.virtualBalance = uint256(virtualOut);
         result.realBalance = IERC20(quote.tokenOut).balanceOf(quote.maker);
         result.aquaAllowance = IERC20(quote.tokenOut).allowance(quote.maker, address(aqua));
-        result.effectiveCapacity = _min(result.virtualBalance, _min(result.realBalance, result.aquaAllowance));
         result.strategyActive = _activeTokenCount(inTokenCount) && _activeTokenCount(outTokenCount);
+        result.effectiveCapacity = result.strategyActive
+            ? _min(result.virtualBalance, _min(result.realBalance, result.aquaAllowance))
+            : 0;
     }
 
     function _buildTakerTraits(bytes32 commitmentId, FirmQuote memory quote) private view returns (bytes memory) {
@@ -180,7 +198,7 @@ contract FirmExecutor is ReentrancyGuard {
             postTransferOutHookData: "",
             preTransferInCallbackData: "",
             preTransferOutCallbackData: "",
-            instructionsArgs: abi.encodePacked(commitmentId, commitmentId),
+            instructionsArgs: abi.encodePacked(quote.minOut, commitmentId),
             signature: ""
         }));
     }
@@ -189,6 +207,32 @@ contract FirmExecutor is ReentrancyGuard {
         uint256 beforeBalance = token.balanceOf(address(this));
         token.safeTransferFrom(from, address(this), amount);
         if (token.balanceOf(address(this)) - beforeBalance != amount) revert DeflationaryTokenUnsupported();
+    }
+
+    function _transferExact(IERC20 token, address to, uint256 amount) private {
+        uint256 beforeBalance = token.balanceOf(to);
+        token.safeTransfer(to, amount);
+        if (token.balanceOf(to) - beforeBalance != amount) revert DeflationaryTokenUnsupported();
+    }
+
+    function _validateFirmOrder(FirmQuote memory quote, ISwapVM.Order calldata order) private view {
+        bytes32 actualOrderHash = router.hash(order);
+        if (actualOrderHash != quote.orderHash) revert OrderHashMismatch(quote.orderHash, actualOrderHash);
+
+        bytes calldata program = order.traits.program(order.data);
+        if (
+            order.maker != quote.maker
+                || !order.traits.useAquaInsteadOfSignature()
+                || order.traits.shouldUnwrapWeth()
+                || order.traits.allowZeroAmountIn()
+                || order.traits.hasPreTransferInHook()
+                || order.traits.hasPostTransferInHook()
+                || order.traits.hasPreTransferOutHook()
+                || order.traits.hasPostTransferOutHook()
+                || order.traits.receiver(order.maker) != order.maker
+                || program.length != 4
+                || bytes4(program) != FIRM_PROGRAM
+        ) revert InvalidFirmOrder();
     }
 
     function _activeTokenCount(uint8 count) private pure returns (bool) {

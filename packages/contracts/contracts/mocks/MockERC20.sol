@@ -5,6 +5,9 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
     uint8 private immutable _tokenDecimals;
+    bool public transferFromReverts;
+
+    error ForcedTransferFromRevert();
 
     constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
         _tokenDecimals = decimals_;
@@ -16,5 +19,14 @@ contract MockERC20 is ERC20 {
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
+    }
+
+    function setTransferFromReverts(bool value) external {
+        transferFromReverts = value;
+    }
+
+    function transferFrom(address from, address to, uint256 value) public override returns (bool) {
+        if (transferFromReverts) revert ForcedTransferFromRevert();
+        return super.transferFrom(from, to, value);
     }
 }

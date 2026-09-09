@@ -24,6 +24,9 @@ contract FirmDepthTest is Test {
     uint256 private constant PREMIUM = 2_500_000;
     uint256 private constant BOND_DEPOSIT = 2_000e6;
     uint256 private constant AQUA_OUTPUT = 5_000e6;
+    uint16 private constant MINIMUM_PREMIUM_BPS = 20;
+    uint16 private constant MAXIMUM_PREMIUM_BPS = 100;
+    uint64 private constant MAX_QUOTE_TTL = 1 days;
 
     address private maker;
     address private trader;
@@ -44,7 +47,15 @@ contract FirmDepthTest is Test {
         usdc = new MockERC20("USD Coin", "USDC", 6);
         aqua = new Aqua();
         vault = new BondVault(address(usdc), address(this));
-        registry = new FirmCommitmentRegistry(address(vault), address(weth), address(usdc), address(this));
+        registry = new FirmCommitmentRegistry(
+            address(vault),
+            address(weth),
+            address(usdc),
+            address(this),
+            MINIMUM_PREMIUM_BPS,
+            MAXIMUM_PREMIUM_BPS,
+            MAX_QUOTE_TTL
+        );
         router = new FirmAquaSwapVMRouter(
             address(aqua),
             address(weth),
@@ -168,14 +179,71 @@ contract FirmDepthTest is Test {
         assertEq(uint8(settled.status), uint8(CommitmentStatus.FILLED_BOND));
     }
 
-    function testGuardRejectsQuoteFromAnyoneExceptSignedExecutor() public {
+    function testBondPathAfterInterveningSoftSwapExhaustsRealInventory() public {
+        ISwapVM.Order memory softOrder = _softOrder(77);
+        _shipOrder(softOrder, 7_500e6);
+        (bytes32 commitmentId,) = _accept(77);
+
+        weth.mint(address(this), 1 ether);
+        weth.approve(address(router), 1 ether);
+        router.swap(softOrder, 1 ether, _softTakerTraits());
+        assertEq(usdc.balanceOf(maker), 500e6);
+
+        uint256 traderWethBefore = weth.balanceOf(trader);
+        uint256 traderUsdcBefore = usdc.balanceOf(trader);
+        uint256 makerWethBefore = weth.balanceOf(maker);
+
+        vm.prank(trader);
+        (CommitmentStatus result, uint256 amountOut) = executor.execute(commitmentId, _order());
+
+        assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
+        assertEq(amountOut, MIN_OUT);
+        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN);
+        assertEq(usdc.balanceOf(trader), traderUsdcBefore + MIN_OUT + PREMIUM);
+        assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN);
+        assertEq(vault.lockedOf(maker), 0);
+    }
+
+    function testUnrelatedAquaFailureCannotConsumeBond() public {
+        (bytes32 commitmentId,) = _accept(78);
+        usdc.setTransferFromReverts(true);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmExecutor.AquaFailureNotEligible.selector,
+                abi.encodeWithSelector(bytes4(keccak256("SafeTransferFromFailed()")))
+            )
+        );
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+    }
+
+    function testStaticFirmQuoteWorksBeforeCommitmentAcceptance() public {
+        ISwapVM.Order memory order = _order();
+        bytes memory takerTraits = _firmQuoteTakerTraits(MIN_OUT, bytes32(0));
+
+        (uint256 quotedIn, uint256 quotedOut, bytes32 quotedHash) = router.quote(
+            order,
+            AMOUNT_IN,
+            takerTraits
+        );
+
+        assertEq(quotedIn, AMOUNT_IN);
+        assertEq(quotedOut, MIN_OUT);
+        assertEq(quotedHash, router.hash(order));
+    }
+
+    function testGuardRejectsSwapFromAnyoneExceptSignedExecutor() public {
         (bytes32 commitmentId,) = _accept(3);
         bytes memory takerTraits = executor.buildTakerTraits(commitmentId);
 
         vm.expectRevert(
             abi.encodeWithSelector(FirmGuard.ExecutorMismatch.selector, address(executor), address(this))
         );
-        router.quote(_order(), AMOUNT_IN, takerTraits);
+        router.swap(_order(), AMOUNT_IN, takerTraits);
     }
 
     function testReplayAndDoubleSettlementAreRejected() public {
@@ -256,6 +324,54 @@ contract FirmDepthTest is Test {
         executor.execute(commitmentId, alteredOrder);
     }
 
+    function testExecutorRejectsOrderWithoutExactFirmProgram() public {
+        ISwapVM.Order memory invalidOrder = _orderWithProgram(hex"00");
+        FirmQuote memory quote = _quoteForOrder(32, invalidOrder);
+        bytes memory signature = _sign(quote);
+        vm.prank(trader);
+        bytes32 commitmentId = registry.accept(quote, signature);
+
+        vm.expectRevert(FirmExecutor.InvalidFirmOrder.selector);
+        vm.prank(trader);
+        executor.execute(commitmentId, invalidOrder);
+
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+    }
+
+    function testPremiumAndTtlPolicyAreEnforcedOnchain() public {
+        (uint256 minimumPremium, uint256 maximumPremium) = registry.premiumBounds(MIN_OUT);
+        assertEq(minimumPremium, 1_250_000);
+        assertEq(maximumPremium, 6_250_000);
+
+        FirmQuote memory belowMinimum = _quote(40);
+        belowMinimum.premium = minimumPremium - 1;
+        bytes memory belowMinimumSignature = _sign(belowMinimum);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmCommitmentRegistry.PremiumOutOfRange.selector,
+                minimumPremium - 1,
+                minimumPremium,
+                maximumPremium
+            )
+        );
+        vm.prank(trader);
+        registry.accept(belowMinimum, belowMinimumSignature);
+
+        FirmQuote memory ttlTooLong = _quote(41);
+        ttlTooLong.expiry += 1;
+        bytes memory ttlTooLongSignature = _sign(ttlTooLong);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmCommitmentRegistry.QuoteTtlTooLong.selector,
+                ttlTooLong.expiry,
+                uint64(block.timestamp) + MAX_QUOTE_TTL
+            )
+        );
+        vm.prank(trader);
+        registry.accept(ttlTooLong, ttlTooLongSignature);
+    }
+
     function testFuzzVaultConservesLiabilities(uint96 rawDeposit, uint96 rawWithdrawal) public {
         address anotherMaker = makeAddr("anotherMaker");
         uint256 depositAmount = bound(uint256(rawDeposit), 1, 1_000_000e6);
@@ -280,11 +396,15 @@ contract FirmDepthTest is Test {
     }
 
     function _quote(uint256 nonce) private view returns (FirmQuote memory) {
+        return _quoteForOrder(nonce, _order());
+    }
+
+    function _quoteForOrder(uint256 nonce, ISwapVM.Order memory order) private view returns (FirmQuote memory) {
         return FirmQuote({
             maker: maker,
             trader: trader,
             executor: address(executor),
-            orderHash: router.hash(_order()),
+            orderHash: router.hash(order),
             tokenIn: address(weth),
             tokenOut: address(usdc),
             amountIn: AMOUNT_IN,
@@ -304,6 +424,10 @@ contract FirmDepthTest is Test {
     }
 
     function _order() private view returns (ISwapVM.Order memory) {
+        return _orderWithProgram(hex"52002100");
+    }
+
+    function _orderWithProgram(bytes memory program) private view returns (ISwapVM.Order memory) {
         (address tokenA, address tokenB) = address(weth) < address(usdc)
             ? (address(weth), address(usdc))
             : (address(usdc), address(weth));
@@ -327,7 +451,7 @@ contract FirmDepthTest is Test {
             preTransferOutData: "",
             postTransferOutTarget: address(0),
             postTransferOutData: "",
-            program: hex"52002100"
+            program: program
         }));
     }
 
@@ -381,6 +505,32 @@ contract FirmDepthTest is Test {
             preTransferInCallbackData: "",
             preTransferOutCallbackData: "",
             instructionsArgs: "",
+            signature: ""
+        }));
+    }
+
+    function _firmQuoteTakerTraits(uint256 amountOut, bytes32 commitmentId) private view returns (bytes memory) {
+        return TakerTraitsLib.build(TakerTraitsLib.Args({
+            taker: address(this),
+            isExactIn: true,
+            shouldUnwrapWeth: false,
+            isStrictThresholdAmount: false,
+            isFirstTransferFromTaker: true,
+            useTransferFromAndAquaPush: true,
+            isAToB: address(weth) < address(usdc),
+            allowPartialFill: false,
+            threshold: abi.encode(amountOut),
+            to: address(this),
+            deadline: 0,
+            hasPreTransferInCallback: false,
+            hasPreTransferOutCallback: false,
+            preTransferInHookData: "",
+            postTransferInHookData: "",
+            preTransferOutHookData: "",
+            postTransferOutHookData: "",
+            preTransferInCallbackData: "",
+            preTransferOutCallbackData: "",
+            instructionsArgs: abi.encodePacked(amountOut, commitmentId),
             signature: ""
         }));
     }
