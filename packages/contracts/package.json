@@ -6,6 +6,11 @@
   "scripts": {
     "compile": "hardhat compile",
     "deploy:local": "hardhat run scripts/deploy.ts",
+    "testnet:parameters": "node --experimental-strip-types scripts/create-sepolia-parameters.ts",
+    "testnet:check": "hardhat run scripts/check-testnet.ts --network sepolia",
+    "testnet:deploy-fork": "hardhat ignition deploy ignition/modules/FirmDepth.ts --network sepoliaFork --parameters ignition/parameters/chain-11155111.json --deployment-id chain-31337",
+    "deploy:sepolia": "hardhat ignition deploy ignition/modules/FirmDepth.ts --network sepolia --parameters ignition/parameters/chain-11155111.json --deployment-id chain-11155111",
+    "verify:sepolia": "hardhat ignition verify chain-11155111",
     "test": "hardhat test solidity",
     "test:node": "hardhat test nodejs",
     "clean": "hardhat clean"
@@ -18,7 +23,9 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.0.15",
+    "@nomicfoundation/hardhat-ignition": "3.1.8",
     "@nomicfoundation/hardhat-node-test-runner": "^3.0.17",
+    "@nomicfoundation/hardhat-verify": "3.1.0",
     "ethers": "^6.15.0",
     "forge-std": "github:foundry-rs/forge-std#v1.11.0",
     "hardhat": "^3.11.0"
