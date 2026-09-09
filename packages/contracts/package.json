@@ -1,0 +1,23 @@
+{
+  "name": "@firmdepth/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test solidity",
+    "test:node": "hardhat test nodejs",
+    "clean": "hardhat clean"
+  },
+  "dependencies": {
+    "@1inch/aqua": "file:../../../dependencies/swap-vm/node_modules/@1inch/aqua",
+    "@1inch/solidity-utils": "6.9.10",
+    "@1inch/swap-vm": "file:../../../dependencies/swap-vm",
+    "@openzeppelin/contracts": "5.4.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-node-test-runner": "^3.0.17",
+    "forge-std": "file:../../../dependencies/swap-vm/node_modules/forge-std",
+    "hardhat": "^3.11.0"
+  }
+}
