@@ -50,20 +50,23 @@ cd packages/sdk && npm ci && npm run build && npm test
 - Deterministic local deployment and pinned Sepolia-state deployment validated.
 - Public Sepolia deployment remains owner-operated because no funded key is stored in this repository.
 
-See [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md) for the final adversarial analysis, [`FINAL_BUILD_REPORT.md`](FINAL_BUILD_REPORT.md) for the validation matrix, and [`docs/TESTNET.md`](docs/TESTNET.md) for the deployment runbook.
+## Pinned sponsor integration
 
-## Documentation
+- Aqua contracts: `9c5c42e5840e8741fba3597c48456c9510212b66`
+- SwapVM contracts: `f09a41e689240adc645934f965c8061749397cd2`
+- 1inch SDK repository reviewed: `364e7155167957e6a24320c7beb90539e06c91eb`
+- Installed Aqua SDK: `@1inch/aqua-sdk@0.3.2`
+- Solidity compiler: `0.8.30`
 
-- [`docs/PRD.md`](docs/PRD.md) — product requirements and scope
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — components and asset flow
-- [`docs/CONTRACT_SPEC.md`](docs/CONTRACT_SPEC.md) — commitment, vault, and executor specification
-- [`docs/SWAPVM_PLAN.md`](docs/SWAPVM_PLAN.md) — custom opcode design
-- [`docs/UPSTREAM_VERSIONS.md`](docs/UPSTREAM_VERSIONS.md) — exact Aqua, SwapVM, and SDK pins
-- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — judge-facing demonstration plan
+The repository preserves the official Aqua and SwapVM license texts and verifies pinned source hashes through `./scripts/verify_upstreams.sh`.
 
-## Scope and licensing
+## Security and scope
 
-This hackathon backend targets exact-input WETH-to-USDC commitments. It does not include Uniswap recovery, cross-chain behavior, undercollateralized credit, or a production audit. See [`LIMITATIONS.md`](LIMITATIONS.md).
+This hackathon backend targets exact-input WETH-to-USDC commitments. It uses full output-token collateral, EIP-712 chain and contract binding, nonce replay protection, exact token balance-delta checks, a token allowlist, non-reentrancy, and single terminal commitment states.
+
+It does not include Uniswap recovery, cross-chain behavior, undercollateralized credit, exotic ERC-20 support, or an independent production audit. The pinned sponsor dependency tree contains unresolved npm advisories and requires upstream-aware review before production use.
+
+## Licensing
 
 Powered by Aqua — © Degensoft Ltd 2025<br>
 Powered by SwapVM — © Degensoft Ltd 2025
