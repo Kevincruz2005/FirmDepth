@@ -24,6 +24,7 @@ contract FirmExecutor is ReentrancyGuard {
 
     error UnauthorizedTrader(address expected, address actual);
     error CommitmentNotAccepted(bytes32 commitmentId, CommitmentStatus status);
+    error CommitmentExpired(uint64 expiry);
     error OrderHashMismatch(bytes32 expected, bytes32 actual);
     error QuoteResultMismatch();
     error SwapResultMismatch();
@@ -68,6 +69,10 @@ contract FirmExecutor is ReentrancyGuard {
             revert CommitmentNotAccepted(commitmentId, commitment.status);
         }
         if (msg.sender != quote.trader) revert UnauthorizedTrader(quote.trader, msg.sender);
+        if (block.timestamp > quote.expiry) revert CommitmentExpired(quote.expiry);
+
+        bytes32 actualOrderHash = router.hash(order);
+        if (actualOrderHash != quote.orderHash) revert OrderHashMismatch(quote.orderHash, actualOrderHash);
 
         Capacity memory available = _capacity(quote);
         bool useAqua = available.strategyActive && available.effectiveCapacity >= quote.minOut;
@@ -116,9 +121,6 @@ contract FirmExecutor is ReentrancyGuard {
         private
         returns (uint256 amountOut)
     {
-        bytes32 actualOrderHash = router.hash(order);
-        if (actualOrderHash != quote.orderHash) revert OrderHashMismatch(quote.orderHash, actualOrderHash);
-
         bytes memory takerTraits = _buildTakerTraits(commitmentId, quote);
         (uint256 quotedIn, uint256 quotedOut, bytes32 quotedHash) = router.quote(order, quote.amountIn, takerTraits);
         if (quotedIn != quote.amountIn || quotedOut != quote.minOut || quotedHash != quote.orderHash) {
