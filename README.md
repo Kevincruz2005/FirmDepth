@@ -7,9 +7,9 @@ Powered by SwapVM — © Degensoft Ltd 2025
 
 FirmDepth adds a paid, fully bond-backed execution class around Aqua reusable liquidity.
 
-This repository contains the backend MVP, pinned upstream integration notes, Solidity tests, TypeScript SDK, deterministic deployment script, and the Google AI Stitch prompt for the deferred frontend.
+This repository contains the backend MVP, pinned upstream integration notes, Solidity tests, a live-data TypeScript SDK, deterministic local and Sepolia deployment workflows, and the Google AI Stitch prompt for the deferred frontend.
 
-Start with [`START_HERE.md`](START_HERE.md).
+Start with [`docs/PRD.md`](docs/PRD.md), then use [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) and [`docs/TESTNET.md`](docs/TESTNET.md).
 
 ## Core idea
 
@@ -29,7 +29,8 @@ If the accepted Firm output is not currently executable from Aqua-backed maker i
 - Bond Vault
 - Executor
 - WETH -> USDC exact-input
-- Deterministic local chain, with public-fork validation still pending
+- Deterministic local chain plus pinned Sepolia-fork deployment validation
+- Read-only live Sepolia dependency validation
 - Contract/SDK tests plus a complete Stitch UI design prompt
 
 ## Licensing
@@ -38,6 +39,6 @@ FirmDepth's SwapVM-linked contracts and instructions are published under `Licens
 - No Uniswap
 - No runtime AI
 
-## Build agent
+## Status and evidence
 
-Use [`CODEX_MASTER_PROMPT.md`](CODEX_MASTER_PROMPT.md).
+See [`FINAL_BUILD_REPORT.md`](FINAL_BUILD_REPORT.md) for the current test matrix, external deployment prerequisite, and remaining production limitations. No public deployment address or transaction is claimed until a funded Sepolia signer performs it.
