@@ -6,6 +6,9 @@ const [owner] = await ethers.getSigners();
 if (owner === undefined) throw new Error("No deployer account is available");
 
 const ownerAddress = await owner.getAddress();
+const minimumPremiumBps = readInteger("MINIMUM_PREMIUM_BPS", 20, 0, 10_000);
+const maximumPremiumBps = readInteger("MAXIMUM_PREMIUM_BPS", 100, minimumPremiumBps, 10_000);
+const maxQuoteTtl = readInteger("MAX_QUOTE_TTL", 120, 1, 86_400);
 const weth = await ethers.deployContract("MockERC20", ["Wrapped Ether", "WETH", 18]);
 const usdc = await ethers.deployContract("MockERC20", ["USD Coin", "USDC", 6]);
 const aqua = await ethers.deployContract("OfficialAqua");
@@ -18,9 +21,9 @@ const registry = await ethers.deployContract("FirmCommitmentRegistry", [
   await weth.getAddress(),
   await usdc.getAddress(),
   ownerAddress,
-  20,
-  100,
-  120,
+  minimumPremiumBps,
+  maximumPremiumBps,
+  maxQuoteTtl,
 ]);
 await registry.waitForDeployment();
 const router = await ethers.deployContract("FirmAquaSwapVMRouter", [
@@ -50,7 +53,7 @@ const artifact = {
   sourceRevisions: {
     aqua: "9c5c42e5840e8741fba3597c48456c9510212b66",
     swapVM: "f09a41e689240adc645934f965c8061749397cd2",
-    aquaSDK: "715b12b311193d6091f4bdb5f294db69a9e14596",
+    aquaSDK: "364e7155167957e6a24320c7beb90539e06c91eb",
   },
   addresses: {
     aqua: await aqua.getAddress(),
@@ -66,9 +69,22 @@ const artifact = {
     firmGuard: 0x21,
     program: "0x52002100",
   },
+  premiumPolicy: {
+    minimumPremiumBps,
+    maximumPremiumBps,
+    maxQuoteTtl,
+  },
 };
 
 await mkdir("deployments", { recursive: true });
 const outputPath = `deployments/firmdepth-${artifact.chainId}.local.json`;
 await writeFile(outputPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
 console.log(JSON.stringify({ outputPath, ...artifact }, null, 2));
+
+function readInteger(name: string, fallback: number, minimum: number, maximum: number): number {
+  const value = Number(process.env[name] ?? fallback);
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
+  }
+  return value;
+}
