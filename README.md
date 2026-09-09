@@ -2,9 +2,12 @@
 
 **Firm Liquidity for 1inch Aqua**
 
+Powered by Aqua — © Degensoft Ltd 2025  
+Powered by SwapVM — © Degensoft Ltd 2025
+
 FirmDepth adds a paid, fully bond-backed execution class around Aqua reusable liquidity.
 
-This directory is currently a **Codex-ready build specification and engineering scaffold**. It deliberately does not pretend that unverified protocol code is already implemented. The coding agent must pin the current official Aqua/SwapVM sources, implement the protocol, run the required tests, and produce `FINAL_BUILD_REPORT.md`.
+This repository contains the backend MVP, pinned upstream integration notes, Solidity tests, TypeScript SDK, deterministic deployment script, and the Google AI Stitch prompt for the deferred frontend.
 
 Start with [`START_HERE.md`](START_HERE.md).
 
@@ -26,8 +29,12 @@ If the accepted Firm output is not currently executable from Aqua-backed maker i
 - Bond Vault
 - Executor
 - WETH -> USDC exact-input
-- Pinned local fork
-- Tests + small UI
+- Deterministic local chain, with public-fork validation still pending
+- Contract/SDK tests plus a complete Stitch UI design prompt
+
+## Licensing
+
+FirmDepth's SwapVM-linked contracts and instructions are published under `LicenseRef-Degensoft-SwapVM-1.1`; the unmodified Aqua deployment wrapper is published under `LicenseRef-Degensoft-Aqua-Source-1.1`. Full texts are preserved in `LICENSES/`.
 - No Uniswap
 - No runtime AI
 
