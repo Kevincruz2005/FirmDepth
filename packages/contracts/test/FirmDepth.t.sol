@@ -175,6 +175,54 @@ contract FirmDepthTest is Test {
         assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.EXPIRED));
     }
 
+    function testMakerCanCancelSignedNonceOrRaiseNonceFloor() public {
+        FirmQuote memory cancelled = _quote(10);
+        bytes memory cancelledSignature = _sign(cancelled);
+        vm.prank(maker);
+        registry.cancelNonce(cancelled.nonce);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.NonceAlreadyUsed.selector, maker, cancelled.nonce)
+        );
+        vm.prank(trader);
+        registry.accept(cancelled, cancelledSignature);
+
+        FirmQuote memory belowFloor = _quote(20);
+        bytes memory belowFloorSignature = _sign(belowFloor);
+        vm.prank(maker);
+        registry.raiseMinimumValidNonce(21);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.NonceBelowMinimum.selector, maker, 20, 21)
+        );
+        vm.prank(trader);
+        registry.accept(belowFloor, belowFloorSignature);
+    }
+
+    function testExpiredCommitmentCannotExecute() public {
+        (bytes32 commitmentId, FirmQuote memory quote) = _accept(30);
+        vm.warp(uint256(quote.expiry) + 1);
+
+        vm.expectRevert(abi.encodeWithSelector(FirmExecutor.CommitmentExpired.selector, quote.expiry));
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+    }
+
+    function testBondPathStillAttestsCommittedSwapVMOrder() public {
+        (bytes32 commitmentId, FirmQuote memory quote) = _accept(31);
+        vm.prank(maker);
+        usdc.approve(address(aqua), 0);
+
+        ISwapVM.Order memory alteredOrder = _order();
+        alteredOrder.data = bytes.concat(alteredOrder.data, hex"00");
+        bytes32 alteredHash = router.hash(alteredOrder);
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmExecutor.OrderHashMismatch.selector, quote.orderHash, alteredHash)
+        );
+        vm.prank(trader);
+        executor.execute(commitmentId, alteredOrder);
+    }
+
     function testFuzzVaultConservesLiabilities(uint96 rawDeposit, uint96 rawWithdrawal) public {
         address anotherMaker = makeAddr("anotherMaker");
         uint256 depositAmount = bound(uint256(rawDeposit), 1, 1_000_000e6);
@@ -192,7 +240,14 @@ contract FirmDepthTest is Test {
     }
 
     function _accept(uint256 nonce) private returns (bytes32 commitmentId, FirmQuote memory quote) {
-        quote = FirmQuote({
+        quote = _quote(nonce);
+        bytes memory signature = _sign(quote);
+        vm.prank(trader);
+        commitmentId = registry.accept(quote, signature);
+    }
+
+    function _quote(uint256 nonce) private view returns (FirmQuote memory) {
+        return FirmQuote({
             maker: maker,
             trader: trader,
             executor: address(executor),
@@ -207,9 +262,6 @@ contract FirmDepthTest is Test {
             nonce: nonce,
             chainId: block.chainid
         });
-        bytes memory signature = _sign(quote);
-        vm.prank(trader);
-        commitmentId = registry.accept(quote, signature);
     }
 
     function _sign(FirmQuote memory quote) private view returns (bytes memory) {
