@@ -7,7 +7,12 @@ import { hashFirmQuote } from "../src/eip712.js";
 import { buildAquaShipRequest, aquaStrategyHash } from "../src/aqua.js";
 import { calculateFirmPremium } from "../src/pricing.js";
 import { commitmentStatus, readAquaCapacity } from "../src/readers.js";
-import { buildFirmInstructionArgs, buildFirmProgram, encodeInstruction } from "../src/swapvm.js";
+import {
+  buildFirmInstructionArgs,
+  buildFirmProgram,
+  buildFirmQuoteTakerTraits,
+  encodeInstruction,
+} from "../src/swapvm.js";
 
 test("encodes the exact FirmDepth SwapVM program", () => {
   assert.equal(buildFirmProgram(), "0x52002100");
@@ -18,6 +23,26 @@ test("encodes firm amount and commitment id for sequential dynamic opcodes", () 
   const commitmentId = `0x${"ab".repeat(32)}` as const;
   assert.equal(buildFirmInstructionArgs(625_000_000n, commitmentId).slice(0, 66), `0x${(625_000_000n).toString(16).padStart(64, "0")}`);
   assert.equal(buildFirmInstructionArgs(625_000_000n, commitmentId).slice(66), "ab".repeat(32));
+});
+
+test("builds pinned SwapVM static quote traits with exact slice offsets", () => {
+  const amountOut = 625_000_000n;
+  const commitmentId = `0x${"ab".repeat(32)}` as const;
+  const traits = buildFirmQuoteTakerTraits({
+    amountOut,
+    commitmentId,
+    tokenIn: "0x0000000000000000000000000000000000000001",
+    tokenOut: "0x0000000000000000000000000000000000000002",
+    deadline: 2_000_000_000n,
+  });
+
+  assert.equal(traits.slice(2, 42), "0065002500250025002500250025002500200020");
+  assert.equal(traits.slice(42, 46), "00f1");
+  assert.equal(traits.slice(46, 110), amountOut.toString(16).padStart(64, "0"));
+  assert.equal(traits.slice(110, 120), (2_000_000_000n).toString(16).padStart(10, "0"));
+  assert.equal(traits.slice(120, 184), amountOut.toString(16).padStart(64, "0"));
+  assert.equal(traits.slice(184), "ab".repeat(32));
+  assert.equal((traits.length - 2) / 2, 123);
 });
 
 test("computes capacity as virtual-real-allowance minimum", () => {
@@ -32,6 +57,17 @@ test("rejects oversized instruction arguments and malformed ids", () => {
   assert.throws(() => encodeInstruction(0x21, `0x${"00".repeat(256)}`), RangeError);
   assert.throws(() => buildFirmInstructionArgs(1n, "0x1234"), RangeError);
   assert.throws(() => buildFirmInstructionArgs(0n), RangeError);
+  assert.throws(() => buildFirmQuoteTakerTraits({
+    amountOut: 1n,
+    tokenIn: "0x0000000000000000000000000000000000000001",
+    tokenOut: "0x0000000000000000000000000000000000000001",
+  }), RangeError);
+  assert.throws(() => buildFirmQuoteTakerTraits({
+    amountOut: 1n,
+    tokenIn: "0x0000000000000000000000000000000000000001",
+    tokenOut: "0x0000000000000000000000000000000000000002",
+    deadline: 2n ** 40n,
+  }), RangeError);
 });
 
 test("calculates transparent risk-adjusted premium with integer math", () => {
