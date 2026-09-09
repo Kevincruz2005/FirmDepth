@@ -9,6 +9,7 @@ import { calculateFirmPremium } from "../src/pricing.js";
 import { commitmentStatus, readAquaCapacity } from "../src/readers.js";
 import {
   buildFirmInstructionArgs,
+  buildFirmOrder,
   buildFirmProgram,
   buildFirmQuoteTakerTraits,
   encodeInstruction,
@@ -17,6 +18,23 @@ import {
 test("encodes the exact FirmDepth SwapVM program", () => {
   assert.equal(buildFirmProgram(), "0x52002100");
   assert.equal(encodeInstruction(0x21, "0x1234"), "0x21021234");
+});
+
+test("builds the exact hook-free Aqua maker order accepted by FirmExecutor", () => {
+  const maker = "0x00000000000000000000000000000000000000a1";
+  const tokenIn = "0x00000000000000000000000000000000000000f2";
+  const tokenOut = "0x0000000000000000000000000000000000000003";
+  const order = buildFirmOrder(maker, tokenIn, tokenOut);
+  const useAquaFlag = 1n << 254n;
+  const indexes = 0x0028002800280028n << 160n;
+
+  assert.equal(order.maker, "0x00000000000000000000000000000000000000A1");
+  assert.equal(order.traits, useAquaFlag | indexes | BigInt(maker));
+  assert.equal(
+    order.data,
+    "0x000000000000000000000000000000000000000300000000000000000000000000000000000000f252002100",
+  );
+  assert.throws(() => buildFirmOrder(maker, tokenIn, tokenIn), RangeError);
 });
 
 test("encodes firm amount and commitment id for sequential dynamic opcodes", () => {

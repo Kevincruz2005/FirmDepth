@@ -236,6 +236,28 @@ contract FirmDepthTest is Test {
         assertEq(quotedHash, router.hash(order));
     }
 
+    function testSdkStaticQuoteTraitsLayoutMatchesPinnedSwapVM() public {
+        bytes memory sliceIndexes = hex"0060002000200020002000200020002000200020";
+        bytes2 flags = address(weth) < address(usdc) ? bytes2(0x00f1) : bytes2(0x0071);
+        bytes memory sdkLayout = abi.encodePacked(
+            sliceIndexes,
+            flags,
+            MIN_OUT,
+            MIN_OUT,
+            bytes32(0)
+        );
+
+        (uint256 quotedIn, uint256 quotedOut, bytes32 quotedHash) = router.quote(
+            _order(),
+            AMOUNT_IN,
+            sdkLayout
+        );
+
+        assertEq(quotedIn, AMOUNT_IN);
+        assertEq(quotedOut, MIN_OUT);
+        assertEq(quotedHash, router.hash(_order()));
+    }
+
     function testGuardRejectsSwapFromAnyoneExceptSignedExecutor() public {
         (bytes32 commitmentId,) = _accept(3);
         bytes memory takerTraits = executor.buildTakerTraits(commitmentId);

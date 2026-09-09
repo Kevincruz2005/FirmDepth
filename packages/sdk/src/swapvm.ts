@@ -10,6 +10,8 @@ import {
   type Hex,
 } from "viem";
 
+import type { SwapVMOrder } from "./types.js";
+
 export const FIRM_GUARD_OPCODE = 0x21;
 export const FIRM_PRICE_OPCODE = 0x52;
 
@@ -27,6 +29,28 @@ export function buildFirmProgram(): Hex {
     encodeInstruction(FIRM_PRICE_OPCODE),
     encodeInstruction(FIRM_GUARD_OPCODE),
   ]);
+}
+
+/** Builds the exact Aqua-backed, hook-free maker order allowlisted by FirmExecutor. */
+export function buildFirmOrder(maker: Address, tokenIn: Address, tokenOut: Address): SwapVMOrder {
+  const normalizedMaker = getAddress(maker);
+  const normalizedIn = getAddress(tokenIn);
+  const normalizedOut = getAddress(tokenOut);
+  if (normalizedIn === normalizedOut) throw new RangeError("tokenIn and tokenOut must differ");
+
+  const [tokenA, tokenB] = BigInt(normalizedIn) < BigInt(normalizedOut)
+    ? [normalizedIn, normalizedOut]
+    : [normalizedOut, normalizedIn];
+  const hookDataStart = 40;
+  const orderDataIndexes = BigInt(`0x${numberToHex(hookDataStart, { size: 2 }).slice(2).repeat(4)}`);
+  const useAquaInsteadOfSignature = 1n << 254n;
+  const traits = useAquaInsteadOfSignature | (orderDataIndexes << 160n) | BigInt(normalizedMaker);
+
+  return {
+    maker: normalizedMaker,
+    traits,
+    data: concatHex([tokenA, tokenB, buildFirmProgram()]).toLowerCase() as Hex,
+  };
 }
 
 export function buildFirmInstructionArgs(amountOut: bigint, commitmentId: Hex = zeroHash): Hex {
