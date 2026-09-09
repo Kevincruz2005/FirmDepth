@@ -19,6 +19,7 @@ coverage/
 
 # Local fork/deployment state
 ignition/deployments/chain-31337/
+packages/contracts/deployments/*.local.json
 anvil-state.json
 
 # Secrets
