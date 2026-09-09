@@ -41,7 +41,6 @@ export const registryAbi = parseAbi([
 export const executorAbi = parseAbi([
   "event PathSelected(bytes32 indexed commitmentId,bool indexed aquaPath,uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,uint256 requiredOutput)",
   "event FirmTradeExecuted(bytes32 indexed commitmentId,uint8 indexed status,address indexed trader,address maker,uint256 amountIn,uint256 amountOut)",
-  "event FirmAquaUnavailable(bytes32 indexed commitmentId,bytes reason)",
   "function execute(bytes32 commitmentId,(address maker,uint256 traits,bytes data) order) returns (uint8 terminalStatus,uint256 amountOut)",
   "function capacity(bytes32 commitmentId) view returns ((uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,bool strategyActive))",
 ]);

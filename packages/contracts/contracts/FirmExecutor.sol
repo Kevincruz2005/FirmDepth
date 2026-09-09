@@ -34,7 +34,6 @@ contract FirmExecutor is ReentrancyGuard {
     error DeflationaryTokenUnsupported();
     error ZeroAddress();
     error InvalidFirmOrder();
-    error AquaFailureNotEligible(bytes reason);
 
     IFirmCommitmentRegistry public immutable registry;
     IAqua public immutable aqua;
@@ -57,8 +56,6 @@ contract FirmExecutor is ReentrancyGuard {
         uint256 amountIn,
         uint256 amountOut
     );
-    event FirmAquaUnavailable(bytes32 indexed commitmentId, bytes reason);
-
     constructor(address registry_, address aqua_, address router_) {
         if (registry_ == address(0) || aqua_ == address(0) || router_ == address(0)) revert ZeroAddress();
         registry = IFirmCommitmentRegistry(registry_);
@@ -83,17 +80,31 @@ contract FirmExecutor is ReentrancyGuard {
 
         Capacity memory beforeAttempt = _capacity(quote);
         IERC20 inputToken = IERC20(quote.tokenIn);
-        IERC20 outputToken = IERC20(quote.tokenOut);
         _pullExact(inputToken, quote.trader, quote.amountIn);
-        inputToken.forceApprove(address(router), quote.amountIn);
-        uint256 traderOutputBefore = outputToken.balanceOf(quote.trader);
-        bytes memory takerTraits = _buildTakerTraits(commitmentId, quote);
 
-        try router.swap(order, quote.amountIn, takerTraits) returns (
-            uint256 swappedIn,
-            uint256 swappedOut,
-            bytes32 swappedHash
-        ) {
+        if (!beforeAttempt.strategyActive || beforeAttempt.effectiveCapacity < quote.minOut) {
+            _transferExact(inputToken, quote.maker, quote.amountIn);
+            amountOut = quote.minOut;
+            terminalStatus = CommitmentStatus.FILLED_BOND;
+            registry.finalizeBond(commitmentId);
+            emit PathSelected(
+                commitmentId,
+                false,
+                beforeAttempt.virtualBalance,
+                beforeAttempt.realBalance,
+                beforeAttempt.aquaAllowance,
+                beforeAttempt.effectiveCapacity,
+                quote.minOut
+            );
+        } else {
+            IERC20 outputToken = IERC20(quote.tokenOut);
+            inputToken.forceApprove(address(router), quote.amountIn);
+            uint256 traderOutputBefore = outputToken.balanceOf(quote.trader);
+            (uint256 swappedIn, uint256 swappedOut, bytes32 swappedHash) = router.swap(
+                order,
+                quote.amountIn,
+                _buildTakerTraits(commitmentId, quote)
+            );
             inputToken.forceApprove(address(router), 0);
             if (swappedIn != quote.amountIn || swappedOut < quote.minOut || swappedHash != quote.orderHash) {
                 revert SwapResultMismatch();
@@ -110,27 +121,6 @@ contract FirmExecutor is ReentrancyGuard {
                 beforeAttempt.realBalance,
                 beforeAttempt.aquaAllowance,
                 beforeAttempt.effectiveCapacity,
-                quote.minOut
-            );
-        } catch (bytes memory reason) {
-            inputToken.forceApprove(address(router), 0);
-            Capacity memory afterFailure = _capacity(quote);
-            if (afterFailure.strategyActive && afterFailure.effectiveCapacity >= quote.minOut) {
-                revert AquaFailureNotEligible(reason);
-            }
-
-            _transferExact(inputToken, quote.maker, quote.amountIn);
-            amountOut = quote.minOut;
-            terminalStatus = CommitmentStatus.FILLED_BOND;
-            registry.finalizeBond(commitmentId);
-            emit FirmAquaUnavailable(commitmentId, reason);
-            emit PathSelected(
-                commitmentId,
-                false,
-                afterFailure.virtualBalance,
-                afterFailure.realBalance,
-                afterFailure.aquaAllowance,
-                afterFailure.effectiveCapacity,
                 quote.minOut
             );
         }
@@ -220,8 +210,14 @@ contract FirmExecutor is ReentrancyGuard {
         if (actualOrderHash != quote.orderHash) revert OrderHashMismatch(quote.orderHash, actualOrderHash);
 
         bytes calldata program = order.traits.program(order.data);
+        (address tokenA, address tokenB) = order.traits.tokens(order.data);
+        (address expectedA, address expectedB) = quote.tokenIn < quote.tokenOut
+            ? (quote.tokenIn, quote.tokenOut)
+            : (quote.tokenOut, quote.tokenIn);
         if (
             order.maker != quote.maker
+                || tokenA != expectedA
+                || tokenB != expectedB
                 || !order.traits.useAquaInsteadOfSignature()
                 || order.traits.shouldUnwrapWeth()
                 || order.traits.allowZeroAmountIn()

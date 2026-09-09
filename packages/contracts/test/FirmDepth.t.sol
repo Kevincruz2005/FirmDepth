@@ -204,19 +204,75 @@ contract FirmDepthTest is Test {
         assertEq(vault.lockedOf(maker), 0);
     }
 
-    function testUnrelatedAquaFailureCannotConsumeBond() public {
+    function testUnrelatedAquaFailureRevertsAllPartialStateAndCannotConsumeBond() public {
         (bytes32 commitmentId,) = _accept(78);
+        Commitment memory accepted = registry.getCommitment(commitmentId);
+        uint256 traderWethBefore = weth.balanceOf(trader);
+        uint256 traderUsdcBefore = usdc.balanceOf(trader);
+        uint256 makerWethBefore = weth.balanceOf(maker);
+        uint256 makerUsdcBefore = usdc.balanceOf(maker);
+        uint256 registryPremiumBefore = usdc.balanceOf(address(registry));
+        (uint248 virtualWethBefore,) = aqua.rawBalances(
+            maker,
+            address(router),
+            accepted.quote.orderHash,
+            address(weth)
+        );
+        (uint248 virtualUsdcBefore,) = aqua.rawBalances(
+            maker,
+            address(router),
+            accepted.quote.orderHash,
+            address(usdc)
+        );
         usdc.setTransferFromReverts(true);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                FirmExecutor.AquaFailureNotEligible.selector,
-                abi.encodeWithSelector(bytes4(keccak256("SafeTransferFromFailed()")))
-            )
-        );
+        vm.expectRevert(bytes4(keccak256("SafeTransferFromFailed()")));
         vm.prank(trader);
         executor.execute(commitmentId, _order());
 
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+        assertEq(weth.balanceOf(trader), traderWethBefore);
+        assertEq(usdc.balanceOf(trader), traderUsdcBefore);
+        assertEq(weth.balanceOf(maker), makerWethBefore);
+        assertEq(usdc.balanceOf(maker), makerUsdcBefore);
+        assertEq(weth.balanceOf(address(executor)), 0);
+        assertEq(weth.balanceOf(address(router)), 0);
+        assertEq(weth.allowance(address(executor), address(router)), 0);
+        assertEq(usdc.balanceOf(address(registry)), registryPremiumBefore);
+        (uint248 virtualWethAfter,) = aqua.rawBalances(
+            maker,
+            address(router),
+            accepted.quote.orderHash,
+            address(weth)
+        );
+        (uint248 virtualUsdcAfter,) = aqua.rawBalances(
+            maker,
+            address(router),
+            accepted.quote.orderHash,
+            address(usdc)
+        );
+        assertEq(virtualWethAfter, virtualWethBefore);
+        assertEq(virtualUsdcAfter, virtualUsdcBefore);
+    }
+
+    function testMalformedOrderTokensCannotReachLowCapacityBondPath() public {
+        MockERC20 wrongToken = new MockERC20("Wrong Token", "WRONG", 18);
+        ISwapVM.Order memory malformed = _orderWithTokens(address(weth), address(wrongToken));
+        FirmQuote memory quote = _quoteForOrder(79, malformed);
+        bytes memory signature = _sign(quote);
+        vm.prank(trader);
+        bytes32 commitmentId = registry.accept(quote, signature);
+
+        vm.prank(maker);
+        usdc.approve(address(aqua), 0);
+
+        uint256 traderWethBefore = weth.balanceOf(trader);
+        vm.expectRevert(FirmExecutor.InvalidFirmOrder.selector);
+        vm.prank(trader);
+        executor.execute(commitmentId, malformed);
+
+        assertEq(weth.balanceOf(trader), traderWethBefore);
         assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
         assertEq(vault.lockedOf(maker), MIN_OUT);
     }
@@ -450,9 +506,21 @@ contract FirmDepthTest is Test {
     }
 
     function _orderWithProgram(bytes memory program) private view returns (ISwapVM.Order memory) {
-        (address tokenA, address tokenB) = address(weth) < address(usdc)
-            ? (address(weth), address(usdc))
-            : (address(usdc), address(weth));
+        return _orderWithTokensAndProgram(address(weth), address(usdc), program);
+    }
+
+    function _orderWithTokens(address firstToken, address secondToken) private view returns (ISwapVM.Order memory) {
+        return _orderWithTokensAndProgram(firstToken, secondToken, hex"52002100");
+    }
+
+    function _orderWithTokensAndProgram(address firstToken, address secondToken, bytes memory program)
+        private
+        view
+        returns (ISwapVM.Order memory)
+    {
+        (address tokenA, address tokenB) = firstToken < secondToken
+            ? (firstToken, secondToken)
+            : (secondToken, firstToken);
         return MakerTraitsLib.build(MakerTraitsLib.Args({
             maker: maker,
             receiver: maker,
