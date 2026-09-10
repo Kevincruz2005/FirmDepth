@@ -507,6 +507,63 @@ contract FirmDepthTest is Test {
         assertEq(vault.liabilities(), BOND_DEPOSIT - MIN_OUT);
     }
 
+    function testOneCommitmentCannotConsumeAnotherCommitmentLock() public {
+        (bytes32 firstId,) = _accept(92);
+
+        FirmQuote memory secondQuote = _quote(93);
+        secondQuote.utilizationAfterWad = registry.utilizationAfter(maker, secondQuote.requiredBond);
+        bytes memory secondSignature = _sign(secondQuote);
+        vm.prank(trader);
+        bytes32 secondId = registry.accept(secondQuote, _order(), secondSignature);
+
+        vm.prank(maker);
+        usdc.approve(address(aqua), 0);
+        vm.prank(trader);
+        executor.execute(firstId, _order());
+
+        (address secondMaker, uint256 secondLock) = vault.lockedFor(secondId);
+        assertEq(secondMaker, maker);
+        assertEq(secondLock, MIN_OUT);
+        assertEq(uint8(registry.getCommitment(secondId).status), uint8(CommitmentStatus.ACCEPTED));
+
+        vm.prank(trader);
+        executor.execute(secondId, _order());
+        assertEq(vault.lockedOf(maker), 0);
+        assertEq(uint8(registry.getCommitment(firstId).status), uint8(CommitmentStatus.FILLED_BOND));
+        assertEq(uint8(registry.getCommitment(secondId).status), uint8(CommitmentStatus.FILLED_BOND));
+    }
+
+    function testMakerCancellationAfterAcceptanceCannotInvalidateCommitment() public {
+        (bytes32 commitmentId, FirmQuote memory quote) = _accept(94);
+        vm.startPrank(maker);
+        registry.cancelNonce(quote.nonce);
+        registry.raiseMinimumValidNonce(quote.nonce + 100);
+        vm.stopPrank();
+
+        vm.prank(trader);
+        (CommitmentStatus result,) = executor.execute(commitmentId, _order());
+
+        assertEq(uint8(result), uint8(CommitmentStatus.FILLED_AQUA));
+    }
+
+    function testExecutionAfterExpirySettlementCannotChangeTerminalState() public {
+        (bytes32 commitmentId, FirmQuote memory quote) = _accept(95);
+        vm.warp(uint256(quote.expiry) + 1);
+        registry.expire(commitmentId);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmExecutor.CommitmentNotAccepted.selector,
+                commitmentId,
+                CommitmentStatus.EXPIRED
+            )
+        );
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.EXPIRED));
+    }
+
     function testAcceptanceRejectsUndercollateralizedQuote() public {
         FirmQuote memory quote = _quote(86);
         quote.requiredBond = MIN_OUT - 1;
