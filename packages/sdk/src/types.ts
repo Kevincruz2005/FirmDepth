@@ -53,6 +53,7 @@ export interface Commitment {
   status: CommitmentStatus;
   acceptedAt: bigint;
   settledAt: bigint;
+  acceptedBlock: bigint;
 }
 
 export interface MakerBondState {

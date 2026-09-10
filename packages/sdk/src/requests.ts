@@ -20,16 +20,16 @@ export const bondVaultAbi = parseAbi([
 ]);
 
 export const registryAbi = parseAbi([
-  "event CommitmentAccepted(bytes32 indexed commitmentId,address indexed maker,address indexed taker,bytes32 orderHash,uint256 amountIn,uint256 minAmountOut,uint256 premiumAmount,uint64 expiry,uint256 nonce)",
+  "event CommitmentAccepted(bytes32 indexed commitmentId,address indexed maker,address indexed taker,bytes32 orderHash,uint256 amountIn,uint256 minAmountOut,uint256 premiumAmount,uint64 expiry,uint256 nonce,uint64 acceptedBlock,uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,uint256 quotedAmountOut,uint256 utilizationAfterWad)",
   "event CommitmentSettled(bytes32 indexed commitmentId,uint8 indexed status,address indexed beneficiary)",
   "event NonceCancelled(address indexed maker,uint256 indexed nonce)",
   "event NonceFloorRaised(address indexed maker,uint256 previousMinimum,uint256 newMinimum)",
-  "function accept((address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce) quote,bytes makerSignature) returns (bytes32)",
+  "function accept((address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce) quote,(address maker,uint256 traits,bytes data) order,bytes makerSignature) returns (bytes32)",
   "function expire(bytes32 commitmentId)",
   "function cancelNonce(uint256 nonce)",
   "function raiseMinimumValidNonce(uint256 newMinimum)",
   "function quoteDigest((address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce) quote) view returns (bytes32)",
-  "function getCommitment(bytes32 commitmentId) view returns (((address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce) quote,uint8 status,uint64 acceptedAt,uint64 settledAt))",
+  "function getCommitment(bytes32 commitmentId) view returns (((address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce) quote,uint8 status,uint64 acceptedAt,uint64 settledAt,uint64 acceptedBlock))",
   "function nonceUsed(address maker,uint256 nonce) view returns (bool)",
   "function minimumValidNonce(address maker) view returns (uint256)",
   "function premiumBounds(uint256 minOut) view returns (uint256 minimum,uint256 maximum)",
@@ -60,8 +60,8 @@ export const swapVmAbi = parseAbi([
   "function quote((address maker,uint256 traits,bytes data) order,uint256 amount,bytes takerTraitsAndData) view returns (uint256 amountIn,uint256 amountOut,bytes32 orderHash)",
 ]);
 
-export function acceptRequest(registry: Address, quote: FirmQuote, makerSignature: Hex) {
-  return { address: registry, abi: registryAbi, functionName: "accept", args: [quote, makerSignature] } as const;
+export function acceptRequest(registry: Address, quote: FirmQuote, order: SwapVMOrder, makerSignature: Hex) {
+  return { address: registry, abi: registryAbi, functionName: "accept", args: [quote, order, makerSignature] } as const;
 }
 
 export function executeRequest(executor: Address, commitmentId: Hex, order: SwapVMOrder) {

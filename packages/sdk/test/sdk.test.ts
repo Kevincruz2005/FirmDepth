@@ -14,6 +14,7 @@ import {
   buildFirmQuoteTakerTraits,
   encodeInstruction,
 } from "../src/swapvm.js";
+import { acceptRequest } from "../src/requests.js";
 
 test("encodes the exact FirmDepth SwapVM program", () => {
   assert.equal(buildFirmProgram(), "0x52002100");
@@ -214,4 +215,8 @@ test("hashes every signed quote field deterministically", () => {
   assert.notEqual(digest, hashFirmQuote(registry, 31338, quote));
   assert.notEqual(digest, hashFirmQuote("0x0000000000000000000000000000000000000011", 31337, quote));
   assert.notEqual(digest, hashFirmQuote(registry, 31337, { ...quote, capacityKBps: 11 }));
+
+  const order = buildFirmOrder(quote.maker, quote.tokenIn, quote.tokenOut);
+  const request = acceptRequest(registry, quote, order, "0x1234");
+  assert.deepEqual(request.args, [quote, order, "0x1234"]);
 });

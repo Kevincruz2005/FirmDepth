@@ -86,6 +86,7 @@ export async function readCommitment(
     status: commitmentStatus(Number(raw.status)),
     acceptedAt: raw.acceptedAt,
     settledAt: raw.settledAt,
+    acceptedBlock: raw.acceptedBlock,
   };
 }
 
