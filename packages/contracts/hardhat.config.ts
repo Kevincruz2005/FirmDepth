@@ -18,9 +18,22 @@ const parsedSepoliaForkBlock = sepoliaForkBlock === undefined ? undefined : Numb
 if (parsedSepoliaForkBlock !== undefined && !Number.isSafeInteger(parsedSepoliaForkBlock)) {
   throw new Error("SEPOLIA_FORK_BLOCK must be a safe integer");
 }
+const baseForkBlock = Number(process.env.BASE_FORK_BLOCK ?? 51_123_118);
+if (!Number.isSafeInteger(baseForkBlock) || baseForkBlock <= 0) {
+  throw new Error("BASE_FORK_BLOCK must be a positive safe integer");
+}
 
 export default defineConfig({
   plugins: [hardhatEthers, hardhatIgnition, hardhatNodeTestRunner, hardhatVerify],
+  chainDescriptors: {
+    8453: {
+      name: "Base",
+      chainType: "op",
+      hardforkHistory: {
+        isthmus: { blockNumber: 0 },
+      },
+    },
+  },
   solidity: {
     splitTestsCompilation: true,
     profiles: {
@@ -33,6 +46,15 @@ export default defineConfig({
     tests: "./test",
   },
   networks: {
+    baseFork: {
+      type: "edr-simulated",
+      chainType: "op",
+      chainId: 8453,
+      forking: {
+        url: process.env.BASE_RPC_URL ?? "https://mainnet.base.org",
+        blockNumber: baseForkBlock,
+      },
+    },
     sepoliaFork: {
       type: "edr-simulated",
       chainType: "l1",
