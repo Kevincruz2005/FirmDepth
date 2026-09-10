@@ -94,9 +94,8 @@ export interface DeploymentArtifact {
     firmGuard: number;
     program: Hex;
   };
-  premiumPolicy: {
-    minimumPremiumBps: number;
-    maximumPremiumBps: number;
+  pricingPolicy: {
+    version: 2;
     maxQuoteTtl: number;
   };
 }

@@ -32,9 +32,8 @@ export const registryAbi = parseAbi([
   "function getCommitment(bytes32 commitmentId) view returns (((address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce) quote,uint8 status,uint64 acceptedAt,uint64 settledAt,uint64 acceptedBlock))",
   "function nonceUsed(address maker,uint256 nonce) view returns (bool)",
   "function minimumValidNonce(address maker) view returns (uint256)",
-  "function premiumBounds(uint256 minOut) view returns (uint256 minimum,uint256 maximum)",
-  "function minimumPremiumBps() view returns (uint16)",
-  "function maximumPremiumBps() view returns (uint16)",
+  "function utilizationAfter(address maker,uint256 requiredBond) view returns (uint256)",
+  "function quotePremium((address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce) quote) view returns ((uint256 sqrtTimeWad,uint256 optionalityOut,uint256 bondCarryOut,uint256 capacitySurchargeOut,uint256 premiumOut,uint256 premiumIn))",
   "function maxQuoteTtl() view returns (uint64)",
 ]);
 
