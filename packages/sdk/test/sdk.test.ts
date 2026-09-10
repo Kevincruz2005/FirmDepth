@@ -88,19 +88,54 @@ test("rejects oversized instruction arguments and malformed ids", () => {
   }), RangeError);
 });
 
-test("calculates transparent risk-adjusted premium with integer math", () => {
-  const quote = calculateFirmPremium(625_000_000n, 10_000_000_000n, 8_000_000_000n, 500_000_000n, 2_000_000_000n, {
-    baseRateBps: 20n,
-    excessSlrRateBps: 40n,
-    utilizationRateBps: 40n,
-    maximumRateBps: 100n,
-  });
-  assert.deepEqual(quote, {
-    premium: 2_500_000n,
-    premiumRateBps: 40n,
-    sharedLiquidityRatioBps: 12_500n,
-    bondUtilizationBps: 2_500n,
-  });
+test("matches the canonical 5, 30, and 120 second premium vectors", () => {
+  const expected = [
+    [5n, 398_182_068_806_247n, 88_956n, 10n, 388_517n, 477_483n, 136_423_714_285_715n],
+    [30n, 975_342_893_301_088n, 217_899n, 65n, 388_517n, 606_481n, 173_280_285_714_286n],
+    [120n, 1_950_685_786_602_176n, 435_798n, 262n, 388_517n, 824_577n, 235_593_428_571_429n],
+  ] as const;
+
+  for (const [ttl, sqrtTimeWad, optionalityOut, bondCarryOut, capacitySurchargeOut, premiumOut, premiumIn] of expected) {
+    assert.deepEqual(calculateFirmPremium({
+      amountIn: 200_000_000_000_000_000n,
+      referenceAmountOut: 700_000_000n,
+      minAmountOut: 690_000_000n,
+      requiredBond: 690_000_000n,
+      sigmaWad: 800_000_000_000_000_000n,
+      annualCapitalRateWad: 100_000_000_000_000_000n,
+      capacityKBps: 10n,
+      utilizationAfterWad: 745_000_000_000_000_000n,
+      minPremiumOut: 100_000n,
+      ttl,
+    }), {
+      pricingVersion: 2,
+      sqrtTimeWad,
+      optionalityOut,
+      bondCarryOut,
+      capacitySurchargeOut,
+      premiumOut,
+      premiumIn,
+    });
+  }
+});
+
+test("rejects pricing inputs outside the onchain bounds", () => {
+  const inputs = {
+    amountIn: 1n,
+    referenceAmountOut: 1n,
+    minAmountOut: 1n,
+    requiredBond: 1n,
+    sigmaWad: 0n,
+    annualCapitalRateWad: 0n,
+    capacityKBps: 0n,
+    utilizationAfterWad: 0n,
+    minPremiumOut: 0n,
+    ttl: 1n,
+  } as const;
+
+  assert.throws(() => calculateFirmPremium({ ...inputs, ttl: 301n }), RangeError);
+  assert.throws(() => calculateFirmPremium({ ...inputs, requiredBond: 0n }), RangeError);
+  assert.throws(() => calculateFirmPremium({ ...inputs, utilizationAfterWad: 10n ** 18n + 1n }), RangeError);
 });
 
 test("builds Aqua ship calldata through the official Aqua SDK", () => {
