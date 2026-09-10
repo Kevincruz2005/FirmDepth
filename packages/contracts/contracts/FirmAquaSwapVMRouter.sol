@@ -29,7 +29,7 @@ contract FirmAquaSwapVMRouter is AquaSwapVMRouter {
 
     function _runOpcode(Context memory ctx, uint256 opcode, bytes calldata args) internal override {
         if (opcode == FirmPrice.OPCODE) {
-            FirmPrice.exec(ctx, args);
+            FirmPrice.exec(ctx, args, FIRM_REGISTRY);
         } else if (opcode == FirmGuard.OPCODE) {
             FirmGuard.exec(ctx, args, FIRM_REGISTRY, BOND_VAULT);
         } else {

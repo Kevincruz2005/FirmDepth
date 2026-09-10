@@ -13,6 +13,7 @@ import { FirmAquaSwapVMRouter } from "../contracts/FirmAquaSwapVMRouter.sol";
 import { FirmCommitmentRegistry } from "../contracts/FirmCommitmentRegistry.sol";
 import { FirmExecutor } from "../contracts/FirmExecutor.sol";
 import { FirmGuard } from "../contracts/instructions/FirmGuard.sol";
+import { FirmPrice } from "../contracts/instructions/FirmPrice.sol";
 import { MockERC20 } from "../contracts/mocks/MockERC20.sol";
 import { Commitment, CommitmentStatus, FirmQuote } from "../contracts/types/FirmTypes.sol";
 
@@ -333,6 +334,31 @@ contract FirmDepthTest is Test {
             abi.encodeWithSelector(FirmGuard.ExecutorMismatch.selector, address(executor), address(this))
         );
         router.swap(_order(), AMOUNT_IN, takerTraits);
+    }
+
+    function testFirmPriceRejectsOutputDifferentFromAcceptedSnapshot() public {
+        (bytes32 commitmentId,) = _accept(83);
+        bytes memory takerTraits = _firmQuoteTakerTraits(MIN_OUT + 1, commitmentId);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmPrice.OutputMismatch.selector, MIN_OUT, MIN_OUT + 1)
+        );
+        vm.prank(address(executor));
+        router.swap(_order(), AMOUNT_IN, takerTraits);
+    }
+
+    function testExecutionDoesNotRepriceAfterVaultUtilizationChanges() public {
+        (bytes32 commitmentId,) = _accept(84);
+        usdc.mint(maker, BOND_DEPOSIT);
+        vm.startPrank(maker);
+        usdc.approve(address(vault), BOND_DEPOSIT);
+        vault.deposit(BOND_DEPOSIT);
+        vm.stopPrank();
+
+        vm.prank(trader);
+        (CommitmentStatus result,) = executor.execute(commitmentId, _order());
+
+        assertEq(uint8(result), uint8(CommitmentStatus.FILLED_AQUA));
     }
 
     function testReplayAndDoubleSettlementAreRejected() public {
