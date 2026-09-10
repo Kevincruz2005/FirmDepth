@@ -29,6 +29,7 @@ struct FirmQuote {
     uint16 capacityKBps;
     uint256 utilizationAfterWad;
     uint256 minPremiumOut;
+    uint32 pricingTtl;
     uint64 expiry;
     uint256 nonce;
 }

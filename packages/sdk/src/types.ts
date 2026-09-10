@@ -30,6 +30,7 @@ export interface FirmQuote {
   capacityKBps: number;
   utilizationAfterWad: bigint;
   minPremiumOut: bigint;
+  pricingTtl: number;
   expiry: bigint;
   nonce: bigint;
 }

@@ -326,6 +326,7 @@ test("hashes every signed quote field deterministically", () => {
     capacityKBps: 10,
     utilizationAfterWad: 500000000000000000n,
     minPremiumOut: 100000n,
+    pricingTtl: 30,
     expiry: 2000000000n,
     nonce: 1n,
   } as const;

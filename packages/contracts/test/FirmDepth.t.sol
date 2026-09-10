@@ -47,6 +47,9 @@ contract MockERC1271Maker is IERC1271 {
 }
 
 contract FirmDepthTest is Test {
+    event BondUnlocked(bytes32 indexed commitmentId, address indexed maker, uint256 amount);
+    event BondReleased(bytes32 indexed commitmentId, address indexed maker, address indexed to, uint256 amount);
+
     uint256 private constant MAKER_KEY = 0xA11CE;
     uint256 private constant TRADER_KEY = 0xB0B;
     uint256 private constant AMOUNT_IN = 0.25 ether;
@@ -196,9 +199,9 @@ contract FirmDepthTest is Test {
 
         assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
         assertEq(amountOut, MIN_OUT);
-        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN + PREMIUM);
+        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN);
         assertEq(usdc.balanceOf(trader), traderUsdcBefore + MIN_OUT);
-        assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN);
+        assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN + PREMIUM);
         assertEq(vault.availableOf(maker), BOND_DEPOSIT - MIN_OUT);
         assertEq(vault.lockedOf(maker), 0);
         assertEq(vault.liabilities(), BOND_DEPOSIT - MIN_OUT);
@@ -224,6 +227,7 @@ contract FirmDepthTest is Test {
         assertFalse(registry.nonceUsed(maker, quote.nonce));
         assertEq(vault.lockedOf(maker), 0);
         assertEq(usdc.balanceOf(address(registry)), 0);
+        assertEq(weth.balanceOf(trader), 10 ether);
     }
 
     function testAcceptanceRecordsCurrentBlock() public {
@@ -250,9 +254,9 @@ contract FirmDepthTest is Test {
 
         assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
         assertEq(amountOut, MIN_OUT);
-        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN + PREMIUM);
+        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN);
         assertEq(usdc.balanceOf(trader), traderUsdcBefore + MIN_OUT);
-        assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN);
+        assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN + PREMIUM);
         assertEq(vault.lockedOf(maker), 0);
     }
 
@@ -306,6 +310,13 @@ contract FirmDepthTest is Test {
         );
         assertEq(virtualWethAfter, virtualWethBefore);
         assertEq(virtualUsdcAfter, virtualUsdcBefore);
+
+        usdc.setTransferFromReverts(false);
+        vm.prank(trader);
+        (CommitmentStatus result,) = executor.execute(commitmentId, _order());
+        assertEq(uint8(result), uint8(CommitmentStatus.FILLED_AQUA));
+        assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN + PREMIUM);
+        assertEq(weth.balanceOf(address(registry)), 0);
     }
 
     function testEmptyAndPanicTokenFailuresCannotConsumeBond() public {
@@ -557,6 +568,10 @@ contract FirmDepthTest is Test {
         assertNotEq(registry.quoteDigest(changed), digest);
 
         changed = quote;
+        changed.pricingTtl += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
         changed.expiry += 1;
         assertNotEq(registry.quoteDigest(changed), digest);
 
@@ -592,22 +607,103 @@ contract FirmDepthTest is Test {
 
     function testBondSettlementReturnsOvercollateralizedExcessToMaker() public {
         FirmQuote memory quote = _quote(85);
-        quote.requiredBond = MIN_OUT + 100e6;
+        quote.referenceAmountOut = 700e6;
+        quote.minAmountOut = 700e6;
+        quote.requiredBond = 750e6;
         quote.utilizationAfterWad = registry.utilizationAfter(maker, quote.requiredBond);
+        quote.premiumAmount = registry.quotePremium(quote).premiumIn;
         bytes memory signature = _sign(quote);
         vm.prank(trader);
         bytes32 commitmentId = registry.accept(quote, _order(), signature);
 
+        uint256 traderOutputBefore = usdc.balanceOf(trader);
+        uint256 makerInputBefore = weth.balanceOf(maker);
         vm.prank(maker);
         usdc.approve(address(aqua), 0);
+
+        vm.expectEmit(true, true, false, true, address(vault));
+        emit BondUnlocked(commitmentId, maker, 50e6);
+        vm.expectEmit(true, true, true, true, address(vault));
+        emit BondReleased(commitmentId, maker, trader, 700e6);
+        vm.prank(trader);
+        (CommitmentStatus result, uint256 amountOut) = executor.execute(commitmentId, _order());
+
+        assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
+        assertEq(amountOut, 700e6);
+        assertEq(usdc.balanceOf(trader) - traderOutputBefore, 700e6);
+        assertEq(weth.balanceOf(maker) - makerInputBefore, AMOUNT_IN + quote.premiumAmount);
+        assertEq(vault.lockedOf(maker), 0);
+        assertEq(vault.availableOf(maker), BOND_DEPOSIT - 700e6);
+        assertEq(vault.liabilities(), BOND_DEPOSIT - 700e6);
+        (address lockedMaker, uint256 lockedAmount) = vault.lockedFor(commitmentId);
+        assertEq(lockedMaker, address(0));
+        assertEq(lockedAmount, 0);
+    }
+
+    function testPostAcceptanceStrategyUnavailabilityUsesDedicatedBond() public {
+        (bytes32 commitmentId, FirmQuote memory quote) = _accept(86);
+        (address lockedMaker, uint256 lockedAmount) = vault.lockedFor(commitmentId);
+        assertEq(lockedMaker, maker);
+        assertEq(lockedAmount, quote.requiredBond);
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(weth);
+        tokens[1] = address(usdc);
+        vm.prank(maker);
+        aqua.dock(address(router), quote.orderHash, tokens);
+
+        FirmExecutor.Capacity memory available = executor.capacity(commitmentId);
+        assertFalse(available.strategyActive);
+        assertEq(available.effectiveCapacity, 0);
+
+        uint256 traderInputBefore = weth.balanceOf(trader);
+        uint256 traderOutputBefore = usdc.balanceOf(trader);
+        uint256 makerInputBefore = weth.balanceOf(maker);
         vm.prank(trader);
         (CommitmentStatus result, uint256 amountOut) = executor.execute(commitmentId, _order());
 
         assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
         assertEq(amountOut, MIN_OUT);
+        assertEq(weth.balanceOf(trader), traderInputBefore - AMOUNT_IN);
+        assertEq(usdc.balanceOf(trader), traderOutputBefore + MIN_OUT);
+        assertEq(weth.balanceOf(maker), makerInputBefore + AMOUNT_IN + PREMIUM);
         assertEq(vault.lockedOf(maker), 0);
-        assertEq(vault.availableOf(maker), BOND_DEPOSIT - MIN_OUT);
-        assertEq(vault.liabilities(), BOND_DEPOSIT - MIN_OUT);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.FILLED_BOND));
+
+        (uint248 virtualInput, uint8 inputCount) = aqua.rawBalances(
+            maker, address(router), quote.orderHash, address(weth)
+        );
+        (uint248 virtualOutput, uint8 outputCount) = aqua.rawBalances(
+            maker, address(router), quote.orderHash, address(usdc)
+        );
+        assertEq(uint256(virtualInput), 0);
+        assertEq(uint256(virtualOutput), 0);
+        assertEq(inputCount, type(uint8).max);
+        assertEq(outputCount, type(uint8).max);
+    }
+
+    function testStrategyInactiveBeforeAcceptanceIsRejectedAtomically() public {
+        FirmQuote memory quote = _quote(87);
+        bytes memory signature = _sign(quote);
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(weth);
+        tokens[1] = address(usdc);
+        vm.prank(maker);
+        aqua.dock(address(router), quote.orderHash, tokens);
+
+        uint256 traderInputBefore = weth.balanceOf(trader);
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmExecutor.IneligibleAquaCapacity.selector, 0, MIN_OUT)
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), signature);
+
+        bytes32 commitmentId = registry.quoteDigest(quote);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.NONE));
+        assertFalse(registry.nonceUsed(maker, quote.nonce));
+        assertEq(vault.lockedOf(maker), 0);
+        assertEq(weth.balanceOf(trader), traderInputBefore);
+        assertEq(weth.balanceOf(address(registry)), 0);
     }
 
     function testOneCommitmentCannotConsumeAnotherCommitmentLock() public {
@@ -906,6 +1002,39 @@ contract FirmDepthTest is Test {
         );
         vm.prank(trader);
         registry.accept(ttlTooLong, _order(), ttlTooLongSignature);
+
+        FirmQuote memory lifetimeTooLong = _quote(98);
+        lifetimeTooLong.pricingTtl = 29;
+        lifetimeTooLong.premiumAmount = registry.quotePremium(lifetimeTooLong).premiumIn;
+        bytes memory lifetimeSignature = _sign(lifetimeTooLong);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmCommitmentRegistry.QuoteLifetimeExceedsPricingTtl.selector,
+                30,
+                29
+            )
+        );
+        vm.prank(trader);
+        registry.accept(lifetimeTooLong, _order(), lifetimeSignature);
+    }
+
+    function testSignedPricingTtlSurvivesMiningDelay() public {
+        FirmQuote memory quote = _quote(99);
+        quote.sigmaWad = 800_000_000_000_000_000;
+        quote.annualCapitalRateWad = 100_000_000_000_000_000;
+        quote.capacityKBps = 10;
+        quote.premiumAmount = registry.quotePremium(quote).premiumIn;
+        uint256 signedPremium = quote.premiumAmount;
+        bytes memory signature = _sign(quote);
+
+        vm.warp(block.timestamp + 5);
+        assertEq(registry.quotePremium(quote).premiumIn, signedPremium);
+        vm.prank(trader);
+        bytes32 commitmentId = registry.accept(quote, _order(), signature);
+
+        Commitment memory accepted = registry.getCommitment(commitmentId);
+        assertEq(accepted.quote.pricingTtl, 30);
+        assertEq(accepted.quote.premiumAmount, signedPremium);
     }
 
     function testPricingSnapshotTermsAreEnforcedOnchain() public {
@@ -1033,6 +1162,7 @@ contract FirmDepthTest is Test {
             capacityKBps: 0,
             utilizationAfterWad: UTILIZATION_AFTER_WAD,
             minPremiumOut: MIN_PREMIUM_OUT,
+            pricingTtl: 30,
             expiry: uint64(block.timestamp + 30),
             nonce: nonce
         });

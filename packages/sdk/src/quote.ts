@@ -3,7 +3,7 @@ import { getAddress } from "viem";
 import { calculateFirmPremium, FIRM_PRICING_VERSION } from "./pricing.js";
 import type { FirmQuote } from "./types.js";
 
-export type FirmQuoteTerms = Omit<FirmQuote, "maker" | "taker" | "executor" | "swapRouter" | "tokenIn" | "tokenOut" | "premiumToken" | "premiumAmount" | "pricingVersion"> & {
+export type FirmQuoteTerms = Omit<FirmQuote, "maker" | "taker" | "executor" | "swapRouter" | "tokenIn" | "tokenOut" | "premiumToken" | "premiumAmount" | "pricingVersion" | "pricingTtl"> & {
   maker: string;
   taker: string;
   executor: string;
@@ -16,6 +16,7 @@ export type FirmQuoteTerms = Omit<FirmQuote, "maker" | "taker" | "executor" | "s
 export function buildFirmQuote(terms: FirmQuoteTerms, currentTimestamp: bigint): FirmQuote {
   if (terms.expiry <= currentTimestamp) throw new RangeError("Firm quote expiry must be in the future");
   const ttl = terms.expiry - currentTimestamp;
+  if (ttl > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError("Firm pricing TTL exceeds safe integer range");
   const pricing = calculateFirmPremium({
     amountIn: terms.amountIn,
     referenceAmountOut: terms.referenceAmountOut,
@@ -40,5 +41,6 @@ export function buildFirmQuote(terms: FirmQuoteTerms, currentTimestamp: bigint):
     premiumToken: getAddress(terms.premiumToken),
     premiumAmount: pricing.premiumIn,
     pricingVersion: FIRM_PRICING_VERSION,
+    pricingTtl: Number(ttl),
   };
 }

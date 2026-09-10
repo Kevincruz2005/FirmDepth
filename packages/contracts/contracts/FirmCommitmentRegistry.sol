@@ -24,7 +24,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bytes32 public constant FIRM_QUOTE_TYPEHASH = keccak256(
-        "FirmQuote(address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce)"
+        "FirmQuote(address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint32 pricingTtl,uint64 expiry,uint256 nonce)"
     );
 
     error Unauthorized();
@@ -39,6 +39,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     error QuoteExpired(uint64 expiry);
     error ExpiryTooLarge(uint64 expiry);
     error QuoteTtlTooLong(uint64 expiry, uint64 maximumExpiry);
+    error QuoteLifetimeExceedsPricingTtl(uint256 remainingTtl, uint32 pricingTtl);
     error InvalidQuoteTtl(uint64 maxQuoteTtl);
     error UnsupportedPricingVersion(uint32 pricingVersion);
     error UnsupportedPremiumToken(address expected, address actual);
@@ -152,6 +153,10 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         if (quote.expiry > type(uint40).max) revert ExpiryTooLarge(quote.expiry);
         uint64 maximumExpiry = uint64(block.timestamp) + maxQuoteTtl;
         if (quote.expiry > maximumExpiry) revert QuoteTtlTooLong(quote.expiry, maximumExpiry);
+        uint256 remainingTtl = quote.expiry - block.timestamp;
+        if (quote.pricingTtl == 0 || quote.pricingTtl > maxQuoteTtl || remainingTtl > quote.pricingTtl) {
+            revert QuoteLifetimeExceedsPricingTtl(remainingTtl, quote.pricingTtl);
+        }
         if (quote.pricingVersion != FirmPricing.PRICING_VERSION) {
             revert UnsupportedPricingVersion(quote.pricingVersion);
         }
@@ -233,7 +238,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         commitment.settledAt = uint64(block.timestamp);
 
         vault.release(commitmentId, commitment.quote.taker, commitment.quote.minAmountOut);
-        _payPremium(commitment.quote.taker, commitment.quote.premiumAmount);
+        _payPremium(commitment.quote.maker, commitment.quote.premiumAmount);
         emit CommitmentSettled(commitmentId, CommitmentStatus.FILLED_BOND, commitment.quote.taker);
     }
 
@@ -284,6 +289,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
             quote.capacityKBps,
             quote.utilizationAfterWad,
             quote.minPremiumOut,
+            quote.pricingTtl,
             quote.expiry,
             quote.nonce
         )));
@@ -301,7 +307,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         return Math.mulDiv(locked + requiredBond, FirmPricing.WAD, total);
     }
 
-    function quotePremium(FirmQuote calldata quote) external view returns (FirmPricing.Result memory) {
+    function quotePremium(FirmQuote calldata quote) external pure returns (FirmPricing.Result memory) {
         return FirmPricing.quote(_pricingInputs(quote));
     }
 
@@ -327,8 +333,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         }
     }
 
-    function _pricingInputs(FirmQuote calldata quote) private view returns (FirmPricing.Inputs memory) {
-        uint256 ttl = quote.expiry > block.timestamp ? quote.expiry - block.timestamp : 0;
+    function _pricingInputs(FirmQuote calldata quote) private pure returns (FirmPricing.Inputs memory) {
         return FirmPricing.Inputs({
             amountIn: quote.amountIn,
             referenceAmountOut: quote.referenceAmountOut,
@@ -339,7 +344,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
             capacityKBps: quote.capacityKBps,
             utilizationAfterWad: quote.utilizationAfterWad,
             minPremiumOut: quote.minPremiumOut,
-            ttl: ttl
+            ttl: quote.pricingTtl
         });
     }
 }

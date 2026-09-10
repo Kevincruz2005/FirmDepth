@@ -53,7 +53,7 @@ library FirmPrice {
             capacityKBps: commitment.quote.capacityKBps,
             utilizationAfterWad: commitment.quote.utilizationAfterWad,
             minPremiumOut: commitment.quote.minPremiumOut,
-            ttl: commitment.quote.expiry - commitment.acceptedAt
+            ttl: commitment.quote.pricingTtl
         }));
         if (pricing.premiumIn != commitment.quote.premiumAmount) {
             revert PremiumMismatch(pricing.premiumIn, commitment.quote.premiumAmount);

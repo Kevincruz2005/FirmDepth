@@ -26,6 +26,7 @@ export const firmQuoteTypes = {
     { name: "capacityKBps", type: "uint16" },
     { name: "utilizationAfterWad", type: "uint256" },
     { name: "minPremiumOut", type: "uint256" },
+    { name: "pricingTtl", type: "uint32" },
     { name: "expiry", type: "uint64" },
     { name: "nonce", type: "uint256" },
   ],

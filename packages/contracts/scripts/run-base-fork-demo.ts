@@ -42,6 +42,7 @@ const firmQuoteTypes = {
     { name: "capacityKBps", type: "uint16" },
     { name: "utilizationAfterWad", type: "uint256" },
     { name: "minPremiumOut", type: "uint256" },
+    { name: "pricingTtl", type: "uint32" },
     { name: "expiry", type: "uint64" },
     { name: "nonce", type: "uint256" },
   ],
@@ -165,6 +166,7 @@ async function buildSignedQuote(nonce: bigint) {
     capacityKBps: 0,
     utilizationAfterWad,
     minPremiumOut: MIN_PREMIUM_OUT,
+    pricingTtl: 240,
     expiry: BigInt(latestBlock.timestamp + 240),
     nonce,
   };
@@ -275,12 +277,16 @@ assertEqual(bondCommitment.status, 3n, "bond terminal status");
 assertEqual(bondBalancesAfter.traderUsdc - bondBalancesBefore.traderUsdc, AMOUNT_OUT, "bond trader output");
 assertEqual(
   bondBalancesBefore.traderWeth - bondBalancesAfter.traderWeth,
-  AMOUNT_IN - bondAcceptance.quote.premiumAmount,
-  "bond trader input after premium refund",
+  AMOUNT_IN,
+  "bond trader execution input",
 );
-assertEqual(bondBalancesAfter.makerWeth - bondBalancesBefore.makerWeth, AMOUNT_IN, "bond maker input");
+assertEqual(
+  bondBalancesAfter.makerWeth - bondBalancesBefore.makerWeth,
+  AMOUNT_IN + bondAcceptance.quote.premiumAmount,
+  "bond maker input and premium",
+);
 assertEqual(bondBalancesAfter.makerUsdc, bondBalancesBefore.makerUsdc, "bond maker output");
-assertEqual(BigInt(await weth.balanceOf(await registry.getAddress())), 0n, "bond premium refund");
+assertEqual(BigInt(await weth.balanceOf(await registry.getAddress())), 0n, "bond premium settlement");
 assertEqual(BigInt(await vault.totalLocked()), 0n, "terminal vault locks");
 assertEqual(BigInt(await usdc.balanceOf(await vault.getAddress())), BigInt(await vault.liabilities()), "vault reconciliation");
 
@@ -347,7 +353,7 @@ const evidence = {
     executionGasUsed: bondExecutionReceipt.gasUsed.toString(),
     terminalStatus: Number(bondCommitment.status),
     grossTraderInputAmount: AMOUNT_IN.toString(),
-    premiumRefundedToTrader: bondAcceptance.quote.premiumAmount.toString(),
+    premiumPaidToMaker: bondAcceptance.quote.premiumAmount.toString(),
     netTraderInputDelta: (bondBalancesBefore.traderWeth - bondBalancesAfter.traderWeth).toString(),
     traderOutputDelta: (bondBalancesAfter.traderUsdc - bondBalancesBefore.traderUsdc).toString(),
   },
