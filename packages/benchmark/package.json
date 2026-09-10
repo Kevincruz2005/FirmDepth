@@ -1,0 +1,10 @@
+{
+  "name": "@firmdepth/benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "benchmark": "node --experimental-strip-types src/run.ts",
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  }
+}
