@@ -35,7 +35,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     error WrongExecutor(address expected, address actual);
     error UnsupportedPair(address tokenIn, address tokenOut);
     error InvalidAmount();
-    error BondMustEqualMinOut(uint256 bond, uint256 minOut);
+    error InsufficientRequiredBond(uint256 requiredBond, uint256 minAmountOut);
     error QuoteExpired(uint64 expiry);
     error ExpiryTooLarge(uint64 expiry);
     error QuoteTtlTooLong(uint64 expiry, uint64 maximumExpiry);
@@ -145,8 +145,8 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
                 || quote.orderHash == bytes32(0)
         ) revert ZeroAddress();
         if (quote.amountIn == 0 || quote.referenceAmountOut == 0 || quote.minAmountOut == 0) revert InvalidAmount();
-        if (quote.requiredBond != quote.minAmountOut) {
-            revert BondMustEqualMinOut(quote.requiredBond, quote.minAmountOut);
+        if (quote.requiredBond < quote.minAmountOut) {
+            revert InsufficientRequiredBond(quote.requiredBond, quote.minAmountOut);
         }
         if (quote.expiry <= block.timestamp) revert QuoteExpired(quote.expiry);
         if (quote.expiry > type(uint40).max) revert ExpiryTooLarge(quote.expiry);
@@ -232,7 +232,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         commitment.status = CommitmentStatus.FILLED_BOND;
         commitment.settledAt = uint64(block.timestamp);
 
-        vault.release(commitmentId, commitment.quote.taker);
+        vault.release(commitmentId, commitment.quote.taker, commitment.quote.minAmountOut);
         _payPremium(commitment.quote.taker, commitment.quote.premiumAmount);
         emit CommitmentSettled(commitmentId, CommitmentStatus.FILLED_BOND, commitment.quote.taker);
     }

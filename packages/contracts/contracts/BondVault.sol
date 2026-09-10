@@ -20,6 +20,7 @@ contract BondVault is ReentrancyGuard {
     error InsufficientAvailable(uint256 available, uint256 required);
     error CommitmentAlreadyLocked(bytes32 commitmentId);
     error CommitmentNotLocked(bytes32 commitmentId);
+    error InsufficientLockedBond(uint256 locked, uint256 required);
     error DeflationaryTokenUnsupported();
 
     IERC20 public immutable bondToken;
@@ -108,21 +109,29 @@ contract BondVault is ReentrancyGuard {
         emit BondUnlocked(commitmentId, bond.maker, bond.amount);
     }
 
-    function release(bytes32 commitmentId, address to) external onlyRegistry nonReentrant {
+    function release(bytes32 commitmentId, address to, uint256 amount) external onlyRegistry nonReentrant {
         if (to == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
         BondLock memory bond = _consumeLock(commitmentId);
+        if (bond.amount < amount) revert InsufficientLockedBond(bond.amount, amount);
+        uint256 excess = bond.amount - amount;
+        if (excess != 0) {
+            availableOf[bond.maker] += excess;
+            totalAvailable += excess;
+            emit BondUnlocked(commitmentId, bond.maker, excess);
+        }
         uint256 vaultBefore = bondToken.balanceOf(address(this));
         uint256 recipientBefore = bondToken.balanceOf(to);
-        bondToken.safeTransfer(to, bond.amount);
+        bondToken.safeTransfer(to, amount);
         uint256 vaultAfter = bondToken.balanceOf(address(this));
         uint256 recipientAfter = bondToken.balanceOf(to);
         if (
             vaultBefore < vaultAfter
-                || vaultBefore - vaultAfter != bond.amount
+                || vaultBefore - vaultAfter != amount
                 || recipientAfter < recipientBefore
-                || recipientAfter - recipientBefore != bond.amount
+                || recipientAfter - recipientBefore != amount
         ) revert DeflationaryTokenUnsupported();
-        emit BondReleased(commitmentId, bond.maker, to, bond.amount);
+        emit BondReleased(commitmentId, bond.maker, to, amount);
     }
 
     function lockedFor(bytes32 commitmentId) external view returns (address maker, uint256 amount) {

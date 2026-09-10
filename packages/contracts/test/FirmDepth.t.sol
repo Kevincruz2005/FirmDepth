@@ -425,6 +425,42 @@ contract FirmDepthTest is Test {
         executor.execute(commitmentId, _order());
     }
 
+    function testBondSettlementReturnsOvercollateralizedExcessToMaker() public {
+        FirmQuote memory quote = _quote(85);
+        quote.requiredBond = MIN_OUT + 100e6;
+        quote.utilizationAfterWad = registry.utilizationAfter(maker, quote.requiredBond);
+        bytes memory signature = _sign(quote);
+        vm.prank(trader);
+        bytes32 commitmentId = registry.accept(quote, _order(), signature);
+
+        vm.prank(maker);
+        usdc.approve(address(aqua), 0);
+        vm.prank(trader);
+        (CommitmentStatus result, uint256 amountOut) = executor.execute(commitmentId, _order());
+
+        assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
+        assertEq(amountOut, MIN_OUT);
+        assertEq(vault.lockedOf(maker), 0);
+        assertEq(vault.availableOf(maker), BOND_DEPOSIT - MIN_OUT);
+        assertEq(vault.liabilities(), BOND_DEPOSIT - MIN_OUT);
+    }
+
+    function testAcceptanceRejectsUndercollateralizedQuote() public {
+        FirmQuote memory quote = _quote(86);
+        quote.requiredBond = MIN_OUT - 1;
+        bytes memory signature = _sign(quote);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmCommitmentRegistry.InsufficientRequiredBond.selector,
+                MIN_OUT - 1,
+                MIN_OUT
+            )
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), signature);
+    }
+
     function testBondSettlementRevertsIfOutputTokenDoesNotMove() public {
         (bytes32 commitmentId,) = _accept(8);
         vm.prank(maker);
