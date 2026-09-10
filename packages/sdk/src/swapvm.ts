@@ -1,9 +1,11 @@
 import {
   concatHex,
   getAddress,
+  hexToBigInt,
   numberToHex,
   padHex,
   size,
+  slice,
   toHex,
   zeroHash,
   type Address,
@@ -59,6 +61,14 @@ export function buildFirmInstructionArgs(amountOut: bigint, commitmentId: Hex = 
   }
   if (size(commitmentId) !== 32) throw new RangeError("commitmentId must be bytes32");
   return concatHex([padHex(toHex(amountOut), { size: 32 }), commitmentId]);
+}
+
+export function decodeFirmInstructionArgs(data: Hex): { amountOut: bigint; commitmentId: Hex } {
+  if (size(data) !== 64) throw new RangeError("Firm instruction arguments must be exactly 64 bytes");
+  return {
+    amountOut: hexToBigInt(slice(data, 0, 32)),
+    commitmentId: slice(data, 32, 64),
+  };
 }
 
 export interface FirmQuoteTakerTraits {
@@ -119,3 +129,5 @@ export function buildFirmQuoteTakerTraits({
 
   return concatHex([header, threshold, deadlineData, instructionArgs]);
 }
+
+export const buildFirmTakerTraits = buildFirmQuoteTakerTraits;

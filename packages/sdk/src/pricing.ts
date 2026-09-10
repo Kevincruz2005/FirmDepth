@@ -71,6 +71,8 @@ export function calculateFirmPremium(inputs: FirmPricingInputs): FirmPremiumQuot
   };
 }
 
+export const computeFirmPrice = calculateFirmPremium;
+
 function validateInputs(inputs: FirmPricingInputs): void {
   for (const [name, value] of Object.entries(inputs)) assertUint256(value, name);
   if (inputs.amountIn === 0n) throw new RangeError("amountIn must be greater than zero");

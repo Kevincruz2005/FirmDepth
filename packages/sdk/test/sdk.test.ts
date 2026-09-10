@@ -3,15 +3,17 @@ import test from "node:test";
 import type { PublicClient } from "viem";
 
 import { effectiveAquaCapacity, canUseAqua } from "../src/capacity.js";
-import { hashFirmQuote } from "../src/eip712.js";
+import { buildFirmTypedData, hashFirmQuote, verifyFirmQuote } from "../src/eip712.js";
 import { buildAquaShipRequest, aquaStrategyHash } from "../src/aqua.js";
-import { calculateFirmPremium } from "../src/pricing.js";
+import { calculateFirmPremium, computeFirmPrice } from "../src/pricing.js";
+import { buildFirmQuote } from "../src/quote.js";
 import { commitmentStatus, readAquaCapacity } from "../src/readers.js";
 import {
   buildFirmInstructionArgs,
   buildFirmOrder,
   buildFirmProgram,
   buildFirmQuoteTakerTraits,
+  decodeFirmInstructionArgs,
   encodeInstruction,
 } from "../src/swapvm.js";
 import { acceptRequest } from "../src/requests.js";
@@ -40,8 +42,11 @@ test("builds the exact hook-free Aqua maker order accepted by FirmExecutor", () 
 
 test("encodes firm amount and commitment id for sequential dynamic opcodes", () => {
   const commitmentId = `0x${"ab".repeat(32)}` as const;
-  assert.equal(buildFirmInstructionArgs(625_000_000n, commitmentId).slice(0, 66), `0x${(625_000_000n).toString(16).padStart(64, "0")}`);
-  assert.equal(buildFirmInstructionArgs(625_000_000n, commitmentId).slice(66), "ab".repeat(32));
+  const encoded = buildFirmInstructionArgs(625_000_000n, commitmentId);
+  assert.equal(encoded.slice(0, 66), `0x${(625_000_000n).toString(16).padStart(64, "0")}`);
+  assert.equal(encoded.slice(66), "ab".repeat(32));
+  assert.deepEqual(decodeFirmInstructionArgs(encoded), { amountOut: 625_000_000n, commitmentId });
+  assert.throws(() => decodeFirmInstructionArgs("0x1234"), RangeError);
 });
 
 test("builds pinned SwapVM static quote traits with exact slice offsets", () => {
@@ -118,6 +123,34 @@ test("matches the canonical 5, 30, and 120 second premium vectors", () => {
       premiumIn,
     });
   }
+  assert.equal(computeFirmPrice, calculateFirmPremium);
+});
+
+test("builds a complete quote with the exact acceptance-time premium", () => {
+  const currentTimestamp = 2_000_000_000n;
+  const quote = buildFirmQuote({
+    maker: "0x0000000000000000000000000000000000000001",
+    taker: "0x0000000000000000000000000000000000000002",
+    executor: "0x0000000000000000000000000000000000000003",
+    swapRouter: "0x0000000000000000000000000000000000000004",
+    orderHash: `0x${"11".repeat(32)}`,
+    tokenIn: "0x0000000000000000000000000000000000000005",
+    tokenOut: "0x0000000000000000000000000000000000000006",
+    amountIn: 100_000_000_000_000_000n,
+    referenceAmountOut: 200_000_000n,
+    minAmountOut: 200_000_000n,
+    requiredBond: 200_000_000n,
+    premiumToken: "0x0000000000000000000000000000000000000005",
+    sigmaWad: 0n,
+    annualCapitalRateWad: 0n,
+    capacityKBps: 0,
+    utilizationAfterWad: 200_000_000_000_000_000n,
+    minPremiumOut: 100_000n,
+    expiry: currentTimestamp + 30n,
+    nonce: 7n,
+  }, currentTimestamp);
+  assert.equal(quote.pricingVersion, 2);
+  assert.equal(quote.premiumAmount, 50_000_000_000_000n);
 });
 
 test("rejects pricing inputs outside the onchain bounds", () => {
@@ -219,4 +252,45 @@ test("hashes every signed quote field deterministically", () => {
   const order = buildFirmOrder(quote.maker, quote.tokenIn, quote.tokenOut);
   const request = acceptRequest(registry, quote, order, "0x1234");
   assert.deepEqual(request.args, [quote, order, "0x1234"]);
+  assert.deepEqual(buildFirmTypedData(registry, 31337, quote).message, quote);
+});
+
+test("verifies EOA and ERC-1271 quotes through the public client", async () => {
+  let received: Record<string, unknown> | undefined;
+  const client = {
+    verifyTypedData: async (parameters: Record<string, unknown>) => {
+      received = parameters;
+      return true;
+    },
+  } as unknown as PublicClient;
+  const quote = buildFirmQuote({
+    maker: "0x0000000000000000000000000000000000000001",
+    taker: "0x0000000000000000000000000000000000000002",
+    executor: "0x0000000000000000000000000000000000000003",
+    swapRouter: "0x0000000000000000000000000000000000000004",
+    orderHash: `0x${"22".repeat(32)}`,
+    tokenIn: "0x0000000000000000000000000000000000000005",
+    tokenOut: "0x0000000000000000000000000000000000000006",
+    amountIn: 1n,
+    referenceAmountOut: 1n,
+    minAmountOut: 1n,
+    requiredBond: 1n,
+    premiumToken: "0x0000000000000000000000000000000000000005",
+    sigmaWad: 0n,
+    annualCapitalRateWad: 0n,
+    capacityKBps: 0,
+    utilizationAfterWad: 1n,
+    minPremiumOut: 0n,
+    expiry: 11n,
+    nonce: 1n,
+  }, 10n);
+  assert.equal(await verifyFirmQuote(
+    client,
+    "0x0000000000000000000000000000000000000010",
+    8453,
+    quote,
+    "0x1234",
+  ), true);
+  assert.equal(received?.address, quote.maker);
+  assert.equal(received?.blockTag, "latest");
 });

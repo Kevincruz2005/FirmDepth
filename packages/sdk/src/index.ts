@@ -2,6 +2,7 @@ export * from "./aqua.js";
 export * from "./capacity.js";
 export * from "./eip712.js";
 export * from "./pricing.js";
+export * from "./quote.js";
 export * from "./readers.js";
 export * from "./requests.js";
 export * from "./swapvm.js";

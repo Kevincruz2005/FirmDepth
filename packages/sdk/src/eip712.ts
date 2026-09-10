@@ -1,4 +1,4 @@
-import { hashTypedData, type Address, type Hex } from "viem";
+import { hashTypedData, type Address, type Hex, type PublicClient } from "viem";
 
 import type { FirmQuote } from "./types.js";
 
@@ -50,6 +50,8 @@ export function hashFirmQuote(registry: Address, chainId: number, quote: FirmQuo
   return hashTypedData(firmQuoteTypedData(registry, chainId, quote));
 }
 
+export const buildFirmTypedData = firmQuoteTypedData;
+
 export interface FirmQuoteSigner {
   signTypedData(data: ReturnType<typeof firmQuoteTypedData>): Promise<Hex>;
 }
@@ -61,4 +63,20 @@ export function signFirmQuote(
   quote: FirmQuote,
 ): Promise<Hex> {
   return signer.signTypedData(firmQuoteTypedData(registry, chainId, quote));
+}
+
+export function verifyFirmQuote(
+  client: PublicClient,
+  registry: Address,
+  chainId: number,
+  quote: FirmQuote,
+  signature: Hex,
+): Promise<boolean> {
+  return client.verifyTypedData({
+    address: quote.maker,
+    ...firmQuoteTypedData(registry, chainId, quote),
+    message: { ...quote },
+    signature,
+    blockTag: "latest",
+  });
 }
