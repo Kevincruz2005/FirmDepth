@@ -7,7 +7,15 @@ import { buildFirmTypedData, hashFirmQuote, verifyFirmQuote } from "../src/eip71
 import { buildAquaShipRequest, aquaStrategyHash } from "../src/aqua.js";
 import { calculateFirmPremium, computeFirmPrice } from "../src/pricing.js";
 import { buildFirmQuote } from "../src/quote.js";
-import { commitmentStatus, readAquaCapacity } from "../src/readers.js";
+import {
+  checkFirmEligibility,
+  commitmentStatus,
+  getFirmDepth,
+  getLiquidityReality,
+  getPullableBackingAtBlock,
+  getVirtualDepth,
+  readAquaCapacity,
+} from "../src/readers.js";
 import {
   buildFirmInstructionArgs,
   buildFirmOrder,
@@ -215,6 +223,84 @@ test("reads effective capacity from contract state", async () => {
     effectiveCapacity: 700n,
     strategyActive: true,
   });
+});
+
+test("returns block-stamped Virtual, Pullable, and Firm depth", async () => {
+  const query = {
+    aqua: "0x0000000000000000000000000000000000000001",
+    router: "0x0000000000000000000000000000000000000002",
+    maker: "0x0000000000000000000000000000000000000003",
+    orderHash: `0x${"11".repeat(32)}` as const,
+    tokenIn: "0x0000000000000000000000000000000000000004",
+    tokenOut: "0x0000000000000000000000000000000000000005",
+  } as const;
+  const client = {
+    getBlockNumber: async () => 123n,
+    readContract: async ({ functionName, args }: { functionName: string; args: readonly unknown[] }) => {
+      if (functionName === "rawBalances") return args[3] === query.tokenOut ? [900n, 2] : [0n, 2];
+      if (functionName === "balanceOf") return 700n;
+      if (functionName === "allowance") return 800n;
+      throw new Error(`unexpected function ${functionName}`);
+    },
+  } as unknown as PublicClient;
+  assert.deepEqual(await getLiquidityReality(client, query), {
+    blockNumber: 123n,
+    virtualDepth: 900n,
+    realBalance: 700n,
+    aquaAllowance: 800n,
+    pullableBacking: 700n,
+    firmDepth: 700n,
+    strategyActive: true,
+  });
+  assert.deepEqual(await getVirtualDepth(client, query), { blockNumber: 123n, value: 900n });
+  assert.deepEqual(await getPullableBackingAtBlock(client, query), {
+    blockNumber: 123n,
+    value: 700n,
+    realBalance: 700n,
+    aquaAllowance: 800n,
+  });
+  assert.deepEqual(await getFirmDepth(client, query), { blockNumber: 123n, value: 700n });
+});
+
+test("checks the same capacity, bond, and static quote gates as acceptance", async () => {
+  const orderHash = `0x${"33".repeat(32)}` as const;
+  const query = {
+    aqua: "0x0000000000000000000000000000000000000001",
+    router: "0x0000000000000000000000000000000000000002",
+    vault: "0x0000000000000000000000000000000000000007",
+    maker: "0x0000000000000000000000000000000000000003",
+    orderHash,
+    tokenIn: "0x0000000000000000000000000000000000000004",
+    tokenOut: "0x0000000000000000000000000000000000000005",
+    requiredBond: 625n,
+    requiredOutput: 625n,
+    amountIn: 250n,
+    order: {
+      maker: "0x0000000000000000000000000000000000000003",
+      traits: 1n,
+      data: "0x1234",
+    },
+    takerTraits: "0x1234",
+  } as const;
+  const client = {
+    getBlockNumber: async () => 456n,
+    readContract: async ({ functionName, args, address }: { functionName: string; args: readonly unknown[]; address: string }) => {
+      if (functionName === "rawBalances") return args[3] === query.tokenOut ? [900n, 2] : [0n, 2];
+      if (functionName === "balanceOf") return 700n;
+      if (functionName === "allowance") return 800n;
+      if (functionName === "availableOf" && address === query.vault) return 700n;
+      if (functionName === "quote") return [250n, 625n, orderHash];
+      throw new Error(`unexpected function ${functionName}`);
+    },
+  } as unknown as PublicClient;
+  const eligible = await checkFirmEligibility(client, query);
+  assert.equal(eligible.eligible, true);
+  assert.deepEqual(eligible.reasons, []);
+  assert.equal(eligible.blockNumber, 456n);
+
+  const insufficient = await checkFirmEligibility(client, { ...query, requiredBond: 701n });
+  assert.equal(insufficient.eligible, false);
+  assert.deepEqual(insufficient.reasons, ["INSUFFICIENT_BOND"]);
 });
 
 test("hashes every signed quote field deterministically", () => {
