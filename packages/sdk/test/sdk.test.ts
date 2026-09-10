@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { PublicClient } from "viem";
+import type { PublicClient, WalletClient } from "viem";
 
+import { acceptFirm, depositBond, executeFirm, expireFirm, withdrawBond } from "../src/actions.js";
 import { effectiveAquaCapacity, canUseAqua } from "../src/capacity.js";
 import { buildFirmTypedData, hashFirmQuote, verifyFirmQuote } from "../src/eip712.js";
 import { buildAquaShipRequest, aquaStrategyHash } from "../src/aqua.js";
@@ -379,4 +380,62 @@ test("verifies EOA and ERC-1271 quotes through the public client", async () => {
   ), true);
   assert.equal(received?.address, quote.maker);
   assert.equal(received?.blockTag, "latest");
+});
+
+test("simulates every state-changing SDK action before wallet submission", async () => {
+  const account = "0x0000000000000000000000000000000000000001";
+  const registry = "0x0000000000000000000000000000000000000010";
+  const executor = "0x0000000000000000000000000000000000000011";
+  const vault = "0x0000000000000000000000000000000000000012";
+  const quote = buildFirmQuote({
+    maker: account,
+    taker: "0x0000000000000000000000000000000000000002",
+    executor,
+    swapRouter: "0x0000000000000000000000000000000000000003",
+    orderHash: `0x${"44".repeat(32)}`,
+    tokenIn: "0x0000000000000000000000000000000000000004",
+    tokenOut: "0x0000000000000000000000000000000000000005",
+    amountIn: 1n,
+    referenceAmountOut: 1n,
+    minAmountOut: 1n,
+    requiredBond: 1n,
+    premiumToken: "0x0000000000000000000000000000000000000004",
+    sigmaWad: 0n,
+    annualCapitalRateWad: 0n,
+    capacityKBps: 0,
+    utilizationAfterWad: 1n,
+    minPremiumOut: 0n,
+    expiry: 2n,
+    nonce: 1n,
+  }, 1n);
+  const order = buildFirmOrder(quote.maker, quote.tokenIn, quote.tokenOut);
+  const commitmentId = `0x${"55".repeat(32)}` as const;
+  const submitted: string[] = [];
+  const clients = {
+    account,
+    publicClient: {
+      simulateContract: async (request: { functionName: string }) => ({
+        request,
+        result: request.functionName === "accept"
+          ? commitmentId
+          : request.functionName === "execute" ? [3, 1n] : undefined,
+      }),
+    } as unknown as PublicClient,
+    walletClient: {
+      writeContract: async (request: { functionName: string }) => {
+        submitted.push(request.functionName);
+        return `0x${"66".repeat(32)}`;
+      },
+    } as unknown as WalletClient,
+  };
+  assert.equal((await acceptFirm(clients, registry, quote, order, "0x1234")).commitmentId, commitmentId);
+  assert.deepEqual(await executeFirm(clients, executor, commitmentId, order), {
+    hash: `0x${"66".repeat(32)}`,
+    terminalStatus: 3,
+    amountOut: 1n,
+  });
+  await expireFirm(clients, registry, commitmentId);
+  await depositBond(clients, vault, 1n);
+  await withdrawBond(clients, vault, 1n, account);
+  assert.deepEqual(submitted, ["accept", "execute", "expire", "deposit", "withdraw"]);
 });
