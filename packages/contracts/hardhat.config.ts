@@ -57,7 +57,7 @@ export default defineConfig({
   },
   test: {
     solidity: {
-      fuzz: { runs: 256 },
+      fuzz: { runs: 1_024 },
     },
   },
 });
