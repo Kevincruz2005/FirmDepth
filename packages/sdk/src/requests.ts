@@ -15,6 +15,7 @@ export const bondVaultAbi = parseAbi([
   "function availableOf(address maker) view returns (uint256)",
   "function lockedOf(address maker) view returns (uint256)",
   "function lockedFor(bytes32 commitmentId) view returns (address maker,uint256 amount)",
+  "function release(bytes32 commitmentId,address to,uint256 amount)",
   "function liabilities() view returns (uint256)",
   "function bondToken() view returns (address)",
 ]);
