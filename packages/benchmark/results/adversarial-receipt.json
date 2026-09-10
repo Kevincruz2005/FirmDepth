@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1",
+  "rawDataSha256": "540e09db25e872c670480c21b744170db521e04b4738c5a69a910468377498f3",
+  "selectionRule": "highest modeled Soft availability-loss rate among configurations admitting Firm",
+  "scenario": {
+    "seed": 3526075825,
+    "episodes": 10000,
+    "q": 400000,
+    "qFraction": 0.4,
+    "ttl": 120,
+    "sharedLiquidityRatio": 4,
+    "bondUtilization": 0.25
+  },
+  "observedCounts": {
+    "softEligibleAtT0": 10000,
+    "softAvailabilityLoss": 5853,
+    "firmFilledAqua": 4147,
+    "firmFilledBond": 5853,
+    "firmProtectedSettlements": 10000
+  },
+  "observedRates": {
+    "softAvailabilityLoss": 0.5853,
+    "firmProtectedSettlementAccepted": 1,
+    "softCapitalReuse": 0.8864750708547323,
+    "hardReservationCapitalReuse": 0.668587576958235,
+    "firmCapitalReuse": 0.8864750708547323
+  },
+  "forkReplay": {
+    "chainId": 8453,
+    "forkBlock": 51123118,
+    "officialAqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
+    "aquaExecutionTransactionHash": "0x73040676439b0e4b4d780532a7a16c9aa2520e83373889d856960e258288fcd4",
+    "bondExecutionTransactionHash": "0x90e79f99465a4433838c05ac44af35ef13d84afb1af9a0b06189a0f1d72c8936"
+  },
+  "interpretation": "Synthetic stress output only; no dollar loss or real-network failure frequency is inferred"
+}
