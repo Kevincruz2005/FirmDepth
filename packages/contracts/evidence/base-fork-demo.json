@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1",
+  "chainId": 8453,
+  "forkBlock": 51123118,
+  "officialContracts": {
+    "aqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
+    "weth": "0x4200000000000000000000000000000000000006",
+    "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+  },
+  "funding": {
+    "holder": "0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59",
+    "transactionHash": "0x3ef7dd12b9ec7e147adea6ff6e2b6c070042406aba9ae1e2b472b30eddb6b0d1",
+    "amount": "20000000000"
+  },
+  "deployedContracts": {
+    "vault": "0x69d7646A411c69631F6123B24b056732b55A898f",
+    "registry": "0x421CfCCE7dFda605ABaD32f53595E8a3f475b23D",
+    "router": "0xD3aeB9c5b11366Eb2107772d6D227564c33DA7fc",
+    "executor": "0xb5FBD9D362a5234f951b3F046E5Ee860EEd79BF5"
+  },
+  "setupTransactionHashes": [
+    "0x02b51fdebd5514432dee53186644bca928df7545ce752ff48ca02f54993138bc",
+    "0x6fd69d1d6b0279c2c046bc799a2ead3c5609ab61872d9fb48e5a3fd90d71ab7e",
+    "0x9f7f3592ce39d9c7f53a1f1341f501f67dff9b38a37e003f0a0094bf1bf18d49",
+    "0xaacdcf5fe3da8e51003fe2564ddf5ff41ad57f801db96793d9bd6d9b610060c0",
+    "0x785ca4997314b0cc18b69a39d449346e8583a1acf7fd0aff9358011ea84cb1d8",
+    "0xacd93265767f5824bfaae2dc7b0d7a9fe9305463eaa4955119c258e8b5cb283b",
+    "0xa97c77406191a1c061bc160615af78efc6424c86f96b4b5f14bc1937e845033e",
+    "0x1ae1d818245fffb15689113157d37a43274f28ba78f1a732ccbbfd9b7ea59521",
+    "0xd5103c84a71f0acb08b3065934f5789acafe47ec7eaf44fb833a15e39f8101f0"
+  ],
+  "aquaPath": {
+    "commitmentId": "0x2d6e11937f62c53887cb51fa4ab3dff6723a69cdf1cc38cdb776cdc4ce7f3d8a",
+    "acceptanceTransactionHash": "0xfedf9bc96497cb51aae1e520c048a95753411701ab15a04be960e7a595a7524d",
+    "executionTransactionHash": "0x73040676439b0e4b4d780532a7a16c9aa2520e83373889d856960e258288fcd4",
+    "acceptanceGasUsed": "710771",
+    "executionGasUsed": "338238",
+    "terminalStatus": 2,
+    "traderInputDelta": "100000000000000000",
+    "traderOutputDelta": "200000000",
+    "premiumPaidToMaker": "50000000000000"
+  },
+  "sharedLiquidityDrain": {
+    "orderHash": "0xd1d600b797a4932471e32871cc7c2c18629403c7b92a37ea02c9e69bd5e60591",
+    "shipTransactionHash": "0xb1e16154c8368eeef6a252bdc0c77dc90cce73f87c6bf277355abb9b6b5b4319",
+    "swapTransactionHash": "0x22d3527e672741925a2ada601fabe769a3955499e7a007fc88eca6ddaef60c94",
+    "swapGasUsed": "140896",
+    "makerOutputBalanceAfter": "100000000",
+    "firmEffectiveCapacityAfter": "100000000"
+  },
+  "bondPath": {
+    "commitmentId": "0x048352c20bcc76ebdfe27acad5749d88c8da5c8b5d69df08bf8a149aae8edba8",
+    "acceptanceTransactionHash": "0x1a49e45777e9648c1f7e8a3ebaa6ef5b8a7bee9d3fbdf77c1d0ff42a48c9bc3f",
+    "executionTransactionHash": "0x90e79f99465a4433838c05ac44af35ef13d84afb1af9a0b06189a0f1d72c8936",
+    "acceptanceGasUsed": "710759",
+    "executionGasUsed": "202044",
+    "terminalStatus": 3,
+    "grossTraderInputAmount": "100000000000000000",
+    "premiumRefundedToTrader": "50000000000000",
+    "netTraderInputDelta": "99950000000000000",
+    "traderOutputDelta": "200000000"
+  },
+  "depletedAcceptance": {
+    "rejected": true,
+    "revertData": "0xb1ecb1690000000000000000000000000000000000000000000000000000000005f5e100000000000000000000000000000000000000000000000000000000000bebc200"
+  },
+  "vault": {
+    "totalLocked": "0",
+    "liabilities": "800000000",
+    "tokenBalance": "800000000"
+  }
+}

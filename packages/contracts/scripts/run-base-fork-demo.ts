@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import { network } from "hardhat";
 import { ethers as ethersLibrary } from "ethers";
 
@@ -258,7 +259,7 @@ try {
   }
 }
 
-console.log(JSON.stringify({
+const evidence = {
   schemaVersion: "1",
   chainId: 8453,
   forkBlock: BASE_FORK_BLOCK,
@@ -280,6 +281,8 @@ console.log(JSON.stringify({
     commitmentId: aquaAcceptance.commitmentId,
     acceptanceTransactionHash: transactionHash(aquaAcceptance.receipt),
     executionTransactionHash: transactionHash(aquaExecutionReceipt),
+    acceptanceGasUsed: aquaAcceptance.receipt.gasUsed.toString(),
+    executionGasUsed: aquaExecutionReceipt.gasUsed.toString(),
     terminalStatus: Number(aquaCommitment.status),
     traderInputDelta: (aquaBalancesBefore.traderWeth - aquaBalancesAfter.traderWeth).toString(),
     traderOutputDelta: (aquaBalancesAfter.traderUsdc - aquaBalancesBefore.traderUsdc).toString(),
@@ -289,6 +292,7 @@ console.log(JSON.stringify({
     orderHash: softOrderHash,
     shipTransactionHash: transactionHash(shipSoftReceipt),
     swapTransactionHash: transactionHash(softSwapReceipt),
+    swapGasUsed: softSwapReceipt.gasUsed.toString(),
     makerOutputBalanceAfter: retainedMakerOutput.toString(),
     firmEffectiveCapacityAfter: capacityAfterDrain.effectiveCapacity.toString(),
   },
@@ -296,6 +300,8 @@ console.log(JSON.stringify({
     commitmentId: bondAcceptance.commitmentId,
     acceptanceTransactionHash: transactionHash(bondAcceptance.receipt),
     executionTransactionHash: transactionHash(bondExecutionReceipt),
+    acceptanceGasUsed: bondAcceptance.receipt.gasUsed.toString(),
+    executionGasUsed: bondExecutionReceipt.gasUsed.toString(),
     terminalStatus: Number(bondCommitment.status),
     grossTraderInputAmount: AMOUNT_IN.toString(),
     premiumRefundedToTrader: bondAcceptance.quote.premiumAmount.toString(),
@@ -308,7 +314,10 @@ console.log(JSON.stringify({
     liabilities: (await vault.liabilities()).toString(),
     tokenBalance: (await usdc.balanceOf(await vault.getAddress())).toString(),
   },
-}, null, 2));
+};
+await mkdir("evidence", { recursive: true });
+await writeFile("evidence/base-fork-demo.json", `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+console.log(JSON.stringify(evidence, null, 2));
 
 async function balances(makerAccount: string, traderAccount: string) {
   return {
