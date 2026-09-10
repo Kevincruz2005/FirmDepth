@@ -7,6 +7,7 @@
     "compile": "hardhat compile",
     "deploy:local": "hardhat run scripts/deploy.ts",
     "fork:base:check": "hardhat run scripts/check-base-fork.ts --network baseFork",
+    "fork:base:demo": "hardhat run scripts/run-base-fork-demo.ts --network baseFork",
     "testnet:parameters": "node --experimental-strip-types scripts/create-sepolia-parameters.ts",
     "testnet:check": "hardhat run scripts/check-testnet.ts --network sepolia",
     "testnet:deploy-fork": "hardhat ignition deploy ignition/modules/FirmDepth.ts --network sepoliaFork --parameters ignition/parameters/chain-11155111.json --deployment-id chain-31337",
