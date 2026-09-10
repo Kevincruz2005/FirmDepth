@@ -482,7 +482,34 @@ contract FirmDepthTest is Test {
         bytes32 digest = registry.quoteDigest(quote);
 
         FirmQuote memory changed = quote;
+        changed.maker = address(0x1001);
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.taker = address(0x1002);
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.executor = address(0x1003);
+        assertNotEq(registry.quoteDigest(changed), digest);
+
         changed.swapRouter = address(0x1234);
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.orderHash = bytes32(uint256(1));
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.tokenIn = address(0x1004);
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.tokenOut = address(0x1005);
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.amountIn += 1;
         assertNotEq(registry.quoteDigest(changed), digest);
 
         changed = quote;
@@ -490,11 +517,51 @@ contract FirmDepthTest is Test {
         assertNotEq(registry.quoteDigest(changed), digest);
 
         changed = quote;
+        changed.minAmountOut += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.requiredBond += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.premiumToken = address(0x1006);
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.premiumAmount += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.pricingVersion += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
         changed.sigmaWad += 1;
         assertNotEq(registry.quoteDigest(changed), digest);
 
         changed = quote;
+        changed.annualCapitalRateWad += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.capacityKBps += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
         changed.utilizationAfterWad += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.minPremiumOut += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.expiry += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.nonce += 1;
         assertNotEq(registry.quoteDigest(changed), digest);
     }
 
