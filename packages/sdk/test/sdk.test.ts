@@ -187,20 +187,31 @@ test("hashes every signed quote field deterministically", () => {
   const registry = "0x0000000000000000000000000000000000000010";
   const quote = {
     maker: "0x0000000000000000000000000000000000000001",
-    trader: "0x0000000000000000000000000000000000000002",
+    taker: "0x0000000000000000000000000000000000000002",
     executor: "0x0000000000000000000000000000000000000003",
+    swapRouter: "0x0000000000000000000000000000000000000006",
     orderHash: `0x${"11".repeat(32)}` as const,
     tokenIn: "0x0000000000000000000000000000000000000004",
     tokenOut: "0x0000000000000000000000000000000000000005",
     amountIn: 250000000000000000n,
-    minOut: 625000000n,
-    premium: 2500000n,
+    referenceAmountOut: 630000000n,
+    minAmountOut: 625000000n,
     requiredBond: 625000000n,
+    premiumToken: "0x0000000000000000000000000000000000000004",
+    premiumAmount: 250000000000000n,
+    pricingVersion: 2,
+    sigmaWad: 800000000000000000n,
+    annualCapitalRateWad: 100000000000000000n,
+    capacityKBps: 10,
+    utilizationAfterWad: 500000000000000000n,
+    minPremiumOut: 100000n,
     expiry: 2000000000n,
     nonce: 1n,
-    chainId: 31337n,
   } as const;
-  const digest = hashFirmQuote(registry, quote);
-  assert.equal(digest, hashFirmQuote(registry, quote));
-  assert.notEqual(digest, hashFirmQuote(registry, { ...quote, nonce: 2n }));
+  const digest = hashFirmQuote(registry, 31337, quote);
+  assert.equal(digest, hashFirmQuote(registry, 31337, quote));
+  assert.notEqual(digest, hashFirmQuote(registry, 31337, { ...quote, nonce: 2n }));
+  assert.notEqual(digest, hashFirmQuote(registry, 31338, quote));
+  assert.notEqual(digest, hashFirmQuote("0x0000000000000000000000000000000000000011", 31337, quote));
+  assert.notEqual(digest, hashFirmQuote(registry, 31337, { ...quote, capacityKBps: 11 }));
 });

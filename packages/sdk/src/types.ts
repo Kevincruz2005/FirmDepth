@@ -12,18 +12,26 @@ export type CommitmentStatus = (typeof commitmentStatuses)[number];
 
 export interface FirmQuote {
   maker: Address;
-  trader: Address;
+  taker: Address;
   executor: Address;
+  swapRouter: Address;
   orderHash: Hex;
   tokenIn: Address;
   tokenOut: Address;
   amountIn: bigint;
-  minOut: bigint;
-  premium: bigint;
+  referenceAmountOut: bigint;
+  minAmountOut: bigint;
   requiredBond: bigint;
+  premiumToken: Address;
+  premiumAmount: bigint;
+  pricingVersion: number;
+  sigmaWad: bigint;
+  annualCapitalRateWad: bigint;
+  capacityKBps: number;
+  utilizationAfterWad: bigint;
+  minPremiumOut: bigint;
   expiry: bigint;
   nonce: bigint;
-  chainId: bigint;
 }
 
 export interface SwapVMOrder {
