@@ -5,8 +5,6 @@ export default buildModule("FirmDepth", (module) => {
   const weth = module.getParameter("weth");
   const usdc = module.getParameter("usdc");
   const owner = module.getParameter("owner");
-  const minimumPremiumBps = module.getParameter("minimumPremiumBps");
-  const maximumPremiumBps = module.getParameter("maximumPremiumBps");
   const maxQuoteTtl = module.getParameter("maxQuoteTtl");
 
   const vault = module.contract("BondVault", [usdc, owner]);
@@ -15,8 +13,6 @@ export default buildModule("FirmDepth", (module) => {
     weth,
     usdc,
     owner,
-    minimumPremiumBps,
-    maximumPremiumBps,
     maxQuoteTtl,
   ]);
   const router = module.contract("FirmAquaSwapVMRouter", [aqua, weth, owner, registry, vault]);

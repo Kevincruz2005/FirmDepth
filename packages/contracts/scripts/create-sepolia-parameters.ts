@@ -7,15 +7,9 @@ const parameters = {
     weth: requiredAddress("WETH_ADDRESS"),
     usdc: requiredAddress("USDC_ADDRESS"),
     owner: deployerAddress(),
-    minimumPremiumBps: requiredInteger("MINIMUM_PREMIUM_BPS", 0, 10_000),
-    maximumPremiumBps: requiredInteger("MAXIMUM_PREMIUM_BPS", 0, 10_000),
-    maxQuoteTtl: requiredInteger("MAX_QUOTE_TTL", 1, 86_400),
+    maxQuoteTtl: requiredInteger("MAX_QUOTE_TTL", 1, 300),
   },
 };
-
-if (parameters.FirmDepth.minimumPremiumBps > parameters.FirmDepth.maximumPremiumBps) {
-  throw new Error("MINIMUM_PREMIUM_BPS cannot exceed MAXIMUM_PREMIUM_BPS");
-}
 
 await mkdir("ignition/parameters", { recursive: true });
 const outputPath = "ignition/parameters/chain-11155111.json";

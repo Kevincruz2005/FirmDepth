@@ -10,6 +10,7 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ISwapVM } from "@1inch/swap-vm/src/interfaces/ISwapVM.sol";
 
 import { BondVault } from "./BondVault.sol";
+import { FirmPricing } from "./libraries/FirmPricing.sol";
 import { AcceptanceSnapshot, Commitment, CommitmentStatus, FirmQuote } from "./types/FirmTypes.sol";
 
 interface IFirmAcceptanceValidator {
@@ -38,8 +39,11 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     error QuoteExpired(uint64 expiry);
     error ExpiryTooLarge(uint64 expiry);
     error QuoteTtlTooLong(uint64 expiry, uint64 maximumExpiry);
-    error InvalidPremiumPolicy(uint16 minimumBps, uint16 maximumBps, uint64 maxQuoteTtl);
-    error PremiumOutOfRange(uint256 premium, uint256 minimum, uint256 maximum);
+    error InvalidQuoteTtl(uint64 maxQuoteTtl);
+    error UnsupportedPricingVersion(uint32 pricingVersion);
+    error UnsupportedPremiumToken(address expected, address actual);
+    error PremiumMismatch(uint256 expected, uint256 actual);
+    error UtilizationMismatch(uint256 expected, uint256 actual);
     error NonceAlreadyUsed(address maker, uint256 nonce);
     error NonceBelowMinimum(address maker, uint256 nonce, uint256 minimum);
     error NonceFloorNotIncreasing(uint256 current, uint256 requested);
@@ -54,8 +58,6 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     address public immutable tokenIn;
     address public immutable tokenOut;
     address public immutable owner;
-    uint16 public immutable minimumPremiumBps;
-    uint16 public immutable maximumPremiumBps;
     uint64 public immutable maxQuoteTtl;
     address public executor;
 
@@ -91,8 +93,6 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         address tokenIn_,
         address tokenOut_,
         address owner_,
-        uint16 minimumPremiumBps_,
-        uint16 maximumPremiumBps_,
         uint64 maxQuoteTtl_
     )
         EIP712("FirmDepth", "1")
@@ -100,16 +100,12 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         if (vault_ == address(0) || tokenIn_ == address(0) || tokenOut_ == address(0) || owner_ == address(0)) {
             revert ZeroAddress();
         }
-        if (maximumPremiumBps_ > 10_000 || minimumPremiumBps_ > maximumPremiumBps_ || maxQuoteTtl_ == 0) {
-            revert InvalidPremiumPolicy(minimumPremiumBps_, maximumPremiumBps_, maxQuoteTtl_);
-        }
+        if (maxQuoteTtl_ == 0 || maxQuoteTtl_ > FirmPricing.MAX_TTL) revert InvalidQuoteTtl(maxQuoteTtl_);
         vault = BondVault(vault_);
-        premiumToken = IERC20(tokenOut_);
+        premiumToken = IERC20(tokenIn_);
         tokenIn = tokenIn_;
         tokenOut = tokenOut_;
         owner = owner_;
-        minimumPremiumBps = minimumPremiumBps_;
-        maximumPremiumBps = maximumPremiumBps_;
         maxQuoteTtl = maxQuoteTtl_;
     }
 
@@ -156,14 +152,23 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         if (quote.expiry > type(uint40).max) revert ExpiryTooLarge(quote.expiry);
         uint64 maximumExpiry = uint64(block.timestamp) + maxQuoteTtl;
         if (quote.expiry > maximumExpiry) revert QuoteTtlTooLong(quote.expiry, maximumExpiry);
-        (uint256 minimumPremium, uint256 maximumPremium) = premiumBounds(quote.minAmountOut);
-        if (quote.premiumAmount < minimumPremium || quote.premiumAmount > maximumPremium) {
-            revert PremiumOutOfRange(quote.premiumAmount, minimumPremium, maximumPremium);
+        if (quote.pricingVersion != FirmPricing.PRICING_VERSION) {
+            revert UnsupportedPricingVersion(quote.pricingVersion);
+        }
+        if (quote.premiumToken != address(premiumToken)) {
+            revert UnsupportedPremiumToken(address(premiumToken), quote.premiumToken);
         }
         uint256 nonceFloor = minimumValidNonce[quote.maker];
         if (quote.nonce < nonceFloor) revert NonceBelowMinimum(quote.maker, quote.nonce, nonceFloor);
         if (nonceUsed[quote.maker][quote.nonce]) revert NonceAlreadyUsed(quote.maker, quote.nonce);
-
+        uint256 expectedUtilization = utilizationAfter(quote.maker, quote.requiredBond);
+        if (quote.utilizationAfterWad != expectedUtilization) {
+            revert UtilizationMismatch(expectedUtilization, quote.utilizationAfterWad);
+        }
+        FirmPricing.Result memory pricing = FirmPricing.quote(_pricingInputs(quote));
+        if (quote.premiumAmount != pricing.premiumIn) {
+            revert PremiumMismatch(pricing.premiumIn, quote.premiumAmount);
+        }
         commitmentId = quoteDigest(quote);
         if (_commitments[commitmentId].status != CommitmentStatus.NONE) revert CommitmentAlreadyExists(commitmentId);
         if (!SignatureChecker.isValidSignatureNow(quote.maker, commitmentId, makerSignature)) {
@@ -288,9 +293,16 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         return _commitments[commitmentId];
     }
 
-    function premiumBounds(uint256 minOut) public view returns (uint256 minimum, uint256 maximum) {
-        minimum = Math.mulDiv(minOut, minimumPremiumBps, 10_000, Math.Rounding.Ceil);
-        maximum = Math.mulDiv(minOut, maximumPremiumBps, 10_000);
+    function utilizationAfter(address maker, uint256 requiredBond) public view returns (uint256) {
+        uint256 available = vault.availableOf(maker);
+        uint256 locked = vault.lockedOf(maker);
+        uint256 total = available + locked;
+        if (total == 0 || requiredBond > available) return FirmPricing.WAD;
+        return Math.mulDiv(locked + requiredBond, FirmPricing.WAD, total);
+    }
+
+    function quotePremium(FirmQuote calldata quote) external view returns (FirmPricing.Result memory) {
+        return FirmPricing.quote(_pricingInputs(quote));
     }
 
     function _payPremium(address recipient, uint256 amount) private {
@@ -313,5 +325,21 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         if (commitment.status != CommitmentStatus.ACCEPTED) {
             revert CommitmentNotAccepted(commitmentId, commitment.status);
         }
+    }
+
+    function _pricingInputs(FirmQuote calldata quote) private view returns (FirmPricing.Inputs memory) {
+        uint256 ttl = quote.expiry > block.timestamp ? quote.expiry - block.timestamp : 0;
+        return FirmPricing.Inputs({
+            amountIn: quote.amountIn,
+            referenceAmountOut: quote.referenceAmountOut,
+            minAmountOut: quote.minAmountOut,
+            requiredBond: quote.requiredBond,
+            sigmaWad: quote.sigmaWad,
+            annualCapitalRateWad: quote.annualCapitalRateWad,
+            capacityKBps: quote.capacityKBps,
+            utilizationAfterWad: quote.utilizationAfterWad,
+            minPremiumOut: quote.minPremiumOut,
+            ttl: ttl
+        });
     }
 }

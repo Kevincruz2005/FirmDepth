@@ -21,12 +21,12 @@ contract FirmDepthTest is Test {
     uint256 private constant TRADER_KEY = 0xB0B;
     uint256 private constant AMOUNT_IN = 0.25 ether;
     uint256 private constant MIN_OUT = 625e6;
-    uint256 private constant PREMIUM = 2_500_000;
+    uint256 private constant PREMIUM = 250_000_000_000_000;
+    uint256 private constant MIN_PREMIUM_OUT = 625_000;
+    uint256 private constant UTILIZATION_AFTER_WAD = 312_500_000_000_000_000;
     uint256 private constant BOND_DEPOSIT = 2_000e6;
     uint256 private constant AQUA_OUTPUT = 5_000e6;
-    uint16 private constant MINIMUM_PREMIUM_BPS = 20;
-    uint16 private constant MAXIMUM_PREMIUM_BPS = 100;
-    uint64 private constant MAX_QUOTE_TTL = 1 days;
+    uint64 private constant MAX_QUOTE_TTL = 300;
 
     address private maker;
     address private trader;
@@ -52,8 +52,6 @@ contract FirmDepthTest is Test {
             address(weth),
             address(usdc),
             address(this),
-            MINIMUM_PREMIUM_BPS,
-            MAXIMUM_PREMIUM_BPS,
             MAX_QUOTE_TTL
         );
         router = new FirmAquaSwapVMRouter(
@@ -78,10 +76,10 @@ contract FirmDepthTest is Test {
         usdc.approve(address(aqua), type(uint256).max);
         vm.stopPrank();
 
-        vm.prank(trader);
-        usdc.approve(address(registry), type(uint256).max);
-        vm.prank(trader);
+        vm.startPrank(trader);
+        weth.approve(address(registry), type(uint256).max);
         weth.approve(address(executor), type(uint256).max);
+        vm.stopPrank();
 
         _shipStrategy();
     }
@@ -102,8 +100,8 @@ contract FirmDepthTest is Test {
         assertEq(amountOut, MIN_OUT);
         assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN);
         assertEq(usdc.balanceOf(trader), traderUsdcBefore + MIN_OUT);
-        assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN);
-        assertEq(usdc.balanceOf(maker), makerUsdcBefore - MIN_OUT + PREMIUM);
+        assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN + PREMIUM);
+        assertEq(usdc.balanceOf(maker), makerUsdcBefore - MIN_OUT);
         assertEq(vault.availableOf(maker), BOND_DEPOSIT);
         assertEq(vault.lockedOf(maker), 0);
 
@@ -168,8 +166,8 @@ contract FirmDepthTest is Test {
 
         assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
         assertEq(amountOut, MIN_OUT);
-        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN);
-        assertEq(usdc.balanceOf(trader), traderUsdcBefore + MIN_OUT + PREMIUM);
+        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN + PREMIUM);
+        assertEq(usdc.balanceOf(trader), traderUsdcBefore + MIN_OUT);
         assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN);
         assertEq(vault.availableOf(maker), BOND_DEPOSIT - MIN_OUT);
         assertEq(vault.lockedOf(maker), 0);
@@ -222,8 +220,8 @@ contract FirmDepthTest is Test {
 
         assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
         assertEq(amountOut, MIN_OUT);
-        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN);
-        assertEq(usdc.balanceOf(trader), traderUsdcBefore + MIN_OUT + PREMIUM);
+        assertEq(weth.balanceOf(trader), traderWethBefore - AMOUNT_IN + PREMIUM);
+        assertEq(usdc.balanceOf(trader), traderUsdcBefore + MIN_OUT);
         assertEq(weth.balanceOf(maker), makerWethBefore + AMOUNT_IN);
         assertEq(vault.lockedOf(maker), 0);
     }
@@ -235,7 +233,7 @@ contract FirmDepthTest is Test {
         uint256 traderUsdcBefore = usdc.balanceOf(trader);
         uint256 makerWethBefore = weth.balanceOf(maker);
         uint256 makerUsdcBefore = usdc.balanceOf(maker);
-        uint256 registryPremiumBefore = usdc.balanceOf(address(registry));
+        uint256 registryPremiumBefore = weth.balanceOf(address(registry));
         (uint248 virtualWethBefore,) = aqua.rawBalances(
             maker,
             address(router),
@@ -263,7 +261,7 @@ contract FirmDepthTest is Test {
         assertEq(weth.balanceOf(address(executor)), 0);
         assertEq(weth.balanceOf(address(router)), 0);
         assertEq(weth.allowance(address(executor), address(router)), 0);
-        assertEq(usdc.balanceOf(address(registry)), registryPremiumBefore);
+        assertEq(weth.balanceOf(address(registry)), registryPremiumBefore);
         (uint248 virtualWethAfter,) = aqua.rawBalances(
             maker,
             address(router),
@@ -432,13 +430,13 @@ contract FirmDepthTest is Test {
 
     function testExpiryReturnsBondAndPaysPremiumToMaker() public {
         (bytes32 commitmentId, FirmQuote memory quote) = _accept(5);
-        uint256 makerBefore = usdc.balanceOf(maker);
+        uint256 makerBefore = weth.balanceOf(maker);
         vm.warp(uint256(quote.expiry) + 1);
 
         registry.expire(commitmentId);
 
         assertEq(vault.availableOf(maker), BOND_DEPOSIT);
-        assertEq(usdc.balanceOf(maker), makerBefore + PREMIUM);
+        assertEq(weth.balanceOf(maker), makerBefore + PREMIUM);
         assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.EXPIRED));
     }
 
@@ -500,26 +498,21 @@ contract FirmDepthTest is Test {
     }
 
     function testPremiumAndTtlPolicyAreEnforcedOnchain() public {
-        (uint256 minimumPremium, uint256 maximumPremium) = registry.premiumBounds(MIN_OUT);
-        assertEq(minimumPremium, 1_250_000);
-        assertEq(maximumPremium, 6_250_000);
-
-        FirmQuote memory belowMinimum = _quote(40);
-        belowMinimum.premiumAmount = minimumPremium - 1;
-        bytes memory belowMinimumSignature = _sign(belowMinimum);
+        FirmQuote memory wrongPremium = _quote(40);
+        wrongPremium.premiumAmount = PREMIUM - 1;
+        bytes memory wrongPremiumSignature = _sign(wrongPremium);
         vm.expectRevert(
             abi.encodeWithSelector(
-                FirmCommitmentRegistry.PremiumOutOfRange.selector,
-                minimumPremium - 1,
-                minimumPremium,
-                maximumPremium
+                FirmCommitmentRegistry.PremiumMismatch.selector,
+                PREMIUM,
+                PREMIUM - 1
             )
         );
         vm.prank(trader);
-        registry.accept(belowMinimum, _order(), belowMinimumSignature);
+        registry.accept(wrongPremium, _order(), wrongPremiumSignature);
 
         FirmQuote memory ttlTooLong = _quote(41);
-        ttlTooLong.expiry += 1;
+        ttlTooLong.expiry = uint64(block.timestamp) + MAX_QUOTE_TTL + 1;
         bytes memory ttlTooLongSignature = _sign(ttlTooLong);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -530,6 +523,52 @@ contract FirmDepthTest is Test {
         );
         vm.prank(trader);
         registry.accept(ttlTooLong, _order(), ttlTooLongSignature);
+    }
+
+    function testPricingSnapshotTermsAreEnforcedOnchain() public {
+        FirmQuote memory wrongVersion = _quote(45);
+        wrongVersion.pricingVersion = 3;
+        bytes memory wrongVersionSignature = _sign(wrongVersion);
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.UnsupportedPricingVersion.selector, uint32(3))
+        );
+        vm.prank(trader);
+        registry.accept(wrongVersion, _order(), wrongVersionSignature);
+
+        FirmQuote memory wrongToken = _quote(46);
+        wrongToken.premiumToken = address(usdc);
+        bytes memory wrongTokenSignature = _sign(wrongToken);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmCommitmentRegistry.UnsupportedPremiumToken.selector,
+                address(weth),
+                address(usdc)
+            )
+        );
+        vm.prank(trader);
+        registry.accept(wrongToken, _order(), wrongTokenSignature);
+
+        FirmQuote memory wrongUtilization = _quote(47);
+        wrongUtilization.utilizationAfterWad += 1;
+        bytes memory wrongUtilizationSignature = _sign(wrongUtilization);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmCommitmentRegistry.UtilizationMismatch.selector,
+                UTILIZATION_AFTER_WAD,
+                UTILIZATION_AFTER_WAD + 1
+            )
+        );
+        vm.prank(trader);
+        registry.accept(wrongUtilization, _order(), wrongUtilizationSignature);
+    }
+
+    function testAcceptanceEscrowsPremiumInTokenIn() public {
+        uint256 traderBefore = weth.balanceOf(trader);
+        _accept(48);
+
+        assertEq(weth.balanceOf(trader), traderBefore - PREMIUM);
+        assertEq(weth.balanceOf(address(registry)), PREMIUM);
+        assertEq(usdc.balanceOf(address(registry)), 0);
     }
 
     function testFuzzVaultConservesLiabilities(uint96 rawDeposit, uint96 rawWithdrawal) public {
@@ -572,15 +611,15 @@ contract FirmDepthTest is Test {
             referenceAmountOut: MIN_OUT,
             minAmountOut: MIN_OUT,
             requiredBond: MIN_OUT,
-            premiumToken: address(usdc),
+            premiumToken: address(weth),
             premiumAmount: PREMIUM,
             pricingVersion: 2,
             sigmaWad: 0,
             annualCapitalRateWad: 0,
             capacityKBps: 0,
-            utilizationAfterWad: 0,
-            minPremiumOut: 0,
-            expiry: uint64(block.timestamp + 1 days),
+            utilizationAfterWad: UTILIZATION_AFTER_WAD,
+            minPremiumOut: MIN_PREMIUM_OUT,
+            expiry: uint64(block.timestamp + 30),
             nonce: nonce
         });
     }

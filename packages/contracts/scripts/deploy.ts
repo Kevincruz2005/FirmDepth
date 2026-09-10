@@ -6,9 +6,7 @@ const [owner] = await ethers.getSigners();
 if (owner === undefined) throw new Error("No deployer account is available");
 
 const ownerAddress = await owner.getAddress();
-const minimumPremiumBps = readInteger("MINIMUM_PREMIUM_BPS", 20, 0, 10_000);
-const maximumPremiumBps = readInteger("MAXIMUM_PREMIUM_BPS", 100, minimumPremiumBps, 10_000);
-const maxQuoteTtl = readInteger("MAX_QUOTE_TTL", 120, 1, 86_400);
+const maxQuoteTtl = readInteger("MAX_QUOTE_TTL", 120, 1, 300);
 const weth = await ethers.deployContract("MockERC20", ["Wrapped Ether", "WETH", 18]);
 const usdc = await ethers.deployContract("MockERC20", ["USD Coin", "USDC", 6]);
 const aqua = await ethers.deployContract("OfficialAqua");
@@ -21,8 +19,6 @@ const registry = await ethers.deployContract("FirmCommitmentRegistry", [
   await weth.getAddress(),
   await usdc.getAddress(),
   ownerAddress,
-  minimumPremiumBps,
-  maximumPremiumBps,
   maxQuoteTtl,
 ]);
 await registry.waitForDeployment();
@@ -69,9 +65,8 @@ const artifact = {
     firmGuard: 0x21,
     program: "0x52002100",
   },
-  premiumPolicy: {
-    minimumPremiumBps,
-    maximumPremiumBps,
+  pricingPolicy: {
+    version: 2,
     maxQuoteTtl,
   },
 };
