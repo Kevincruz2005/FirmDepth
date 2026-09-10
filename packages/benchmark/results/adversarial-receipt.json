@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "rawDataSha256": "540e09db25e872c670480c21b744170db521e04b4738c5a69a910468377498f3",
+  "rawDataSha256": "9f047bf44b8cb92af0f3881a417490e7e9243b7166cba3622643483b973072ae",
   "selectionRule": "highest modeled Soft availability-loss rate among configurations admitting Firm",
   "scenario": {
     "seed": 3526075825,
@@ -29,8 +29,8 @@
     "chainId": 8453,
     "forkBlock": 51123118,
     "officialAqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
-    "aquaExecutionTransactionHash": "0x73040676439b0e4b4d780532a7a16c9aa2520e83373889d856960e258288fcd4",
-    "bondExecutionTransactionHash": "0x90e79f99465a4433838c05ac44af35ef13d84afb1af9a0b06189a0f1d72c8936"
+    "aquaExecutionTransactionHash": "0x6c0849a5f80fa5cdf8c611b1d90b0e07851927fd8fa7c2a53c135e40f04705d4",
+    "bondExecutionTransactionHash": "0x805554cd9714b78ac6a08cbb5b249aca85e7789133bc32f362868897b9080861"
   },
   "interpretation": "Synthetic stress output only; no dollar loss or real-network failure frequency is inferred"
 }
