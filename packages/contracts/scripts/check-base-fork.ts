@@ -8,6 +8,8 @@ const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const { ethers } = await network.create();
 const chain = await ethers.provider.getNetwork();
 if (chain.chainId !== 8453n) throw new Error(`Expected Base chain 8453, received ${chain.chainId}`);
+const forkBlock = await ethers.provider.getBlock("latest");
+if (forkBlock === null) throw new Error("Pinned Base fork block is unavailable");
 
 const addresses = { aqua: AQUA, swapVmRouter: SWAP_VM_ROUTER, weth: WETH, usdc: USDC };
 const bytecodeBytes: Record<string, number> = {};
@@ -37,7 +39,9 @@ if (emptyBalance[0] !== 0n || emptyBalance[1] !== 0n) throw new Error("Official 
 
 console.log(JSON.stringify({
   chainId: Number(chain.chainId),
-  blockNumber: await ethers.provider.getBlockNumber(),
+  blockNumber: forkBlock.number,
+  blockTimestamp: forkBlock.timestamp,
+  blockHash: forkBlock.hash,
   addresses,
   bytecodeBytes,
   tokenMetadata: {

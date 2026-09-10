@@ -358,8 +358,10 @@ const evidence = {
     tokenBalance: (await usdc.balanceOf(await vault.getAddress())).toString(),
   },
 };
-await mkdir("evidence", { recursive: true });
-await writeFile("evidence/base-fork-demo.json", `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+if (process.env.WRITE_FORK_EVIDENCE === "1") {
+  await mkdir("evidence", { recursive: true });
+  await writeFile("evidence/base-fork-demo.json", `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+}
 console.log(JSON.stringify(evidence, null, 2));
 
 async function balances(makerAccount: string, traderAccount: string) {
