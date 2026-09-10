@@ -847,6 +847,20 @@ contract FirmDepthTest is Test {
         assertEq(vault.availableOf(anotherMaker), depositAmount - withdrawal);
     }
 
+    function testWithdrawalRevertsUnlessBondTokenMovesExactly() public {
+        uint256 makerAvailableBefore = vault.availableOf(maker);
+        uint256 vaultBalanceBefore = usdc.balanceOf(address(vault));
+        usdc.setTransferSkips(true);
+
+        vm.expectRevert(BondVault.DeflationaryTokenUnsupported.selector);
+        vm.prank(maker);
+        vault.withdraw(1e6, maker);
+
+        assertEq(vault.availableOf(maker), makerAvailableBefore);
+        assertEq(vault.liabilities(), vaultBalanceBefore);
+        assertEq(usdc.balanceOf(address(vault)), vaultBalanceBefore);
+    }
+
     function _accept(uint256 nonce) private returns (bytes32 commitmentId, FirmQuote memory quote) {
         quote = _quote(nonce);
         bytes memory signature = _sign(quote);

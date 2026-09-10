@@ -83,7 +83,17 @@ contract BondVault is ReentrancyGuard {
 
         availableOf[msg.sender] = available - amount;
         totalAvailable -= amount;
+        uint256 vaultBefore = bondToken.balanceOf(address(this));
+        uint256 recipientBefore = bondToken.balanceOf(to);
         bondToken.safeTransfer(to, amount);
+        uint256 vaultAfter = bondToken.balanceOf(address(this));
+        uint256 recipientAfter = bondToken.balanceOf(to);
+        if (
+            vaultBefore < vaultAfter
+                || vaultBefore - vaultAfter != amount
+                || recipientAfter < recipientBefore
+                || recipientAfter - recipientBefore != amount
+        ) revert DeflationaryTokenUnsupported();
         emit Withdrawn(msg.sender, to, amount);
     }
 
