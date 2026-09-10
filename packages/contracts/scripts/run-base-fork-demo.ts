@@ -54,10 +54,11 @@ if (owner === undefined || maker === undefined || trader === undefined || draine
   throw new Error("Base fork demo requires four funded Hardhat accounts");
 }
 
-const [ownerAddress, makerAddress, traderAddress] = await Promise.all([
+const [ownerAddress, makerAddress, traderAddress, drainerAddress] = await Promise.all([
   owner.getAddress(),
   maker.getAddress(),
   trader.getAddress(),
+  drainer.getAddress(),
 ]);
 const usdc = new ethers.Contract(BASE_USDC, [
   "function balanceOf(address) view returns (uint256)",
@@ -210,6 +211,9 @@ if (drainOutput <= 0n) throw new Error("Maker has insufficient live USDC to run 
 const softProgram = ethers.concat(["0x5000", "0x0208", ethers.toBeHex(77, 8)]);
 const softOrder = buildAquaOrder(makerAddress, BASE_WETH, BASE_USDC, softProgram);
 const softOrderHash = await router.hash(softOrder);
+const siblingSoftProgram = ethers.concat(["0x5000", "0x0208", ethers.toBeHex(78, 8)]);
+const siblingSoftOrder = buildAquaOrder(makerAddress, BASE_WETH, BASE_USDC, siblingSoftProgram);
+const siblingSoftOrderHash = await router.hash(siblingSoftOrder);
 const shipSoft = await aqua.connect(maker).ship(
   await router.getAddress(),
   encodeAquaStrategy(softOrder),
@@ -217,6 +221,13 @@ const shipSoft = await aqua.connect(maker).ship(
   [0n, drainOutput],
 );
 const shipSoftReceipt = await shipSoft.wait();
+const shipSiblingSoft = await aqua.connect(maker).ship(
+  await router.getAddress(),
+  encodeAquaStrategy(siblingSoftOrder),
+  [BASE_WETH, BASE_USDC],
+  [0n, drainOutput],
+);
+const shipSiblingSoftReceipt = await shipSiblingSoft.wait();
 await (await weth.connect(drainer).deposit({ value: ethers.parseEther("1") })).wait();
 await (await weth.connect(drainer).approve(await router.getAddress(), ethers.MaxUint256)).wait();
 const softSwap = await router.connect(drainer).swap(
@@ -226,6 +237,32 @@ const softSwap = await router.connect(drainer).swap(
 );
 const softSwapReceipt = await softSwap.wait();
 assertEqual(BigInt(await usdc.balanceOf(makerAddress)), retainedMakerOutput, "post-drain maker output");
+
+await (await weth.connect(drainer).deposit({ value: ethers.parseEther("1") })).wait();
+const failedSoftBalancesBefore = await balances(makerAddress, drainerAddress);
+const failedSoftTransaction = await drainer.sendTransaction({
+  to: await router.getAddress(),
+  data: router.interface.encodeFunctionData("swap", [
+    siblingSoftOrder,
+    ethers.parseEther("1"),
+    buildSoftTakerTraits(BASE_WETH, BASE_USDC),
+  ]),
+  gasLimit: 2_000_000,
+});
+let failedSoftReceipt;
+try {
+  failedSoftReceipt = await failedSoftTransaction.wait();
+} catch (error) {
+  failedSoftReceipt = extractReceipt(error);
+}
+if (failedSoftReceipt === null || failedSoftReceipt.status !== 0) {
+  throw new Error("Depleted sibling Soft transaction did not revert");
+}
+const failedSoftBalancesAfter = await balances(makerAddress, drainerAddress);
+assertEqual(failedSoftBalancesAfter.makerWeth, failedSoftBalancesBefore.makerWeth, "failed Soft maker input");
+assertEqual(failedSoftBalancesAfter.makerUsdc, failedSoftBalancesBefore.makerUsdc, "failed Soft maker output");
+assertEqual(failedSoftBalancesAfter.traderWeth, failedSoftBalancesBefore.traderWeth, "failed Soft taker input");
+assertEqual(failedSoftBalancesAfter.traderUsdc, failedSoftBalancesBefore.traderUsdc, "failed Soft taker output");
 
 const capacityAfterDrain = await executor.capacity(bondAcceptance.commitmentId);
 assertEqual(capacityAfterDrain.effectiveCapacity, retainedMakerOutput, "post-drain effective capacity");
@@ -290,9 +327,15 @@ const evidence = {
   },
   sharedLiquidityDrain: {
     orderHash: softOrderHash,
+    siblingOrderHash: siblingSoftOrderHash,
     shipTransactionHash: transactionHash(shipSoftReceipt),
+    siblingShipTransactionHash: transactionHash(shipSiblingSoftReceipt),
     swapTransactionHash: transactionHash(softSwapReceipt),
     swapGasUsed: softSwapReceipt.gasUsed.toString(),
+    failedSiblingTransactionHash: transactionHash(failedSoftReceipt),
+    failedSiblingGasUsed: failedSoftReceipt.gasUsed.toString(),
+    failedSiblingStatus: failedSoftReceipt.status,
+    failedSiblingAtomic: true,
     makerOutputBalanceAfter: retainedMakerOutput.toString(),
     firmEffectiveCapacityAfter: capacityAfterDrain.effectiveCapacity.toString(),
   },
@@ -343,4 +386,12 @@ function extractRevertData(error: unknown): string {
   if (typeof record.data === "string") return record.data;
   if (typeof record.error === "object" && record.error !== null) return extractRevertData(record.error);
   return "";
+}
+
+function extractReceipt(error: unknown) {
+  if (typeof error !== "object" || error === null) return null;
+  const record = error as Record<string, unknown>;
+  if (typeof record.receipt === "object" && record.receipt !== null) return record.receipt as Awaited<ReturnType<typeof failedSoftTransaction.wait>>;
+  if (typeof record.error === "object" && record.error !== null) return extractReceipt(record.error);
+  return null;
 }

@@ -9,7 +9,7 @@
   },
   "funding": {
     "holder": "0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59",
-    "transactionHash": "0x3ef7dd12b9ec7e147adea6ff6e2b6c070042406aba9ae1e2b472b30eddb6b0d1",
+    "transactionHash": "0x65ce92ec865c97a99813daf043c05883c0bcff9943b85c3c69a48effe0e823b7",
     "amount": "20000000000"
   },
   "deployedContracts": {
@@ -19,20 +19,20 @@
     "executor": "0xb5FBD9D362a5234f951b3F046E5Ee860EEd79BF5"
   },
   "setupTransactionHashes": [
-    "0x02b51fdebd5514432dee53186644bca928df7545ce752ff48ca02f54993138bc",
-    "0x6fd69d1d6b0279c2c046bc799a2ead3c5609ab61872d9fb48e5a3fd90d71ab7e",
-    "0x9f7f3592ce39d9c7f53a1f1341f501f67dff9b38a37e003f0a0094bf1bf18d49",
-    "0xaacdcf5fe3da8e51003fe2564ddf5ff41ad57f801db96793d9bd6d9b610060c0",
-    "0x785ca4997314b0cc18b69a39d449346e8583a1acf7fd0aff9358011ea84cb1d8",
-    "0xacd93265767f5824bfaae2dc7b0d7a9fe9305463eaa4955119c258e8b5cb283b",
-    "0xa97c77406191a1c061bc160615af78efc6424c86f96b4b5f14bc1937e845033e",
-    "0x1ae1d818245fffb15689113157d37a43274f28ba78f1a732ccbbfd9b7ea59521",
-    "0xd5103c84a71f0acb08b3065934f5789acafe47ec7eaf44fb833a15e39f8101f0"
+    "0xfd2ee9c40a257088ab95433058119475f14e58e5a61a14697bcd27cb77e12d36",
+    "0x8391c179ce592c8f77aff587cdb5c544111d3aef8d763f314f55aa8026ab87f9",
+    "0x3a0f4268127a3e2c3997ec76aab4e8feddb29f01cdbc10396761bcb73e2b0a7a",
+    "0x0a0954c2f22e550bec82a10e0dd2da3792271529c0f11e91a4b7bae97eb41761",
+    "0x661d71f883fb4598813f4668a8c0b640be5c8c2286adc3594944200db8cb3b34",
+    "0x1f08ef68057c3300c56d50102b73717e01b48c549d18fac057eed56e51d48449",
+    "0x93a3c0f186fcefec26c05e62e559dd8951c96d81c5d2bcb89a9eca14091ba33d",
+    "0xbf8ccbf54db5419df357e3313a9203c668965d52d5ad286907e871443f340e89",
+    "0x65c4d399e9aca483e745241cf0300d9d44e24da9d4b4f0a12b3e25134d37bcd8"
   ],
   "aquaPath": {
     "commitmentId": "0x2d6e11937f62c53887cb51fa4ab3dff6723a69cdf1cc38cdb776cdc4ce7f3d8a",
-    "acceptanceTransactionHash": "0xfedf9bc96497cb51aae1e520c048a95753411701ab15a04be960e7a595a7524d",
-    "executionTransactionHash": "0x73040676439b0e4b4d780532a7a16c9aa2520e83373889d856960e258288fcd4",
+    "acceptanceTransactionHash": "0x9fecbb7ed253cd6462c0efb7131d307c7b8c67ced1374035e0694ac009af1851",
+    "executionTransactionHash": "0x6c0849a5f80fa5cdf8c611b1d90b0e07851927fd8fa7c2a53c135e40f04705d4",
     "acceptanceGasUsed": "710771",
     "executionGasUsed": "338238",
     "terminalStatus": 2,
@@ -42,16 +42,22 @@
   },
   "sharedLiquidityDrain": {
     "orderHash": "0xd1d600b797a4932471e32871cc7c2c18629403c7b92a37ea02c9e69bd5e60591",
-    "shipTransactionHash": "0xb1e16154c8368eeef6a252bdc0c77dc90cce73f87c6bf277355abb9b6b5b4319",
-    "swapTransactionHash": "0x22d3527e672741925a2ada601fabe769a3955499e7a007fc88eca6ddaef60c94",
+    "siblingOrderHash": "0x45a909eca9504085b614890fb8c11c1c4a5bb0b3929b5bb501e3c0603e03a318",
+    "shipTransactionHash": "0x90645af6ae96dc7825ab2bd25744106edd2199d874bf44653245e64abf21817c",
+    "siblingShipTransactionHash": "0x19b284a698f65489d6429c8d27d7dd55c844b0af1868934e7960ade1573b1804",
+    "swapTransactionHash": "0x481df1e4878a488c7b9f8ed5d91250f4e82a0642712cbce266513937a86462d5",
     "swapGasUsed": "140896",
+    "failedSiblingTransactionHash": "0xb4035f9328024aad17c5356d8fe10fa4479050ab6579934662911cd4ca0f934a",
+    "failedSiblingGasUsed": "141226",
+    "failedSiblingStatus": 0,
+    "failedSiblingAtomic": true,
     "makerOutputBalanceAfter": "100000000",
     "firmEffectiveCapacityAfter": "100000000"
   },
   "bondPath": {
     "commitmentId": "0x048352c20bcc76ebdfe27acad5749d88c8da5c8b5d69df08bf8a149aae8edba8",
-    "acceptanceTransactionHash": "0x1a49e45777e9648c1f7e8a3ebaa6ef5b8a7bee9d3fbdf77c1d0ff42a48c9bc3f",
-    "executionTransactionHash": "0x90e79f99465a4433838c05ac44af35ef13d84afb1af9a0b06189a0f1d72c8936",
+    "acceptanceTransactionHash": "0x27795ec829c46a518923003314eedceff8a22722bb6b3ea4c3bb3e5b428143c7",
+    "executionTransactionHash": "0x805554cd9714b78ac6a08cbb5b249aca85e7789133bc32f362868897b9080861",
     "acceptanceGasUsed": "710759",
     "executionGasUsed": "202044",
     "terminalStatus": 3,

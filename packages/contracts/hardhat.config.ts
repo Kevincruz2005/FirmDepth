@@ -50,6 +50,7 @@ export default defineConfig({
       type: "edr-simulated",
       chainType: "op",
       chainId: 8453,
+      throwOnTransactionFailures: false,
       forking: {
         url: process.env.BASE_RPC_URL ?? "https://mainnet.base.org",
         blockNumber: baseForkBlock,
