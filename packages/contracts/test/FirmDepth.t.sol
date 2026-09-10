@@ -441,6 +441,42 @@ contract FirmDepthTest is Test {
         executor.execute(commitmentId, _order());
     }
 
+    function testOnlySignedTakerCanAcceptAndExecute() public {
+        address unauthorized = makeAddr("unauthorized");
+        FirmQuote memory quote = _quote(94);
+        bytes memory signature = _sign(quote);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.WrongTaker.selector, trader, unauthorized)
+        );
+        vm.prank(unauthorized);
+        registry.accept(quote, _order(), signature);
+
+        vm.prank(trader);
+        bytes32 commitmentId = registry.accept(quote, _order(), signature);
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmExecutor.UnauthorizedTrader.selector, trader, unauthorized)
+        );
+        vm.prank(unauthorized);
+        executor.execute(commitmentId, _order());
+    }
+
+    function testQuoteCannotSelectAnotherExecutor() public {
+        FirmQuote memory quote = _quote(95);
+        quote.executor = makeAddr("other executor");
+        bytes memory signature = _sign(quote);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FirmCommitmentRegistry.WrongExecutor.selector,
+                address(executor),
+                quote.executor
+            )
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), signature);
+    }
+
     function testQuoteDigestBindsRouterAndPricingTerms() public view {
         FirmQuote memory quote = _quote(44);
         bytes32 digest = registry.quoteDigest(quote);
@@ -578,6 +614,26 @@ contract FirmDepthTest is Test {
         );
         vm.prank(trader);
         registry.accept(quote, _order(), signature);
+    }
+
+    function testAcceptanceRequiresEnoughUnlockedMakerCollateral() public {
+        FirmQuote memory quote = _quote(96);
+        quote.requiredBond = BOND_DEPOSIT + 1;
+        quote.utilizationAfterWad = registry.utilizationAfter(maker, quote.requiredBond);
+        bytes memory signature = _sign(quote);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BondVault.InsufficientAvailable.selector,
+                BOND_DEPOSIT,
+                BOND_DEPOSIT + 1
+            )
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), signature);
+
+        assertEq(vault.lockedOf(maker), 0);
+        assertFalse(registry.nonceUsed(maker, quote.nonce));
     }
 
     function testBondSettlementRevertsIfOutputTokenDoesNotMove() public {
