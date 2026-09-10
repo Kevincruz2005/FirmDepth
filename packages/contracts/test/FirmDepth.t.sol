@@ -342,6 +342,27 @@ contract FirmDepthTest is Test {
         executor.execute(commitmentId, _order());
     }
 
+    function testQuoteDigestBindsRouterAndPricingTerms() public view {
+        FirmQuote memory quote = _quote(44);
+        bytes32 digest = registry.quoteDigest(quote);
+
+        FirmQuote memory changed = quote;
+        changed.swapRouter = address(0x1234);
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.referenceAmountOut += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.sigmaWad += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+
+        changed = quote;
+        changed.utilizationAfterWad += 1;
+        assertNotEq(registry.quoteDigest(changed), digest);
+    }
+
     function testBondSettlementIsTerminalAndLockedCollateralCannotBeWithdrawn() public {
         (bytes32 commitmentId,) = _accept(6);
 
@@ -477,7 +498,7 @@ contract FirmDepthTest is Test {
         assertEq(maximumPremium, 6_250_000);
 
         FirmQuote memory belowMinimum = _quote(40);
-        belowMinimum.premium = minimumPremium - 1;
+        belowMinimum.premiumAmount = minimumPremium - 1;
         bytes memory belowMinimumSignature = _sign(belowMinimum);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -534,18 +555,26 @@ contract FirmDepthTest is Test {
     function _quoteForOrder(uint256 nonce, ISwapVM.Order memory order) private view returns (FirmQuote memory) {
         return FirmQuote({
             maker: maker,
-            trader: trader,
+            taker: trader,
             executor: address(executor),
+            swapRouter: address(router),
             orderHash: router.hash(order),
             tokenIn: address(weth),
             tokenOut: address(usdc),
             amountIn: AMOUNT_IN,
-            minOut: MIN_OUT,
-            premium: PREMIUM,
+            referenceAmountOut: MIN_OUT,
+            minAmountOut: MIN_OUT,
             requiredBond: MIN_OUT,
+            premiumToken: address(usdc),
+            premiumAmount: PREMIUM,
+            pricingVersion: 2,
+            sigmaWad: 0,
+            annualCapitalRateWad: 0,
+            capacityKBps: 0,
+            utilizationAfterWad: 0,
+            minPremiumOut: 0,
             expiry: uint64(block.timestamp + 1 days),
-            nonce: nonce,
-            chainId: block.chainid
+            nonce: nonce
         });
     }
 

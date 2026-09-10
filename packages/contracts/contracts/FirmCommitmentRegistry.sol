@@ -15,16 +15,15 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bytes32 public constant FIRM_QUOTE_TYPEHASH = keccak256(
-        "FirmQuote(address maker,address trader,address executor,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 minOut,uint256 premium,uint256 requiredBond,uint64 expiry,uint256 nonce,uint256 chainId)"
+        "FirmQuote(address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint64 expiry,uint256 nonce)"
     );
 
     error Unauthorized();
     error ZeroAddress();
     error ExecutorAlreadySet();
     error ExecutorNotSet();
-    error WrongTrader(address expected, address actual);
+    error WrongTaker(address expected, address actual);
     error WrongExecutor(address expected, address actual);
-    error WrongChain(uint256 expected, uint256 actual);
     error UnsupportedPair(address tokenIn, address tokenOut);
     error InvalidAmount();
     error BondMustEqualMinOut(uint256 bond, uint256 minOut);
@@ -62,11 +61,11 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     event CommitmentAccepted(
         bytes32 indexed commitmentId,
         address indexed maker,
-        address indexed trader,
+        address indexed taker,
         bytes32 orderHash,
         uint256 amountIn,
-        uint256 minOut,
-        uint256 premium,
+        uint256 minAmountOut,
+        uint256 premiumAmount,
         uint64 expiry,
         uint256 nonce
     );
@@ -122,22 +121,29 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         returns (bytes32 commitmentId)
     {
         if (executor == address(0)) revert ExecutorNotSet();
-        if (msg.sender != quote.trader) revert WrongTrader(quote.trader, msg.sender);
+        if (msg.sender != quote.taker) revert WrongTaker(quote.taker, msg.sender);
         if (quote.executor != executor) revert WrongExecutor(executor, quote.executor);
-        if (quote.chainId != block.chainid) revert WrongChain(block.chainid, quote.chainId);
         if (quote.tokenIn != tokenIn || quote.tokenOut != tokenOut) {
             revert UnsupportedPair(quote.tokenIn, quote.tokenOut);
         }
-        if (quote.maker == address(0) || quote.trader == address(0) || quote.orderHash == bytes32(0)) revert ZeroAddress();
-        if (quote.amountIn == 0 || quote.minOut == 0) revert InvalidAmount();
-        if (quote.requiredBond != quote.minOut) revert BondMustEqualMinOut(quote.requiredBond, quote.minOut);
+        if (
+            quote.maker == address(0)
+                || quote.taker == address(0)
+                || quote.swapRouter == address(0)
+                || quote.premiumToken == address(0)
+                || quote.orderHash == bytes32(0)
+        ) revert ZeroAddress();
+        if (quote.amountIn == 0 || quote.referenceAmountOut == 0 || quote.minAmountOut == 0) revert InvalidAmount();
+        if (quote.requiredBond != quote.minAmountOut) {
+            revert BondMustEqualMinOut(quote.requiredBond, quote.minAmountOut);
+        }
         if (quote.expiry <= block.timestamp) revert QuoteExpired(quote.expiry);
         if (quote.expiry > type(uint40).max) revert ExpiryTooLarge(quote.expiry);
         uint64 maximumExpiry = uint64(block.timestamp) + maxQuoteTtl;
         if (quote.expiry > maximumExpiry) revert QuoteTtlTooLong(quote.expiry, maximumExpiry);
-        (uint256 minimumPremium, uint256 maximumPremium) = premiumBounds(quote.minOut);
-        if (quote.premium < minimumPremium || quote.premium > maximumPremium) {
-            revert PremiumOutOfRange(quote.premium, minimumPremium, maximumPremium);
+        (uint256 minimumPremium, uint256 maximumPremium) = premiumBounds(quote.minAmountOut);
+        if (quote.premiumAmount < minimumPremium || quote.premiumAmount > maximumPremium) {
+            revert PremiumOutOfRange(quote.premiumAmount, minimumPremium, maximumPremium);
         }
         uint256 nonceFloor = minimumValidNonce[quote.maker];
         if (quote.nonce < nonceFloor) revert NonceBelowMinimum(quote.maker, quote.nonce, nonceFloor);
@@ -158,10 +164,10 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         });
 
         vault.lock(commitmentId, quote.maker, quote.requiredBond);
-        if (quote.premium != 0) {
+        if (quote.premiumAmount != 0) {
             uint256 beforeBalance = premiumToken.balanceOf(address(this));
-            premiumToken.safeTransferFrom(quote.trader, address(this), quote.premium);
-            if (premiumToken.balanceOf(address(this)) - beforeBalance != quote.premium) {
+            premiumToken.safeTransferFrom(quote.taker, address(this), quote.premiumAmount);
+            if (premiumToken.balanceOf(address(this)) - beforeBalance != quote.premiumAmount) {
                 revert DeflationaryTokenUnsupported();
             }
         }
@@ -169,11 +175,11 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         emit CommitmentAccepted(
             commitmentId,
             quote.maker,
-            quote.trader,
+            quote.taker,
             quote.orderHash,
             quote.amountIn,
-            quote.minOut,
-            quote.premium,
+            quote.minAmountOut,
+            quote.premiumAmount,
             quote.expiry,
             quote.nonce
         );
@@ -186,7 +192,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         commitment.settledAt = uint64(block.timestamp);
 
         vault.unlock(commitmentId);
-        _payPremium(commitment.quote.maker, commitment.quote.premium);
+        _payPremium(commitment.quote.maker, commitment.quote.premiumAmount);
         emit CommitmentSettled(commitmentId, CommitmentStatus.FILLED_AQUA, commitment.quote.maker);
     }
 
@@ -196,9 +202,9 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         commitment.status = CommitmentStatus.FILLED_BOND;
         commitment.settledAt = uint64(block.timestamp);
 
-        vault.release(commitmentId, commitment.quote.trader);
-        _payPremium(commitment.quote.trader, commitment.quote.premium);
-        emit CommitmentSettled(commitmentId, CommitmentStatus.FILLED_BOND, commitment.quote.trader);
+        vault.release(commitmentId, commitment.quote.taker);
+        _payPremium(commitment.quote.taker, commitment.quote.premiumAmount);
+        emit CommitmentSettled(commitmentId, CommitmentStatus.FILLED_BOND, commitment.quote.taker);
     }
 
     function expire(bytes32 commitmentId) external nonReentrant {
@@ -210,7 +216,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         commitment.settledAt = uint64(block.timestamp);
 
         vault.unlock(commitmentId);
-        _payPremium(commitment.quote.maker, commitment.quote.premium);
+        _payPremium(commitment.quote.maker, commitment.quote.premiumAmount);
         emit CommitmentSettled(commitmentId, CommitmentStatus.EXPIRED, commitment.quote.maker);
     }
 
@@ -230,18 +236,26 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         return _hashTypedDataV4(keccak256(abi.encode(
             FIRM_QUOTE_TYPEHASH,
             quote.maker,
-            quote.trader,
+            quote.taker,
             quote.executor,
+            quote.swapRouter,
             quote.orderHash,
             quote.tokenIn,
             quote.tokenOut,
             quote.amountIn,
-            quote.minOut,
-            quote.premium,
+            quote.referenceAmountOut,
+            quote.minAmountOut,
             quote.requiredBond,
+            quote.premiumToken,
+            quote.premiumAmount,
+            quote.pricingVersion,
+            quote.sigmaWad,
+            quote.annualCapitalRateWad,
+            quote.capacityKBps,
+            quote.utilizationAfterWad,
+            quote.minPremiumOut,
             quote.expiry,
-            quote.nonce,
-            quote.chainId
+            quote.nonce
         )));
     }
 

@@ -73,18 +73,18 @@ contract FirmExecutor is ReentrancyGuard {
         if (commitment.status != CommitmentStatus.ACCEPTED) {
             revert CommitmentNotAccepted(commitmentId, commitment.status);
         }
-        if (msg.sender != quote.trader) revert UnauthorizedTrader(quote.trader, msg.sender);
+        if (msg.sender != quote.taker) revert UnauthorizedTrader(quote.taker, msg.sender);
         if (block.timestamp > quote.expiry) revert CommitmentExpired(quote.expiry);
 
         _validateFirmOrder(quote, order);
 
         Capacity memory beforeAttempt = _capacity(quote);
         IERC20 inputToken = IERC20(quote.tokenIn);
-        _pullExact(inputToken, quote.trader, quote.amountIn);
+        _pullExact(inputToken, quote.taker, quote.amountIn);
 
-        if (!beforeAttempt.strategyActive || beforeAttempt.effectiveCapacity < quote.minOut) {
+        if (!beforeAttempt.strategyActive || beforeAttempt.effectiveCapacity < quote.minAmountOut) {
             _transferExact(inputToken, quote.maker, quote.amountIn);
-            amountOut = quote.minOut;
+            amountOut = quote.minAmountOut;
             terminalStatus = CommitmentStatus.FILLED_BOND;
             registry.finalizeBond(commitmentId);
             emit PathSelected(
@@ -94,23 +94,27 @@ contract FirmExecutor is ReentrancyGuard {
                 beforeAttempt.realBalance,
                 beforeAttempt.aquaAllowance,
                 beforeAttempt.effectiveCapacity,
-                quote.minOut
+                quote.minAmountOut
             );
         } else {
             IERC20 outputToken = IERC20(quote.tokenOut);
             inputToken.forceApprove(address(router), quote.amountIn);
-            uint256 traderOutputBefore = outputToken.balanceOf(quote.trader);
+            uint256 traderOutputBefore = outputToken.balanceOf(quote.taker);
             (uint256 swappedIn, uint256 swappedOut, bytes32 swappedHash) = router.swap(
                 order,
                 quote.amountIn,
                 _buildTakerTraits(commitmentId, quote)
             );
             inputToken.forceApprove(address(router), 0);
-            if (swappedIn != quote.amountIn || swappedOut < quote.minOut || swappedHash != quote.orderHash) {
+            if (
+                swappedIn != quote.amountIn
+                    || swappedOut < quote.minAmountOut
+                    || swappedHash != quote.orderHash
+            ) {
                 revert SwapResultMismatch();
             }
-            uint256 received = outputToken.balanceOf(quote.trader) - traderOutputBefore;
-            if (received < quote.minOut || received != swappedOut) revert SwapResultMismatch();
+            uint256 received = outputToken.balanceOf(quote.taker) - traderOutputBefore;
+            if (received < quote.minAmountOut || received != swappedOut) revert SwapResultMismatch();
             amountOut = swappedOut;
             terminalStatus = CommitmentStatus.FILLED_AQUA;
             registry.finalizeAqua(commitmentId);
@@ -121,14 +125,14 @@ contract FirmExecutor is ReentrancyGuard {
                 beforeAttempt.realBalance,
                 beforeAttempt.aquaAllowance,
                 beforeAttempt.effectiveCapacity,
-                quote.minOut
+                quote.minAmountOut
             );
         }
 
         emit FirmTradeExecuted(
             commitmentId,
             terminalStatus,
-            quote.trader,
+            quote.taker,
             quote.maker,
             quote.amountIn,
             amountOut
@@ -177,8 +181,8 @@ contract FirmExecutor is ReentrancyGuard {
             useTransferFromAndAquaPush: true,
             isAToB: quote.tokenIn < quote.tokenOut,
             allowPartialFill: false,
-            threshold: abi.encode(quote.minOut),
-            to: quote.trader,
+            threshold: abi.encode(quote.minAmountOut),
+            to: quote.taker,
             deadline: uint40(quote.expiry),
             hasPreTransferInCallback: false,
             hasPreTransferOutCallback: false,
@@ -188,7 +192,7 @@ contract FirmExecutor is ReentrancyGuard {
             postTransferOutHookData: "",
             preTransferInCallbackData: "",
             preTransferOutCallbackData: "",
-            instructionsArgs: abi.encodePacked(quote.minOut, commitmentId),
+            instructionsArgs: abi.encodePacked(quote.minAmountOut, commitmentId),
             signature: ""
         }));
     }
@@ -208,6 +212,7 @@ contract FirmExecutor is ReentrancyGuard {
     function _validateFirmOrder(FirmQuote memory quote, ISwapVM.Order calldata order) private view {
         bytes32 actualOrderHash = router.hash(order);
         if (actualOrderHash != quote.orderHash) revert OrderHashMismatch(quote.orderHash, actualOrderHash);
+        if (quote.swapRouter != address(router)) revert InvalidFirmOrder();
 
         bytes calldata program = order.traits.program(order.data);
         (address tokenA, address tokenB) = order.traits.tokens(order.data);

@@ -11,18 +11,26 @@ enum CommitmentStatus {
 
 struct FirmQuote {
     address maker;
-    address trader;
+    address taker;
     address executor;
+    address swapRouter;
     bytes32 orderHash;
     address tokenIn;
     address tokenOut;
     uint256 amountIn;
-    uint256 minOut;
-    uint256 premium;
+    uint256 referenceAmountOut;
+    uint256 minAmountOut;
     uint256 requiredBond;
+    address premiumToken;
+    uint256 premiumAmount;
+    uint32 pricingVersion;
+    uint256 sigmaWad;
+    uint256 annualCapitalRateWad;
+    uint16 capacityKBps;
+    uint256 utilizationAfterWad;
+    uint256 minPremiumOut;
     uint64 expiry;
     uint256 nonce;
-    uint256 chainId;
 }
 
 struct Commitment {

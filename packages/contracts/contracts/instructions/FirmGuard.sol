@@ -17,6 +17,7 @@ library FirmGuard {
     error CommitmentExpired(uint64 expiry);
     error MakerMismatch(address expected, address actual);
     error ExecutorMismatch(address expected, address actual);
+    error RouterMismatch(address expected, address actual);
     error OrderMismatch(bytes32 expected, bytes32 actual);
     error TokenInMismatch(address expected, address actual);
     error TokenOutMismatch(address expected, address actual);
@@ -47,6 +48,9 @@ library FirmGuard {
         if (!ctx.query.isExactIn) revert ExactInputRequired();
         if (ctx.query.maker != commitment.quote.maker) revert MakerMismatch(commitment.quote.maker, ctx.query.maker);
         if (ctx.query.taker != commitment.quote.executor) revert ExecutorMismatch(commitment.quote.executor, ctx.query.taker);
+        if (address(this) != commitment.quote.swapRouter) {
+            revert RouterMismatch(commitment.quote.swapRouter, address(this));
+        }
         if (ctx.query.orderHash != commitment.quote.orderHash) {
             revert OrderMismatch(commitment.quote.orderHash, ctx.query.orderHash);
         }
@@ -59,8 +63,8 @@ library FirmGuard {
         if (ctx.swap.amountIn != commitment.quote.amountIn) {
             revert InputAmountMismatch(commitment.quote.amountIn, ctx.swap.amountIn);
         }
-        if (ctx.swap.amountOut < commitment.quote.minOut) {
-            revert OutputAmountMismatch(commitment.quote.minOut, ctx.swap.amountOut);
+        if (ctx.swap.amountOut < commitment.quote.minAmountOut) {
+            revert OutputAmountMismatch(commitment.quote.minAmountOut, ctx.swap.amountOut);
         }
 
         (address bondMaker, uint256 lockedBond) = vault.lockedFor(commitmentId);
