@@ -308,6 +308,39 @@ contract FirmDepthTest is Test {
         assertEq(virtualUsdcAfter, virtualUsdcBefore);
     }
 
+    function testEmptyAndPanicTokenFailuresCannotConsumeBond() public {
+        (bytes32 commitmentId,) = _accept(91);
+        uint256 traderWethBefore = weth.balanceOf(trader);
+        uint256 traderUsdcBefore = usdc.balanceOf(trader);
+        uint256 makerWethBefore = weth.balanceOf(maker);
+        uint256 makerUsdcBefore = usdc.balanceOf(maker);
+
+        usdc.setTransferFromRevertsEmpty(true);
+        vm.expectRevert();
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+        _assertFailedExecutionState(
+            commitmentId,
+            traderWethBefore,
+            traderUsdcBefore,
+            makerWethBefore,
+            makerUsdcBefore
+        );
+
+        usdc.setTransferFromRevertsEmpty(false);
+        usdc.setTransferFromPanics(true);
+        vm.expectRevert();
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+        _assertFailedExecutionState(
+            commitmentId,
+            traderWethBefore,
+            traderUsdcBefore,
+            makerWethBefore,
+            makerUsdcBefore
+        );
+    }
+
     function testMalformedOrderTokensCannotBeAccepted() public {
         MockERC20 wrongToken = new MockERC20("Wrong Token", "WRONG", 18);
         ISwapVM.Order memory malformed = _orderWithTokens(address(weth), address(wrongToken));
@@ -762,6 +795,23 @@ contract FirmDepthTest is Test {
         bytes memory signature = _sign(quote);
         vm.prank(trader);
         commitmentId = registry.accept(quote, _order(), signature);
+    }
+
+    function _assertFailedExecutionState(
+        bytes32 commitmentId,
+        uint256 traderWeth,
+        uint256 traderUsdc,
+        uint256 makerWeth,
+        uint256 makerUsdc
+    ) private view {
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+        assertEq(weth.balanceOf(trader), traderWeth);
+        assertEq(usdc.balanceOf(trader), traderUsdc);
+        assertEq(weth.balanceOf(maker), makerWeth);
+        assertEq(usdc.balanceOf(maker), makerUsdc);
+        assertEq(weth.balanceOf(address(executor)), 0);
+        assertEq(weth.balanceOf(address(router)), 0);
     }
 
     function _quote(uint256 nonce) private view returns (FirmQuote memory) {
