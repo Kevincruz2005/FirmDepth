@@ -7,9 +7,17 @@ import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/Sig
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { ISwapVM } from "@1inch/swap-vm/src/interfaces/ISwapVM.sol";
 
 import { BondVault } from "./BondVault.sol";
-import { Commitment, CommitmentStatus, FirmQuote } from "./types/FirmTypes.sol";
+import { AcceptanceSnapshot, Commitment, CommitmentStatus, FirmQuote } from "./types/FirmTypes.sol";
+
+interface IFirmAcceptanceValidator {
+    function validateAcceptance(FirmQuote calldata quote, ISwapVM.Order calldata order)
+        external
+        view
+        returns (AcceptanceSnapshot memory snapshot);
+}
 
 contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -67,7 +75,14 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         uint256 minAmountOut,
         uint256 premiumAmount,
         uint64 expiry,
-        uint256 nonce
+        uint256 nonce,
+        uint64 acceptedBlock,
+        uint256 virtualBalance,
+        uint256 realBalance,
+        uint256 aquaAllowance,
+        uint256 effectiveCapacity,
+        uint256 quotedAmountOut,
+        uint256 utilizationAfterWad
     );
     event CommitmentSettled(bytes32 indexed commitmentId, CommitmentStatus indexed status, address indexed beneficiary);
 
@@ -115,7 +130,7 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
         emit ExecutorSet(executor_);
     }
 
-    function accept(FirmQuote calldata quote, bytes calldata makerSignature)
+    function accept(FirmQuote calldata quote, ISwapVM.Order calldata order, bytes calldata makerSignature)
         external
         nonReentrant
         returns (bytes32 commitmentId)
@@ -155,12 +170,15 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
             revert InvalidMakerSignature(quote.maker);
         }
 
+        AcceptanceSnapshot memory snapshot = IFirmAcceptanceValidator(executor).validateAcceptance(quote, order);
+
         nonceUsed[quote.maker][quote.nonce] = true;
         _commitments[commitmentId] = Commitment({
             quote: quote,
             status: CommitmentStatus.ACCEPTED,
             acceptedAt: uint64(block.timestamp),
-            settledAt: 0
+            settledAt: 0,
+            acceptedBlock: uint64(block.number)
         });
 
         vault.lock(commitmentId, quote.maker, quote.requiredBond);
@@ -181,7 +199,14 @@ contract FirmCommitmentRegistry is EIP712, ReentrancyGuard {
             quote.minAmountOut,
             quote.premiumAmount,
             quote.expiry,
-            quote.nonce
+            quote.nonce,
+            uint64(block.number),
+            snapshot.virtualBalance,
+            snapshot.realBalance,
+            snapshot.aquaAllowance,
+            snapshot.effectiveCapacity,
+            snapshot.quotedAmountOut,
+            quote.utilizationAfterWad
         );
     }
 

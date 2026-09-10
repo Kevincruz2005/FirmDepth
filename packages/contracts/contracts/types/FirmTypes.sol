@@ -38,6 +38,16 @@ struct Commitment {
     CommitmentStatus status;
     uint64 acceptedAt;
     uint64 settledAt;
+    uint64 acceptedBlock;
+}
+
+struct AcceptanceSnapshot {
+    uint256 virtualBalance;
+    uint256 realBalance;
+    uint256 aquaAllowance;
+    uint256 effectiveCapacity;
+    uint256 quotedAmountOut;
+    bool strategyActive;
 }
 
 interface IFirmCommitmentRegistry {

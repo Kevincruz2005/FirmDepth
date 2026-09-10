@@ -10,7 +10,13 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { FirmAquaSwapVMRouter } from "./FirmAquaSwapVMRouter.sol";
-import { Commitment, CommitmentStatus, FirmQuote, IFirmCommitmentRegistry } from "./types/FirmTypes.sol";
+import {
+    AcceptanceSnapshot,
+    Commitment,
+    CommitmentStatus,
+    FirmQuote,
+    IFirmCommitmentRegistry
+} from "./types/FirmTypes.sol";
 
 contract FirmExecutor is ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -34,6 +40,9 @@ contract FirmExecutor is ReentrancyGuard {
     error DeflationaryTokenUnsupported();
     error ZeroAddress();
     error InvalidFirmOrder();
+    error IneligibleAquaCapacity(uint256 available, uint256 required);
+    error StaticQuoteFailed(bytes reason);
+    error StaticQuoteMismatch(uint256 amountIn, uint256 amountOut, bytes32 orderHash);
 
     IFirmCommitmentRegistry public immutable registry;
     IAqua public immutable aqua;
@@ -141,6 +150,42 @@ contract FirmExecutor is ReentrancyGuard {
 
     function capacity(bytes32 commitmentId) external view returns (Capacity memory) {
         return _capacity(registry.getCommitment(commitmentId).quote);
+    }
+
+    function validateAcceptance(FirmQuote calldata quote, ISwapVM.Order calldata order)
+        external
+        view
+        returns (AcceptanceSnapshot memory snapshot)
+    {
+        _validateFirmOrder(quote, order);
+        Capacity memory available = _capacity(quote);
+        if (!available.strategyActive || available.effectiveCapacity < quote.minAmountOut) {
+            revert IneligibleAquaCapacity(available.effectiveCapacity, quote.minAmountOut);
+        }
+
+        (bool success, bytes memory result) = address(router).staticcall(
+            abi.encodeCall(ISwapVM.quote, (order, quote.amountIn, _buildTakerTraits(bytes32(0), quote)))
+        );
+        if (!success) revert StaticQuoteFailed(result);
+
+        (uint256 quotedIn, uint256 quotedOut, bytes32 quotedHash) = abi.decode(
+            result,
+            (uint256, uint256, bytes32)
+        );
+        if (
+            quotedIn != quote.amountIn
+                || quotedOut < quote.minAmountOut
+                || quotedHash != quote.orderHash
+        ) revert StaticQuoteMismatch(quotedIn, quotedOut, quotedHash);
+
+        snapshot = AcceptanceSnapshot({
+            virtualBalance: available.virtualBalance,
+            realBalance: available.realBalance,
+            aquaAllowance: available.aquaAllowance,
+            effectiveCapacity: available.effectiveCapacity,
+            quotedAmountOut: quotedOut,
+            strategyActive: available.strategyActive
+        });
     }
 
     function buildTakerTraits(bytes32 commitmentId) external view returns (bytes memory) {

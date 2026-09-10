@@ -179,6 +179,30 @@ contract FirmDepthTest is Test {
         assertEq(uint8(settled.status), uint8(CommitmentStatus.FILLED_BOND));
     }
 
+    function testAcceptanceRejectsCapacityLostBeforeCommitment() public {
+        FirmQuote memory quote = _quote(81);
+        bytes memory signature = _sign(quote);
+        vm.prank(maker);
+        usdc.approve(address(aqua), 0);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmExecutor.IneligibleAquaCapacity.selector, 0, MIN_OUT)
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), signature);
+
+        bytes32 commitmentId = registry.quoteDigest(quote);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.NONE));
+        assertFalse(registry.nonceUsed(maker, quote.nonce));
+        assertEq(vault.lockedOf(maker), 0);
+        assertEq(usdc.balanceOf(address(registry)), 0);
+    }
+
+    function testAcceptanceRecordsCurrentBlock() public {
+        (bytes32 commitmentId,) = _accept(82);
+        assertEq(registry.getCommitment(commitmentId).acceptedBlock, block.number);
+    }
+
     function testBondPathAfterInterveningSoftSwapExhaustsRealInventory() public {
         ISwapVM.Order memory softOrder = _softOrder(77);
         _shipOrder(softOrder, 7_500e6);
@@ -256,25 +280,14 @@ contract FirmDepthTest is Test {
         assertEq(virtualUsdcAfter, virtualUsdcBefore);
     }
 
-    function testMalformedOrderTokensCannotReachLowCapacityBondPath() public {
+    function testMalformedOrderTokensCannotBeAccepted() public {
         MockERC20 wrongToken = new MockERC20("Wrong Token", "WRONG", 18);
         ISwapVM.Order memory malformed = _orderWithTokens(address(weth), address(wrongToken));
         FirmQuote memory quote = _quoteForOrder(79, malformed);
         bytes memory signature = _sign(quote);
-        vm.prank(trader);
-        bytes32 commitmentId = registry.accept(quote, signature);
-
-        vm.prank(maker);
-        usdc.approve(address(aqua), 0);
-
-        uint256 traderWethBefore = weth.balanceOf(trader);
         vm.expectRevert(FirmExecutor.InvalidFirmOrder.selector);
         vm.prank(trader);
-        executor.execute(commitmentId, malformed);
-
-        assertEq(weth.balanceOf(trader), traderWethBefore);
-        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
-        assertEq(vault.lockedOf(maker), MIN_OUT);
+        registry.accept(quote, malformed, signature);
     }
 
     function testStaticFirmQuoteWorksBeforeCommitmentAcceptance() public {
@@ -332,7 +345,7 @@ contract FirmDepthTest is Test {
             abi.encodeWithSelector(FirmCommitmentRegistry.NonceAlreadyUsed.selector, maker, quote.nonce)
         );
         vm.prank(trader);
-        registry.accept(quote, signature);
+        registry.accept(quote, _order(), signature);
 
         vm.prank(trader);
         executor.execute(commitmentId, _order());
@@ -439,7 +452,7 @@ contract FirmDepthTest is Test {
             abi.encodeWithSelector(FirmCommitmentRegistry.NonceAlreadyUsed.selector, maker, cancelled.nonce)
         );
         vm.prank(trader);
-        registry.accept(cancelled, cancelledSignature);
+        registry.accept(cancelled, _order(), cancelledSignature);
 
         FirmQuote memory belowFloor = _quote(20);
         bytes memory belowFloorSignature = _sign(belowFloor);
@@ -450,7 +463,7 @@ contract FirmDepthTest is Test {
             abi.encodeWithSelector(FirmCommitmentRegistry.NonceBelowMinimum.selector, maker, 20, 21)
         );
         vm.prank(trader);
-        registry.accept(belowFloor, belowFloorSignature);
+        registry.accept(belowFloor, _order(), belowFloorSignature);
     }
 
     function testExpiredCommitmentCannotExecute() public {
@@ -477,19 +490,13 @@ contract FirmDepthTest is Test {
         executor.execute(commitmentId, alteredOrder);
     }
 
-    function testExecutorRejectsOrderWithoutExactFirmProgram() public {
+    function testAcceptanceRejectsOrderWithoutExactFirmProgram() public {
         ISwapVM.Order memory invalidOrder = _orderWithProgram(hex"00");
         FirmQuote memory quote = _quoteForOrder(32, invalidOrder);
         bytes memory signature = _sign(quote);
-        vm.prank(trader);
-        bytes32 commitmentId = registry.accept(quote, signature);
-
         vm.expectRevert(FirmExecutor.InvalidFirmOrder.selector);
         vm.prank(trader);
-        executor.execute(commitmentId, invalidOrder);
-
-        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
-        assertEq(vault.lockedOf(maker), MIN_OUT);
+        registry.accept(quote, invalidOrder, signature);
     }
 
     function testPremiumAndTtlPolicyAreEnforcedOnchain() public {
@@ -509,7 +516,7 @@ contract FirmDepthTest is Test {
             )
         );
         vm.prank(trader);
-        registry.accept(belowMinimum, belowMinimumSignature);
+        registry.accept(belowMinimum, _order(), belowMinimumSignature);
 
         FirmQuote memory ttlTooLong = _quote(41);
         ttlTooLong.expiry += 1;
@@ -522,7 +529,7 @@ contract FirmDepthTest is Test {
             )
         );
         vm.prank(trader);
-        registry.accept(ttlTooLong, ttlTooLongSignature);
+        registry.accept(ttlTooLong, _order(), ttlTooLongSignature);
     }
 
     function testFuzzVaultConservesLiabilities(uint96 rawDeposit, uint96 rawWithdrawal) public {
@@ -545,7 +552,7 @@ contract FirmDepthTest is Test {
         quote = _quote(nonce);
         bytes memory signature = _sign(quote);
         vm.prank(trader);
-        commitmentId = registry.accept(quote, signature);
+        commitmentId = registry.accept(quote, _order(), signature);
     }
 
     function _quote(uint256 nonce) private view returns (FirmQuote memory) {
