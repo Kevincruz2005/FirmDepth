@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
+import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 import { Aqua } from "@1inch/aqua/src/Aqua.sol";
 import { ISwapVM } from "@1inch/swap-vm/src/interfaces/ISwapVM.sol";
@@ -16,6 +17,34 @@ import { FirmGuard } from "../contracts/instructions/FirmGuard.sol";
 import { FirmPrice } from "../contracts/instructions/FirmPrice.sol";
 import { MockERC20 } from "../contracts/mocks/MockERC20.sol";
 import { Commitment, CommitmentStatus, FirmQuote } from "../contracts/types/FirmTypes.sol";
+
+contract MockERC1271Maker is IERC1271 {
+    enum Mode {
+        VALID,
+        INVALID,
+        REVERT
+    }
+
+    bytes32 private _approvedDigest;
+    bytes32 private _approvedSignatureHash;
+    Mode private _mode;
+
+    function configure(bytes32 digest, bytes calldata signature, Mode mode) external {
+        _approvedDigest = digest;
+        _approvedSignatureHash = keccak256(signature);
+        _mode = mode;
+    }
+
+    function isValidSignature(bytes32 digest, bytes calldata signature) external view returns (bytes4) {
+        if (_mode == Mode.REVERT) revert("wallet validation failed");
+        if (
+            _mode == Mode.VALID
+                && digest == _approvedDigest
+                && keccak256(signature) == _approvedSignatureHash
+        ) return IERC1271.isValidSignature.selector;
+        return 0xffffffff;
+    }
+}
 
 contract FirmDepthTest is Test {
     uint256 private constant MAKER_KEY = 0xA11CE;
@@ -524,6 +553,85 @@ contract FirmDepthTest is Test {
         );
         vm.prank(trader);
         registry.accept(belowFloor, _order(), belowFloorSignature);
+    }
+
+    function testErc1271MakerSignatureRequiresExactMagicValue() public {
+        bytes memory walletSignature = hex"aabbccdd";
+        FirmQuote memory quote = _quote(87);
+        bytes32 digest = registry.quoteDigest(quote);
+        MockERC1271Maker implementation = new MockERC1271Maker();
+        vm.etch(maker, address(implementation).code);
+        MockERC1271Maker(maker).configure(digest, walletSignature, MockERC1271Maker.Mode.VALID);
+
+        vm.prank(trader);
+        bytes32 commitmentId = registry.accept(quote, _order(), walletSignature);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
+    }
+
+    function testErc1271InvalidMagicAndRevertFailClosed() public {
+        bytes memory walletSignature = hex"aabbccdd";
+        FirmQuote memory quote = _quote(88);
+        bytes32 digest = registry.quoteDigest(quote);
+        MockERC1271Maker implementation = new MockERC1271Maker();
+        vm.etch(maker, address(implementation).code);
+
+        MockERC1271Maker(maker).configure(digest, walletSignature, MockERC1271Maker.Mode.INVALID);
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.InvalidMakerSignature.selector, maker)
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), walletSignature);
+
+        MockERC1271Maker(maker).configure(digest, walletSignature, MockERC1271Maker.Mode.REVERT);
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.InvalidMakerSignature.selector, maker)
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), walletSignature);
+
+        assertFalse(registry.nonceUsed(maker, quote.nonce));
+        assertEq(vault.lockedOf(maker), 0);
+    }
+
+    function testMalleableEoaSignatureIsRejected() public {
+        FirmQuote memory quote = _quote(89);
+        bytes32 digest = registry.quoteDigest(quote);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_KEY, digest);
+        uint256 curveOrder = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+        bytes memory malleable = abi.encodePacked(r, bytes32(curveOrder - uint256(s)), v == 27 ? uint8(28) : uint8(27));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.InvalidMakerSignature.selector, maker)
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), malleable);
+    }
+
+    function testQuoteCannotReplayAcrossChainOrRegistry() public {
+        FirmQuote memory quote = _quote(90);
+        bytes memory signature = _sign(quote);
+
+        vm.chainId(block.chainid + 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.InvalidMakerSignature.selector, maker)
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), signature);
+        vm.chainId(block.chainid - 1);
+
+        FirmCommitmentRegistry otherRegistry = new FirmCommitmentRegistry(
+            address(vault),
+            address(weth),
+            address(usdc),
+            address(this),
+            MAX_QUOTE_TTL
+        );
+        otherRegistry.setExecutor(address(executor));
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.InvalidMakerSignature.selector, maker)
+        );
+        vm.prank(trader);
+        otherRegistry.accept(quote, _order(), signature);
     }
 
     function testExpiredCommitmentCannotExecute() public {
