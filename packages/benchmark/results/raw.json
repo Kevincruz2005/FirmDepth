@@ -49,12 +49,12 @@
     "chainId": 8453,
     "forkBlock": 51123118,
     "officialAqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
-    "aquaExecutionTransactionHash": "0x6c0849a5f80fa5cdf8c611b1d90b0e07851927fd8fa7c2a53c135e40f04705d4",
-    "bondExecutionTransactionHash": "0x805554cd9714b78ac6a08cbb5b249aca85e7789133bc32f362868897b9080861",
+    "aquaExecutionTransactionHash": "0xab5011efa55bdfba43857286ec3be0b7f99eefcc8629f844b9b2078d6bd0ee06",
+    "bondExecutionTransactionHash": "0x5a3958fdaa25865148d944181e472c93615f1208a947f00e53beb535f5ba2c19",
     "observedSoftSwap": 140896,
-    "observedFirmAcceptance": 710765,
-    "observedFirmAquaExecution": 338238,
-    "observedFirmBondExecution": 202044,
+    "observedFirmAcceptance": 711471,
+    "observedFirmAquaExecution": 338703,
+    "observedFirmBondExecution": 202210,
     "hardReservation": null
   },
   "results": [
@@ -104,10 +104,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048989.3806
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050160.3506999998
       }
     },
     {
@@ -156,10 +156,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1049003
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050174
       }
     },
     {
@@ -208,10 +208,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1049003
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050174
       }
     },
     {
@@ -260,10 +260,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1049003
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050174
       }
     },
     {
@@ -312,10 +312,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048989.3806
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050160.3506999998
       }
     },
     {
@@ -364,10 +364,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048989.3806
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050160.3506999998
       }
     },
     {
@@ -416,10 +416,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048975.7612
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050146.7014
       }
     },
     {
@@ -468,10 +468,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048989.3806
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050160.3506999998
       }
     },
     {
@@ -520,10 +520,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048975.7612
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050146.7014
       }
     },
     {
@@ -572,10 +572,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048907.6642
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050078.4549
       }
     },
     {
@@ -624,10 +624,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048948.5224
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050119.4028
       }
     },
     {
@@ -676,10 +676,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048921.2836
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050092.1042
       }
     },
     {
@@ -728,10 +728,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048921.2836
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050092.1042
       }
     },
     {
@@ -780,10 +780,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048839.5672000002
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050010.2084000001
       }
     },
     {
@@ -832,10 +832,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048757.8508
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1049928.3125999998
       }
     },
     {
@@ -884,10 +884,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1047695.5375999999
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1048863.6672
       }
     },
     {
@@ -936,10 +936,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1047736.3958
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1048904.6151
       }
     },
     {
@@ -988,10 +988,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1047709.157
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1048877.3165000002
       }
     },
     {
@@ -1040,10 +1040,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1047109.9034
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1048276.7473
       }
     },
     {
@@ -1092,10 +1092,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1046646.8438
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1047812.6711
       }
     },
     {
@@ -1144,10 +1144,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1046728.5602000001
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1047894.5669
       }
     },
     {
@@ -1196,10 +1196,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1041689.3822
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1042844.3259
       }
     },
     {
@@ -1248,10 +1248,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1041852.8150000001
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1043008.1175
       }
     },
     {
@@ -1300,10 +1300,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1041784.718
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1042939.8709999999
       }
     },
     {
@@ -1352,10 +1352,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1010255.807
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1011341.7415
       }
     },
     {
@@ -1404,10 +1404,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1009683.7922
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1010768.4709000001
       }
     },
     {
@@ -1456,10 +1456,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1009860.8444
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1010945.9118
       }
     },
     {
@@ -1508,10 +1508,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048989.3806
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050160.3506999998
       }
     },
     {
@@ -1560,10 +1560,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1049003
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050174
       }
     },
     {
@@ -1612,9 +1612,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -1664,10 +1664,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048975.7612
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050146.7014
       }
     },
     {
@@ -1716,10 +1716,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048948.5224
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050119.4028
       }
     },
     {
@@ -1768,9 +1768,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -1820,10 +1820,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048907.6642
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050078.4549
       }
     },
     {
@@ -1872,10 +1872,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048894.0447999998
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050064.8055999998
       }
     },
     {
@@ -1924,9 +1924,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -1976,10 +1976,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048662.5150000001
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1049832.7674999998
       }
     },
     {
@@ -2028,10 +2028,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048744.2314
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1049914.6633000001
       }
     },
     {
@@ -2080,9 +2080,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -2132,10 +2132,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048376.5076
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1049546.1321999999
       }
     },
     {
@@ -2184,10 +2184,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048444.6046000001
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1049614.3787
       }
     },
     {
@@ -2236,9 +2236,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -2288,10 +2288,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1046006.732
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1047171.154
       }
     },
     {
@@ -2340,10 +2340,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1046660.4632
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1047826.3204
       }
     },
     {
@@ -2392,9 +2392,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -2444,10 +2444,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1044603.9337999999
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1045765.2761
       }
     },
     {
@@ -2496,10 +2496,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1044644.792
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1045806.2239999999
       }
     },
     {
@@ -2548,9 +2548,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -2600,10 +2600,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1036691.0624
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1037835.0327999999
       }
     },
     {
@@ -2652,10 +2652,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1035465.3164
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1036606.5958
       }
     },
     {
@@ -2704,9 +2704,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -2756,10 +2756,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 994825.0268
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 995877.0846000001
       }
     },
     {
@@ -2808,10 +2808,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 993953.3852
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 995003.5294
       }
     },
     {
@@ -2860,9 +2860,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -2912,10 +2912,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048894.0447999998
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050064.8055999998
       }
     },
     {
@@ -2964,9 +2964,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3016,9 +3016,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3068,10 +3068,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048866.806
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1050037.507
       }
     },
     {
@@ -3120,9 +3120,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3172,9 +3172,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3224,10 +3224,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1048567.1792
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1049737.2223999999
       }
     },
     {
@@ -3276,9 +3276,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3328,9 +3328,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3380,10 +3380,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1047790.8734
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1048959.2123
       }
     },
     {
@@ -3432,9 +3432,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3484,9 +3484,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3536,10 +3536,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1047041.8064
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1048208.5008
       }
     },
     {
@@ -3588,9 +3588,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3640,9 +3640,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3692,10 +3692,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1041512.33
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1042666.885
       }
     },
     {
@@ -3744,9 +3744,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3796,9 +3796,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3848,10 +3848,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1037358.4130000001
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1038503.8485
       }
     },
     {
@@ -3900,9 +3900,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -3952,9 +3952,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -4004,10 +4004,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 1021777.8194
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 1022889.0493
       }
     },
     {
@@ -4056,9 +4056,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -4108,9 +4108,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -4160,10 +4160,10 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
-        "expectedFirmGasPerAccepted": 969288.6518
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
+        "expectedFirmGasPerAccepted": 970284.6471000001
       }
     },
     {
@@ -4212,9 +4212,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     },
@@ -4264,9 +4264,9 @@
       },
       "gas": {
         "observedSoftSwap": 140896,
-        "observedFirmAcceptance": 710765,
-        "observedFirmAquaExecution": 338238,
-        "observedFirmBondExecution": 202044,
+        "observedFirmAcceptance": 711471,
+        "observedFirmAquaExecution": 338703,
+        "observedFirmBondExecution": 202210,
         "expectedFirmGasPerAccepted": null
       }
     }

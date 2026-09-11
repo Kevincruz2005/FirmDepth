@@ -5,6 +5,7 @@ import { ethers as ethersLibrary } from "ethers";
 import {
   BASE_AQUA,
   BASE_FORK_BLOCK,
+  BASE_SWAP_VM,
   BASE_USDC,
   BASE_WETH,
   buildAquaOrder,
@@ -61,6 +62,16 @@ const [ownerAddress, makerAddress, traderAddress, drainerAddress] = await Promis
   trader.getAddress(),
   drainer.getAddress(),
 ]);
+const officialBytecodes = Object.fromEntries(await Promise.all(Object.entries({
+  aqua: BASE_AQUA,
+  swapVm: BASE_SWAP_VM,
+  weth: BASE_WETH,
+  usdc: BASE_USDC,
+}).map(async ([name, address]) => {
+  const code = await provider.getCode(address);
+  if (code === "0x") throw new Error(`${name} has no bytecode at pinned Base block`);
+  return [name, (code.length - 2) / 2];
+})));
 const usdc = new ethers.Contract(BASE_USDC, [
   "function balanceOf(address) view returns (uint256)",
   "function allowance(address,address) view returns (uint256)",
@@ -306,7 +317,13 @@ const evidence = {
   schemaVersion: "1",
   chainId: 8453,
   forkBlock: BASE_FORK_BLOCK,
-  officialContracts: { aqua: BASE_AQUA, weth: BASE_WETH, usdc: BASE_USDC },
+  officialContracts: { aqua: BASE_AQUA, swapVm: BASE_SWAP_VM, weth: BASE_WETH, usdc: BASE_USDC },
+  officialBytecodeBytes: officialBytecodes,
+  forkSetup: {
+    localHistoricalHolderImpersonation: true,
+    publicMainnetTransaction: false,
+    canonicalForkEvidence: true,
+  },
   funding: { holder: funding.holder, transactionHash: funding.transactionHash, amount: MAKER_FUNDING.toString() },
   deployedContracts: {
     vault: await vault.getAddress(),

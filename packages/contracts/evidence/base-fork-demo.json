@@ -4,8 +4,20 @@
   "forkBlock": 51123118,
   "officialContracts": {
     "aqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
+    "swapVm": "0x111111338c5091e8440b67b168bae16a668ac0de",
     "weth": "0x4200000000000000000000000000000000000006",
     "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+  },
+  "officialBytecodeBytes": {
+    "aqua": 5619,
+    "swapVm": 20541,
+    "weth": 2041,
+    "usdc": 1852
+  },
+  "forkSetup": {
+    "localHistoricalHolderImpersonation": true,
+    "publicMainnetTransaction": false,
+    "canonicalForkEvidence": true
   },
   "funding": {
     "holder": "0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59",
@@ -19,22 +31,22 @@
     "executor": "0xb5FBD9D362a5234f951b3F046E5Ee860EEd79BF5"
   },
   "setupTransactionHashes": [
-    "0xfd2ee9c40a257088ab95433058119475f14e58e5a61a14697bcd27cb77e12d36",
-    "0x8391c179ce592c8f77aff587cdb5c544111d3aef8d763f314f55aa8026ab87f9",
-    "0x3a0f4268127a3e2c3997ec76aab4e8feddb29f01cdbc10396761bcb73e2b0a7a",
-    "0x0a0954c2f22e550bec82a10e0dd2da3792271529c0f11e91a4b7bae97eb41761",
-    "0x661d71f883fb4598813f4668a8c0b640be5c8c2286adc3594944200db8cb3b34",
-    "0x1f08ef68057c3300c56d50102b73717e01b48c549d18fac057eed56e51d48449",
-    "0x93a3c0f186fcefec26c05e62e559dd8951c96d81c5d2bcb89a9eca14091ba33d",
-    "0xbf8ccbf54db5419df357e3313a9203c668965d52d5ad286907e871443f340e89",
-    "0x65c4d399e9aca483e745241cf0300d9d44e24da9d4b4f0a12b3e25134d37bcd8"
+    "0x7370eec6c53fbb6b91f4560f411a8b2980aac49919a7b798444fad4e231702a9",
+    "0xb375c72028749be3c84cfe0cccb07a4334ff394b267007ca2d3baff8aad654eb",
+    "0xdea52cca3642361fab4ad964d9e4363f78027854e680a90211a64df2c1443163",
+    "0x06420857a99c2b19cbe66191f06d2d2e9a3b2ef680fddd06a3174eca34f9a397",
+    "0x7e9c400a8e9c6ff79a915d6b7f268c34f067f40d997df06a7a38ca5a2c540b97",
+    "0x2247036450c5136125bd15d6be777d732f69f76aae1b5ac36a2cd7aeb4ca0403",
+    "0xddbf8925a19b36d14405b132b7810d454e57fe69c98831cce8bcd7a9f0a76553",
+    "0x770a32d857231d134d64cd5b7b82f798c09a0d860efdca4cbcaf0626d800be35",
+    "0x4cd989047e99e8ade96fbf13c35be9d10eab23b214fac4c9a57e12f6e7d5062b"
   ],
   "aquaPath": {
-    "commitmentId": "0x2d6e11937f62c53887cb51fa4ab3dff6723a69cdf1cc38cdb776cdc4ce7f3d8a",
-    "acceptanceTransactionHash": "0x9fecbb7ed253cd6462c0efb7131d307c7b8c67ced1374035e0694ac009af1851",
-    "executionTransactionHash": "0x6c0849a5f80fa5cdf8c611b1d90b0e07851927fd8fa7c2a53c135e40f04705d4",
-    "acceptanceGasUsed": "710771",
-    "executionGasUsed": "338238",
+    "commitmentId": "0x8d894f6660a415112879dafbd2755e1aefe65cc30f5aaf4e43ff49a5dd7274c5",
+    "acceptanceTransactionHash": "0xe4d7dc82dd6563319bd6a8cf7d186535edb2652638a4b793dd69803f41868b08",
+    "executionTransactionHash": "0xab5011efa55bdfba43857286ec3be0b7f99eefcc8629f844b9b2078d6bd0ee06",
+    "acceptanceGasUsed": "711459",
+    "executionGasUsed": "338703",
     "terminalStatus": 2,
     "traderInputDelta": "100000000000000000",
     "traderOutputDelta": "200000000",
@@ -43,11 +55,11 @@
   "sharedLiquidityDrain": {
     "orderHash": "0xd1d600b797a4932471e32871cc7c2c18629403c7b92a37ea02c9e69bd5e60591",
     "siblingOrderHash": "0x45a909eca9504085b614890fb8c11c1c4a5bb0b3929b5bb501e3c0603e03a318",
-    "shipTransactionHash": "0x90645af6ae96dc7825ab2bd25744106edd2199d874bf44653245e64abf21817c",
-    "siblingShipTransactionHash": "0x19b284a698f65489d6429c8d27d7dd55c844b0af1868934e7960ade1573b1804",
-    "swapTransactionHash": "0x481df1e4878a488c7b9f8ed5d91250f4e82a0642712cbce266513937a86462d5",
+    "shipTransactionHash": "0xfe7422923a62c1e9810298f49cb3e5a23d9ea72e9c02b333a1118d71c9d1f401",
+    "siblingShipTransactionHash": "0x41a692b7fbe22daef3f53640e8db62cedfaef013911e53082e61bb115bee504a",
+    "swapTransactionHash": "0x531e23e9166082ae2f94ffac00a7d5a1b1a5f320713a1898d749cd416b0a1c54",
     "swapGasUsed": "140896",
-    "failedSiblingTransactionHash": "0xb4035f9328024aad17c5356d8fe10fa4479050ab6579934662911cd4ca0f934a",
+    "failedSiblingTransactionHash": "0x314741cdad76debf1c3837dc48adc1fcecb3780ae5d44d90d66446ba8bfd2ebf",
     "failedSiblingGasUsed": "141226",
     "failedSiblingStatus": 0,
     "failedSiblingAtomic": true,
@@ -55,15 +67,15 @@
     "firmEffectiveCapacityAfter": "100000000"
   },
   "bondPath": {
-    "commitmentId": "0x048352c20bcc76ebdfe27acad5749d88c8da5c8b5d69df08bf8a149aae8edba8",
-    "acceptanceTransactionHash": "0x27795ec829c46a518923003314eedceff8a22722bb6b3ea4c3bb3e5b428143c7",
-    "executionTransactionHash": "0x805554cd9714b78ac6a08cbb5b249aca85e7789133bc32f362868897b9080861",
-    "acceptanceGasUsed": "710759",
-    "executionGasUsed": "202044",
+    "commitmentId": "0xab48b1b4974664e0be9398d73572947ede70178f1ff324e2e0c43c441c1e1598",
+    "acceptanceTransactionHash": "0xa99d13e0d847d5188e948b16ab1b4188e74156d20779a403ddd06ad8eda6d5f4",
+    "executionTransactionHash": "0x5a3958fdaa25865148d944181e472c93615f1208a947f00e53beb535f5ba2c19",
+    "acceptanceGasUsed": "711483",
+    "executionGasUsed": "202210",
     "terminalStatus": 3,
     "grossTraderInputAmount": "100000000000000000",
-    "premiumRefundedToTrader": "50000000000000",
-    "netTraderInputDelta": "99950000000000000",
+    "premiumPaidToMaker": "50000000000000",
+    "netTraderInputDelta": "100000000000000000",
     "traderOutputDelta": "200000000"
   },
   "depletedAcceptance": {
