@@ -46,6 +46,13 @@ export default defineConfig({
     tests: "./test",
   },
   networks: {
+    localBase: {
+      type: "http",
+      chainType: "op",
+      chainId: 8453,
+      url: process.env.FIRMDEPTH_FORK_RPC_URL ?? "http://127.0.0.1:8545",
+      accounts: "remote",
+    },
     baseFork: {
       type: "edr-simulated",
       chainType: "op",

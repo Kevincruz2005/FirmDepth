@@ -28,6 +28,26 @@ npm --prefix packages/sdk ci
 
 The release gate compiles the contracts, runs all unit/fuzz tests, builds and tests the SDK, verifies the official sponsor contracts at pinned Base block `51,123,118`, executes the adversarial fork demo, then regenerates and validates the deterministic benchmark.
 
+## Frontend
+
+The product interface lives in `packages/frontend` and separates every displayed value into Live, Verified Base-fork Run, Synthetic Benchmark, or Illustrative evidence. It includes the product narrative at `/`, Soft/Firm execution at `/trade`, strict terminal receipt inspection at `/evidence`, and maker bond controls at `/maker`.
+
+Run the read-only product and evidence experience locally:
+
+```bash
+npm --prefix packages/sdk run build
+npm --prefix packages/frontend ci
+npm --prefix packages/frontend run dev
+```
+
+Run the complete UI against a fresh pinned Base fork, including real wallet-submitted acceptance, Aqua execution, bond settlement after a sibling Soft drain, expiry, atomic revert preservation, and maker vault actions:
+
+```bash
+./scripts/test_frontend_base_fork.sh
+```
+
+The fork runner creates a short-lived runtime artifact under the ignored `packages/frontend/.runtime/` directory. It contains public fork addresses and a deterministic test signature but no private keys, and the runner removes it when the test process exits. Vite exposes this artifact only while the development server is running; production builds never include it.
+
 For a focused judge demo:
 
 ```bash
@@ -59,8 +79,9 @@ The fork demo discovers a real USDC holder from historical Base logs and uses re
 
 ## Verified backend
 
-- 58 Solidity tests pass, including two vault/accounting invariants at 1,024 fuzz runs each.
-- 21 TypeScript SDK tests pass after a clean build.
+- 61 Solidity tests pass, including two vault/accounting invariants at 1,024 fuzz runs each.
+- 24 TypeScript SDK tests pass after a clean build.
+- 5 frontend unit tests and 15 pinned Base-fork browser tests pass, including five responsive widths and keyboard navigation.
 - 810,000 seeded simulation episodes cover 81 parameter configurations across quote size, TTL, shared-liquidity ratio, and bond utilization.
 - The highest-loss admitted benchmark scenario observes 5,853 Soft capacity losses out of 10,000 episodes; the same seeded Firm scenario settles 4,147 through Aqua and 5,853 through locked collateral. These are synthetic stress results, not claimed real-network failure rates.
 - The canonical fork evidence uses Base chain ID `8453`, official Aqua `0x1111113ccf1426a8e30e2bff5e005d929bf6a90a`, official SwapVM `0x111111338c5091e8440b67b168bae16a668ac0de`, Base WETH, and Base USDC.
