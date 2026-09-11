@@ -43,9 +43,11 @@ export const executorAbi = parseAbi([
   "event FirmTradeExecuted(bytes32 indexed commitmentId,uint8 indexed status,address indexed trader,address maker,uint256 amountIn,uint256 amountOut)",
   "function execute(bytes32 commitmentId,(address maker,uint256 traits,bytes data) order) returns (uint8 terminalStatus,uint256 amountOut)",
   "function capacity(bytes32 commitmentId) view returns ((uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,bool strategyActive))",
+  "function buildTakerTraits(bytes32 commitmentId) view returns (bytes)",
 ]);
 
 export const erc20Abi = parseAbi([
+  "event Transfer(address indexed from,address indexed to,uint256 value)",
   "function balanceOf(address account) view returns (uint256)",
   "function allowance(address owner,address spender) view returns (uint256)",
   "function approve(address spender,uint256 amount) returns (bool)",
@@ -56,6 +58,7 @@ export const erc20Abi = parseAbi([
 export const aquaAbi = AquaSdkAbi.AQUA_ABI;
 
 export const swapVmAbi = parseAbi([
+  "event Swapped(bytes32 orderHash,address maker,address taker,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut)",
   "function hash((address maker,uint256 traits,bytes data) order) view returns (bytes32)",
   "function quote((address maker,uint256 traits,bytes data) order,uint256 amount,bytes takerTraitsAndData) view returns (uint256 amountIn,uint256 amountOut,bytes32 orderHash)",
 ]);

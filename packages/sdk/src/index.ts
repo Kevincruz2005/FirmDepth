@@ -5,6 +5,7 @@ export * from "./eip712.js";
 export * from "./pricing.js";
 export * from "./quote.js";
 export * from "./readers.js";
+export * from "./receipt.js";
 export * from "./requests.js";
 export * from "./swapvm.js";
 export * from "./types.js";
