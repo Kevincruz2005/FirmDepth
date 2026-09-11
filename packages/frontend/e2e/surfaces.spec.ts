@@ -19,12 +19,14 @@ for (const [path, heading] of routes) {
 }
 
 for (const width of [375, 390, 768, 1024, 1440]) {
-  test(`landing has no horizontal overflow at ${width}px`, async ({ page }) => {
+  test(`surfaces have no horizontal overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width < 700 ? 844 : 900 });
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: /The quote is soft/ })).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+    for (const [path, heading] of routes) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow, `${path} overflow at ${width}px`).toBeLessThanOrEqual(1);
+    }
   });
 }
 
