@@ -4,7 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./actions": "./dist/actions.js",
+    "./capacity": "./dist/capacity.js",
+    "./readers": "./dist/readers.js",
+    "./requests": "./dist/requests.js",
+    "./receipt": "./dist/receipt.js",
+    "./types": "./dist/types.js"
   },
   "types": "./dist/index.d.ts",
   "scripts": {

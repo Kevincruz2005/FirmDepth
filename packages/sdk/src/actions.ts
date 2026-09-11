@@ -9,9 +9,11 @@ import type {
 
 import {
   acceptRequest,
+  approveTokenRequest,
   depositBondRequest,
   executeRequest,
   expireRequest,
+  softSwapRequest,
   withdrawBondRequest,
 } from "./requests.js";
 import type { FirmQuote, SwapVMOrder } from "./types.js";
@@ -83,6 +85,36 @@ export async function withdrawBond(
 ): Promise<Hash> {
   const { request } = await clients.publicClient.simulateContract({
     ...withdrawBondRequest(vault, amount, to),
+    account: clients.account,
+  });
+  return clients.walletClient.writeContract(request);
+}
+
+/** Executes an ordinary SwapVM order after simulation. The caller supplies the exact taker traits. */
+export async function executeSoftSwap(
+  clients: ContractClients,
+  router: Address,
+  order: SwapVMOrder,
+  amount: bigint,
+  takerTraits: Hex,
+): Promise<{ hash: Hash; amountIn: bigint; amountOut: bigint; orderHash: Hex }> {
+  const { request, result } = await clients.publicClient.simulateContract({
+    ...softSwapRequest(router, order, amount, takerTraits),
+    account: clients.account,
+  });
+  const hash = await clients.walletClient.writeContract(request);
+  return { hash, amountIn: result[0], amountOut: result[1], orderHash: result[2] };
+}
+
+/** Simulates and submits a standard ERC-20 approval used by trader and maker flows. */
+export async function approveToken(
+  clients: ContractClients,
+  token: Address,
+  spender: Address,
+  amount: bigint,
+): Promise<Hash> {
+  const { request } = await clients.publicClient.simulateContract({
+    ...approveTokenRequest(token, spender, amount),
     account: clients.account,
   });
   return clients.walletClient.writeContract(request);

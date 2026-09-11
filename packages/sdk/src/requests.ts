@@ -1,4 +1,3 @@
-import { ABI as AquaSdkAbi } from "@1inch/aqua-sdk";
 import { parseAbi, type Address, type Hex } from "viem";
 
 import type { FirmQuote, SwapVMOrder } from "./types.js";
@@ -55,12 +54,17 @@ export const erc20Abi = parseAbi([
   "function symbol() view returns (string)",
 ]);
 
-export const aquaAbi = AquaSdkAbi.AQUA_ABI;
+// Keep browser readers independent of the Node-oriented Aqua SDK dependency.
+// The state shape is pinned by the official Aqua interface used by the contracts.
+export const aquaAbi = parseAbi([
+  "function rawBalances(address maker,address app,bytes32 strategyHash,address token) view returns (uint248 balance,uint8 tokenCount)",
+]);
 
 export const swapVmAbi = parseAbi([
   "event Swapped(bytes32 orderHash,address maker,address taker,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut)",
   "function hash((address maker,uint256 traits,bytes data) order) view returns (bytes32)",
   "function quote((address maker,uint256 traits,bytes data) order,uint256 amount,bytes takerTraitsAndData) view returns (uint256 amountIn,uint256 amountOut,bytes32 orderHash)",
+  "function swap((address maker,uint256 traits,bytes data) order,uint256 amount,bytes takerTraitsAndData) payable returns (uint256 amountIn,uint256 amountOut,bytes32 orderHash)",
 ]);
 
 export function acceptRequest(registry: Address, quote: FirmQuote, order: SwapVMOrder, makerSignature: Hex) {
@@ -93,4 +97,12 @@ export function withdrawBondRequest(vault: Address, amount: bigint, to: Address)
 
 export function firmQuoteRequest(router: Address, order: SwapVMOrder, amountIn: bigint, takerTraits: Hex) {
   return { address: router, abi: swapVmAbi, functionName: "quote", args: [order, amountIn, takerTraits] } as const;
+}
+
+export function softSwapRequest(router: Address, order: SwapVMOrder, amount: bigint, takerTraits: Hex) {
+  return { address: router, abi: swapVmAbi, functionName: "swap", args: [order, amount, takerTraits] } as const;
+}
+
+export function approveTokenRequest(token: Address, spender: Address, amount: bigint) {
+  return { address: token, abi: erc20Abi, functionName: "approve", args: [spender, amount] } as const;
 }

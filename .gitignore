@@ -10,6 +10,8 @@ cache/
 out/
 broadcast/
 coverage/
+playwright-report/
+test-results/
 
 .idea/
 .vscode/
@@ -20,6 +22,7 @@ coverage/
 # Local fork/deployment state
 ignition/deployments/chain-31337/
 packages/contracts/deployments/*.local.json
+packages/frontend/.runtime/
 packages/contracts/ignition/parameters/chain-11155111.json
 anvil-state.json
 

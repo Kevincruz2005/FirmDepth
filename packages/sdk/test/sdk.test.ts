@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { hashStruct, recoverTypedDataAddress, type PublicClient, type WalletClient } from "viem";
 
-import { acceptFirm, depositBond, executeFirm, expireFirm, withdrawBond } from "../src/actions.js";
-import { effectiveAquaCapacity, canUseAqua } from "../src/capacity.js";
+import { acceptFirm, approveToken, depositBond, executeFirm, executeSoftSwap, expireFirm, withdrawBond } from "../src/actions.js";
+import { effectiveAquaCapacity, canUseAqua, sharedLiquidityRatioWad } from "../src/capacity.js";
 import { buildFirmTypedData, hashFirmQuote, verifyFirmQuote } from "../src/eip712.js";
 import { buildAquaShipRequest, aquaStrategyHash } from "../src/aqua.js";
 import { calculateFirmPremium, computeFirmPrice } from "../src/pricing.js";
@@ -28,11 +28,30 @@ import {
   decodeFirmInstructionArgs,
   encodeInstruction,
 } from "../src/swapvm.js";
-import { acceptRequest } from "../src/requests.js";
+import { acceptRequest, approveTokenRequest, softSwapRequest } from "../src/requests.js";
 
 test("encodes the exact FirmDepth SwapVM program", () => {
   assert.equal(buildFirmProgram(), "0x52002100");
   assert.equal(encodeInstruction(0x21, "0x1234"), "0x21021234");
+});
+
+test("builds narrowly scoped Soft swap and approval requests", () => {
+  const router = "0x0000000000000000000000000000000000000001";
+  const token = "0x0000000000000000000000000000000000000002";
+  const order = {
+    maker: "0x0000000000000000000000000000000000000003",
+    traits: 1n,
+    data: "0x1234" as const,
+  };
+  assert.deepEqual(softSwapRequest(router, order, 10n, "0xabcd"), {
+    address: router,
+    abi: softSwapRequest(router, order, 10n, "0xabcd").abi,
+    functionName: "swap",
+    args: [order, 10n, "0xabcd"],
+  });
+  assert.equal(approveTokenRequest(token, router, 10n).functionName, "approve");
+  assert.equal(typeof executeSoftSwap, "function");
+  assert.equal(typeof approveToken, "function");
 });
 
 test("builds the exact hook-free Aqua maker order accepted by FirmExecutor", () => {
@@ -161,6 +180,12 @@ test("computes capacity as virtual-real-allowance minimum", () => {
   assert.equal(canUseAqua(capacity, 700n), true);
   assert.equal(canUseAqua(capacity, 701n), false);
   assert.equal(effectiveAquaCapacity(900n, 700n, 800n, false).effectiveCapacity, 0n);
+});
+
+test("computes shared liquidity ratio in fixed point", () => {
+  assert.equal(sharedLiquidityRatioWad(4_000n, 1_000n), 4n * 10n ** 18n);
+  assert.equal(sharedLiquidityRatioWad(1_250n, 1_000n), 1_250_000_000_000_000_000n);
+  assert.throws(() => sharedLiquidityRatioWad(1n, 0n), RangeError);
 });
 
 test("rejects oversized instruction arguments and malformed ids", () => {
