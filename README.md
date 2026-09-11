@@ -59,7 +59,7 @@ The fork demo discovers a real USDC holder from historical Base logs and uses re
 
 ## Verified backend
 
-- 57 Solidity tests pass, including two vault/accounting invariants at 1,024 fuzz runs each.
+- 58 Solidity tests pass, including two vault/accounting invariants at 1,024 fuzz runs each.
 - 21 TypeScript SDK tests pass after a clean build.
 - 810,000 seeded simulation episodes cover 81 parameter configurations across quote size, TTL, shared-liquidity ratio, and bond utilization.
 - The highest-loss admitted benchmark scenario observes 5,853 Soft capacity losses out of 10,000 episodes; the same seeded Firm scenario settles 4,147 through Aqua and 5,853 through locked collateral. These are synthetic stress results, not claimed real-network failure rates.

@@ -888,6 +888,40 @@ contract FirmDepthTest is Test {
         assertEq(weth.balanceOf(address(registry)), 0);
     }
 
+    function testActiveStrategyVirtualCapacityBelowMinimumUsesDedicatedBond() public {
+        (bytes32 commitmentId,) = _accept(104);
+        usdc.mint(maker, 10_000e6);
+        vm.startPrank(maker);
+        usdc.approve(address(vault), 6_000e6);
+        vault.deposit(6_000e6);
+        vm.stopPrank();
+
+        for (uint256 nonce = 105; nonce < 113; nonce++) {
+            FirmQuote memory sibling = _quote(nonce);
+            sibling.utilizationAfterWad = registry.utilizationAfter(maker, sibling.requiredBond);
+            sibling.premiumAmount = registry.quotePremium(sibling).premiumIn;
+            bytes memory signature = _sign(sibling);
+            vm.prank(trader);
+            bytes32 siblingId = registry.accept(sibling, _order(), signature);
+            vm.prank(trader);
+            executor.execute(siblingId, _order());
+        }
+
+        FirmExecutor.Capacity memory available = executor.capacity(commitmentId);
+        assertTrue(available.strategyActive);
+        assertEq(available.virtualBalance, 0);
+        assertGt(available.realBalance, MIN_OUT);
+        assertGt(available.aquaAllowance, MIN_OUT);
+        assertEq(available.effectiveCapacity, 0);
+
+        vm.prank(trader);
+        (CommitmentStatus result, uint256 amountOut) = executor.execute(commitmentId, _order());
+        assertEq(uint8(result), uint8(CommitmentStatus.FILLED_BOND));
+        assertEq(amountOut, MIN_OUT);
+        assertEq(vault.lockedOf(maker), 0);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.FILLED_BOND));
+    }
+
     function testOneCommitmentCannotConsumeAnotherCommitmentLock() public {
         (bytes32 firstId,) = _accept(92);
 
