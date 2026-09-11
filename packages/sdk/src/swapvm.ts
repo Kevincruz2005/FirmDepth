@@ -79,6 +79,13 @@ export interface FirmQuoteTakerTraits {
   commitmentId?: Hex;
 }
 
+export interface FirmExecutionTakerTraits extends FirmQuoteTakerTraits {
+  taker: Address;
+  recipient: Address;
+  deadline: bigint;
+  commitmentId: Hex;
+}
+
 /**
  * Builds static-quote traits for the exact pinned SwapVM TakerTraitsLib layout.
  * Runtime execution traits remain contract-controlled in FirmExecutor.
@@ -90,6 +97,50 @@ export function buildFirmQuoteTakerTraits({
   deadline = 0n,
   commitmentId = zeroHash,
 }: FirmQuoteTakerTraits): Hex {
+  return buildFirmTraits({
+    amountOut,
+    tokenIn,
+    tokenOut,
+    deadline,
+    commitmentId,
+  });
+}
+
+/** Mirrors FirmExecutor._buildTakerTraits for byte-exact transaction inspection. */
+export function buildFirmTakerTraits({
+  amountOut,
+  tokenIn,
+  tokenOut,
+  taker,
+  recipient,
+  deadline,
+  commitmentId,
+}: FirmExecutionTakerTraits): Hex {
+  return buildFirmTraits({
+    amountOut,
+    tokenIn,
+    tokenOut,
+    taker: getAddress(taker),
+    recipient: getAddress(recipient),
+    deadline,
+    commitmentId,
+  });
+}
+
+interface FirmTraitsInput extends FirmQuoteTakerTraits {
+  taker?: Address;
+  recipient?: Address;
+}
+
+function buildFirmTraits({
+  amountOut,
+  tokenIn,
+  tokenOut,
+  taker,
+  recipient,
+  deadline = 0n,
+  commitmentId = zeroHash,
+}: FirmTraitsInput): Hex {
   if (deadline < 0n || deadline > 2n ** 40n - 1n) {
     throw new RangeError("deadline must fit in uint40");
   }
@@ -100,10 +151,13 @@ export function buildFirmQuoteTakerTraits({
 
   const threshold = padHex(toHex(amountOut), { size: 32 });
   const instructionArgs = buildFirmInstructionArgs(amountOut, commitmentId);
+  const recipientData = taker !== undefined && recipient !== undefined && taker !== recipient
+    ? recipient
+    : "0x";
   const deadlineData = deadline === 0n ? "0x" : numberToHex(deadline, { size: 5 });
 
   const thresholdEnd = 32;
-  const recipientEnd = thresholdEnd;
+  const recipientEnd = thresholdEnd + size(recipientData);
   const deadlineEnd = recipientEnd + size(deadlineData);
   const instructionsEnd = deadlineEnd + size(instructionArgs);
   const sliceEnds = [
@@ -127,7 +181,51 @@ export function buildFirmQuoteTakerTraits({
     numberToHex(flags, { size: 2 }),
   ]);
 
-  return concatHex([header, threshold, deadlineData, instructionArgs]);
+  return concatHex([header, threshold, recipientData, deadlineData, instructionArgs]);
 }
 
-export const buildFirmTakerTraits = buildFirmQuoteTakerTraits;
+export interface DecodedFirmTakerTraits {
+  flags: number;
+  threshold: bigint;
+  recipient: Address | null;
+  deadline: bigint;
+  instructionAmountOut: bigint;
+  commitmentId: Hex;
+}
+
+/** Strictly decodes the hook-free runtime/static layout used by FirmDepth. */
+export function decodeFirmTakerTraits(data: Hex): DecodedFirmTakerTraits {
+  if (size(data) < 22) throw new RangeError("SwapVM taker traits header is truncated");
+  const wireEnds = Array.from({ length: 10 }, (_, index) =>
+    Number(hexToBigInt(slice(data, index * 2, index * 2 + 2))),
+  );
+  const ends = wireEnds.reverse();
+  const flags = Number(hexToBigInt(slice(data, 20, 22)));
+  if (flags !== 0x71 && flags !== 0xf1) {
+    throw new RangeError("Firm traits flags do not match the exact-in hook-free execution policy");
+  }
+  const tail = slice(data, 22);
+  if (ends.some((end, index) => end < (index === 0 ? 0 : ends[index - 1]!) || end > size(tail))) {
+    throw new RangeError("SwapVM taker traits contain invalid slice offsets");
+  }
+  const [thresholdEnd, recipientEnd, deadlineEnd] = ends;
+  if (thresholdEnd !== 32 || ![32, 52].includes(recipientEnd!) || ![recipientEnd, recipientEnd! + 5].includes(deadlineEnd!)) {
+    throw new RangeError("Firm threshold, recipient, or deadline layout is invalid");
+  }
+  if (!ends.slice(3, 9).every((end) => end === deadlineEnd) || ends[9]! - ends[8]! !== 64 || ends[9] !== size(tail)) {
+    throw new RangeError("Firm traits must contain no hooks, callbacks, or signature and exactly 64 instruction bytes");
+  }
+  const decodedArgs = decodeFirmInstructionArgs(slice(tail, ends[8]!, ends[9]!));
+  return {
+    flags,
+    threshold: hexToBigInt(slice(tail, 0, thresholdEnd)),
+    recipient: recipientEnd === thresholdEnd
+      ? null
+      : getAddress(slice(tail, thresholdEnd, recipientEnd)),
+    deadline: deadlineEnd === recipientEnd
+      ? 0n
+      : hexToBigInt(slice(tail, recipientEnd, deadlineEnd)),
+    instructionAmountOut: decodedArgs.amountOut,
+    commitmentId: decodedArgs.commitmentId,
+  };
+}

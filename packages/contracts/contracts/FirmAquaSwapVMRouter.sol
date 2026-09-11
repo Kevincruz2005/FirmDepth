@@ -14,7 +14,7 @@ contract FirmAquaSwapVMRouter is AquaSwapVMRouter {
     uint8 public constant FIRM_PRICE_OPCODE = 0x52;
 
     IFirmCommitmentRegistry public immutable FIRM_REGISTRY;
-        BondVault public immutable BOND_VAULT;
+    BondVault public immutable BOND_VAULT;
 
     constructor(
         address aqua,

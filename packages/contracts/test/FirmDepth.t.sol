@@ -399,6 +399,31 @@ contract FirmDepthTest is Test {
         assertEq(quotedHash, router.hash(_order()));
     }
 
+    function testSdkRuntimeTraitsMatchExecutorAndBindNativeThresholdAndDeadline() public {
+        (bytes32 commitmentId, FirmQuote memory quote) = _accept(100);
+        bytes memory sliceIndexes = hex"0079003900390039003900390039003900340020";
+        bytes2 flags = address(weth) < address(usdc) ? bytes2(0x00f1) : bytes2(0x0071);
+        bytes memory sdkLayout = abi.encodePacked(
+            sliceIndexes,
+            flags,
+            quote.minAmountOut,
+            trader,
+            uint40(quote.expiry),
+            quote.minAmountOut,
+            commitmentId
+        );
+
+        assertEq(executor.buildTakerTraits(commitmentId), sdkLayout);
+        bytes32 nativeThreshold;
+        uint40 nativeDeadline;
+        assembly ("memory-safe") {
+            nativeThreshold := mload(add(sdkLayout, 54))
+            nativeDeadline := shr(216, mload(add(sdkLayout, 106)))
+        }
+        assertEq(uint256(nativeThreshold), quote.minAmountOut);
+        assertEq(nativeDeadline, uint40(quote.expiry));
+    }
+
     function testGuardRejectsSwapFromAnyoneExceptSignedExecutor() public {
         (bytes32 commitmentId,) = _accept(3);
         bytes memory takerTraits = executor.buildTakerTraits(commitmentId);
@@ -407,6 +432,7 @@ contract FirmDepthTest is Test {
             abi.encodeWithSelector(FirmGuard.ExecutorMismatch.selector, address(executor), address(this))
         );
         router.swap(_order(), AMOUNT_IN, takerTraits);
+        assertEq(vault.lockedOf(maker), MIN_OUT);
     }
 
     function testFirmPriceRejectsOutputDifferentFromAcceptedSnapshot() public {
@@ -418,6 +444,89 @@ contract FirmDepthTest is Test {
         );
         vm.prank(address(executor));
         router.swap(_order(), AMOUNT_IN, takerTraits);
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+    }
+
+    function testNativeThresholdDeadlineAndMalformedArgsCannotConsumeBond() public {
+        (bytes32 commitmentId, FirmQuote memory quote) = _accept(101);
+
+        bytes memory wrongThreshold = _runtimeTraits(
+            MIN_OUT + 1,
+            uint40(quote.expiry),
+            abi.encodePacked(MIN_OUT, commitmentId)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TakerTraitsLib.TakerTraitsNonExactThresholdAmountOut.selector,
+                MIN_OUT,
+                MIN_OUT + 1
+            )
+        );
+        vm.prank(address(executor));
+        router.swap(_order(), AMOUNT_IN, wrongThreshold);
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+
+        vm.warp(block.timestamp + 1);
+        bytes memory expiredDeadline = _runtimeTraits(
+            MIN_OUT,
+            uint40(block.timestamp - 1),
+            abi.encodePacked(MIN_OUT, commitmentId)
+        );
+        vm.expectRevert(TakerTraitsLib.TakerTraitsDeadlineExpired.selector);
+        vm.prank(address(executor));
+        router.swap(_order(), AMOUNT_IN, expiredDeadline);
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+
+        bytes memory malformedArgs = _runtimeTraits(
+            MIN_OUT,
+            uint40(quote.expiry),
+            abi.encodePacked(MIN_OUT)
+        );
+        vm.expectRevert(FirmGuard.MissingCommitmentId.selector);
+        vm.prank(address(executor));
+        router.swap(_order(), AMOUNT_IN, malformedArgs);
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
+    }
+
+    function testArbitraryRouterFailureRevertsInputPullAndCannotConsumeBond() public {
+        (bytes32 commitmentId,) = _accept(102);
+        ISwapVM.Order memory order = _order();
+        bytes memory callData = abi.encodeCall(
+            ISwapVM.swap,
+            (order, AMOUNT_IN, executor.buildTakerTraits(commitmentId))
+        );
+        vm.mockCallRevert(address(router), callData, abi.encodeWithSignature("Error(string)", "router failure"));
+
+        uint256 traderWethBefore = weth.balanceOf(trader);
+        uint256 makerWethBefore = weth.balanceOf(maker);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "router failure"));
+        vm.prank(trader);
+        executor.execute(commitmentId, order);
+
+        assertEq(weth.balanceOf(trader), traderWethBefore);
+        assertEq(weth.balanceOf(maker), makerWethBefore);
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
+    }
+
+    function testReentrantTokenCallbackRevertsEverythingAndCannotConsumeBond() public {
+        (bytes32 commitmentId,) = _accept(103);
+        weth.setTransferFromCallback(
+            address(executor),
+            abi.encodeCall(FirmExecutor.execute, (commitmentId, _order()))
+        );
+        uint256 traderWethBefore = weth.balanceOf(trader);
+        uint256 makerWethBefore = weth.balanceOf(maker);
+
+        vm.expectRevert();
+        vm.prank(trader);
+        executor.execute(commitmentId, _order());
+
+        assertEq(weth.balanceOf(trader), traderWethBefore);
+        assertEq(weth.balanceOf(maker), makerWethBefore);
+        assertEq(vault.lockedOf(maker), MIN_OUT);
+        assertEq(uint8(registry.getCommitment(commitmentId).status), uint8(CommitmentStatus.ACCEPTED));
     }
 
     function testExecutionDoesNotRepriceAfterVaultUtilizationChanges() public {
@@ -578,6 +687,79 @@ contract FirmDepthTest is Test {
         changed = quote;
         changed.nonce += 1;
         assertNotEq(registry.quoteDigest(changed), digest);
+    }
+
+    function testFirmQuoteEip712GoldenVectorMatchesSdk() public pure {
+        bytes32 typeHash = keccak256(
+            "FirmQuote(address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint32 pricingTtl,uint64 expiry,uint256 nonce)"
+        );
+        FirmQuote memory quote = FirmQuote({
+            maker: 0xe05fcC23807536bEe418f142D19fa0d21BB0cfF7,
+            taker: address(2),
+            executor: address(3),
+            swapRouter: address(6),
+            orderHash: bytes32(uint256(type(uint256).max / 15)),
+            tokenIn: address(4),
+            tokenOut: address(5),
+            amountIn: 250_000_000_000_000_000,
+            referenceAmountOut: 630_000_000,
+            minAmountOut: 625_000_000,
+            requiredBond: 625_000_000,
+            premiumToken: address(4),
+            premiumAmount: 250_000_000_000_000,
+            pricingVersion: 2,
+            sigmaWad: 800_000_000_000_000_000,
+            annualCapitalRateWad: 100_000_000_000_000_000,
+            capacityKBps: 10,
+            utilizationAfterWad: 500_000_000_000_000_000,
+            minPremiumOut: 100_000,
+            pricingTtl: 30,
+            expiry: 2_000_000_000,
+            nonce: 1
+        });
+        bytes32 structHash = keccak256(abi.encode(
+            typeHash,
+            quote.maker,
+            quote.taker,
+            quote.executor,
+            quote.swapRouter,
+            quote.orderHash,
+            quote.tokenIn,
+            quote.tokenOut,
+            quote.amountIn,
+            quote.referenceAmountOut,
+            quote.minAmountOut,
+            quote.requiredBond,
+            quote.premiumToken,
+            quote.premiumAmount,
+            quote.pricingVersion,
+            quote.sigmaWad,
+            quote.annualCapitalRateWad,
+            quote.capacityKBps,
+            quote.utilizationAfterWad,
+            quote.minPremiumOut,
+            quote.pricingTtl,
+            quote.expiry,
+            quote.nonce
+        ));
+        assertEq(structHash, 0x1d4bb27bace9c40f1aa789756cd2773857c08a303c014178044f25948440fb44);
+
+        bytes32 domainSeparator = keccak256(abi.encode(
+            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+            keccak256("FirmDepth"),
+            keccak256("1"),
+            uint256(31_337),
+            address(0x10)
+        ));
+        bytes32 digest = keccak256(abi.encodePacked(hex"1901", domainSeparator, structHash));
+        assertEq(digest, 0x589b7a520fa4c984880d9cc176f1144d3d4efb401e2ff007fa7a795745593a50);
+        address recovered = ecrecover(
+            digest,
+            27,
+            0x58effceba4850b5b7e05a4b76dff2ffc1444c680d311b1d813df1199aa7226c8,
+            0x020e81f10ed99070a23378e656484964a2b6294538df46a070d1d072f8b210c4
+        );
+        assertEq(recovered, quote.maker);
     }
 
     function testBondSettlementIsTerminalAndLockedCollateralCannotBeWithdrawn() public {
@@ -1294,6 +1476,36 @@ contract FirmDepthTest is Test {
             preTransferInCallbackData: "",
             preTransferOutCallbackData: "",
             instructionsArgs: abi.encodePacked(amountOut, commitmentId),
+            signature: ""
+        }));
+    }
+
+    function _runtimeTraits(
+        uint256 threshold,
+        uint40 deadline,
+        bytes memory instructionArgs
+    ) private view returns (bytes memory) {
+        return TakerTraitsLib.build(TakerTraitsLib.Args({
+            taker: address(executor),
+            isExactIn: true,
+            shouldUnwrapWeth: false,
+            isStrictThresholdAmount: true,
+            isFirstTransferFromTaker: true,
+            useTransferFromAndAquaPush: true,
+            isAToB: address(weth) < address(usdc),
+            allowPartialFill: false,
+            threshold: abi.encode(threshold),
+            to: trader,
+            deadline: deadline,
+            hasPreTransferInCallback: false,
+            hasPreTransferOutCallback: false,
+            preTransferInHookData: "",
+            postTransferInHookData: "",
+            preTransferOutHookData: "",
+            postTransferOutHookData: "",
+            preTransferInCallbackData: "",
+            preTransferOutCallbackData: "",
+            instructionsArgs: instructionArgs,
             signature: ""
         }));
     }

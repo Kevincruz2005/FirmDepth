@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
-import type { PublicClient, WalletClient } from "viem";
+import { hashStruct, recoverTypedDataAddress, type PublicClient, type WalletClient } from "viem";
 
 import { acceptFirm, depositBond, executeFirm, expireFirm, withdrawBond } from "../src/actions.js";
 import { effectiveAquaCapacity, canUseAqua } from "../src/capacity.js";
@@ -22,6 +23,8 @@ import {
   buildFirmOrder,
   buildFirmProgram,
   buildFirmQuoteTakerTraits,
+  buildFirmTakerTraits,
+  decodeFirmTakerTraits,
   decodeFirmInstructionArgs,
   encodeInstruction,
 } from "../src/swapvm.js";
@@ -78,6 +81,32 @@ test("builds pinned SwapVM static quote traits with exact slice offsets", () => 
   assert.equal((traits.length - 2) / 2, 123);
 });
 
+test("binds the native SwapVM threshold and deadline in runtime traits byte-for-byte", () => {
+  const amountOut = 625_000_000n;
+  const commitmentId = `0x${"ab".repeat(32)}` as const;
+  const trader = "0x00000000000000000000000000000000000000B0";
+  const traits = buildFirmTakerTraits({
+    amountOut,
+    commitmentId,
+    tokenIn: "0x0000000000000000000000000000000000000001",
+    tokenOut: "0x0000000000000000000000000000000000000002",
+    taker: "0x00000000000000000000000000000000000000E0",
+    recipient: trader,
+    deadline: 2_000_000_000n,
+  });
+
+  assert.equal(traits.slice(2, 42), `0079${"0039".repeat(7)}00340020`);
+  assert.equal(traits.slice(42, 46), "00f1");
+  assert.deepEqual(decodeFirmTakerTraits(traits), {
+    flags: 0xf1,
+    threshold: amountOut,
+    recipient: trader,
+    deadline: 2_000_000_000n,
+    instructionAmountOut: amountOut,
+    commitmentId,
+  });
+});
+
 test("computes capacity as virtual-real-allowance minimum", () => {
   const capacity = effectiveAquaCapacity(900n, 700n, 800n);
   assert.equal(capacity.effectiveCapacity, 700n);
@@ -101,6 +130,7 @@ test("rejects oversized instruction arguments and malformed ids", () => {
     tokenOut: "0x0000000000000000000000000000000000000002",
     deadline: 2n ** 40n,
   }), RangeError);
+  assert.throws(() => decodeFirmTakerTraits("0x1234"), RangeError);
 });
 
 test("matches the canonical 5, 30, and 120 second premium vectors", () => {
@@ -179,6 +209,9 @@ test("rejects pricing inputs outside the onchain bounds", () => {
   assert.throws(() => calculateFirmPremium({ ...inputs, ttl: 301n }), RangeError);
   assert.throws(() => calculateFirmPremium({ ...inputs, requiredBond: 0n }), RangeError);
   assert.throws(() => calculateFirmPremium({ ...inputs, utilizationAfterWad: 10n ** 18n + 1n }), RangeError);
+  assert.throws(() => calculateFirmPremium({ ...inputs, sigmaWad: 5n * 10n ** 18n + 1n }), RangeError);
+  assert.throws(() => calculateFirmPremium({ ...inputs, annualCapitalRateWad: 2n * 10n ** 18n + 1n }), RangeError);
+  assert.throws(() => calculateFirmPremium({ ...inputs, capacityKBps: 2_001n }), RangeError);
 });
 
 test("builds Aqua ship calldata through the official Aqua SDK", () => {
@@ -341,6 +374,30 @@ test("hashes every signed quote field deterministically", () => {
   const request = acceptRequest(registry, quote, order, "0x1234");
   assert.deepEqual(request.args, [quote, order, "0x1234"]);
   assert.deepEqual(buildFirmTypedData(registry, 31337, quote).message, quote);
+});
+
+test("matches and recovers the deterministic FirmQuote EIP-712 golden vector", async () => {
+  const vector = JSON.parse(readFileSync(new URL("./firm-quote-golden.json", import.meta.url), "utf8"));
+  const bigintFields = [
+    "amountIn", "referenceAmountOut", "minAmountOut", "requiredBond", "premiumAmount",
+    "sigmaWad", "annualCapitalRateWad", "utilizationAfterWad", "minPremiumOut", "expiry", "nonce",
+  ];
+  const quote = { ...vector.message };
+  for (const field of bigintFields) quote[field] = BigInt(quote[field]);
+
+  const typedData = buildFirmTypedData(
+    vector.domain.verifyingContract,
+    vector.domain.chainId,
+    quote,
+  );
+  assert.equal(hashStruct({
+    data: quote,
+    primaryType: "FirmQuote",
+    types: typedData.types,
+  }), vector.structHash);
+  assert.equal(hashFirmQuote(vector.domain.verifyingContract, vector.domain.chainId, quote), vector.digest);
+  assert.equal(await recoverTypedDataAddress({ ...typedData, signature: vector.signature }), vector.recovered);
+  assert.equal(vector.recovered, vector.signer);
 });
 
 test("verifies EOA and ERC-1271 quotes through the public client", async () => {

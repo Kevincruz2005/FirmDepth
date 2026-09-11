@@ -9,6 +9,8 @@ contract MockERC20 is ERC20 {
     bool public transferFromRevertsEmpty;
     bool public transferFromPanics;
     bool public transferSkips;
+    address public transferFromCallbackTarget;
+    bytes public transferFromCallbackData;
 
     error ForcedTransferFromRevert();
 
@@ -40,6 +42,11 @@ contract MockERC20 is ERC20 {
         transferSkips = value;
     }
 
+    function setTransferFromCallback(address target, bytes calldata data) external {
+        transferFromCallbackTarget = target;
+        transferFromCallbackData = data;
+    }
+
     function transfer(address to, uint256 value) public override returns (bool) {
         if (transferSkips) return true;
         return super.transfer(to, value);
@@ -53,6 +60,14 @@ contract MockERC20 is ERC20 {
             }
         }
         assert(!transferFromPanics);
+        if (transferFromCallbackTarget != address(0)) {
+            (bool success, bytes memory reason) = transferFromCallbackTarget.call(transferFromCallbackData);
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(reason, 32), mload(reason))
+                }
+            }
+        }
         return super.transferFrom(from, to, value);
     }
 }
