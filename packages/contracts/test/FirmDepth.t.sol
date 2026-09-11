@@ -1253,6 +1253,56 @@ contract FirmDepthTest is Test {
         assertEq(accepted.quote.premiumAmount, signedPremium);
     }
 
+    function testAcceptanceRejectsExpiryBeyondNativeDeadlineWidth() public {
+        FirmQuote memory quote = _quote(101);
+        quote.expiry = uint64(type(uint40).max) + 1;
+        bytes memory signature = _sign(quote);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(FirmCommitmentRegistry.ExpiryTooLarge.selector, quote.expiry)
+        );
+        vm.prank(trader);
+        registry.accept(quote, _order(), signature);
+    }
+
+    function testNativeDeadlineAcceptsUint40MaximumWithoutTruncation() public {
+        vm.warp(uint256(type(uint40).max) - 30);
+        FirmQuote memory quote = _quote(102);
+        quote.pricingTtl = 60;
+        quote.premiumAmount = registry.quotePremium(quote).premiumIn;
+        bytes memory signature = _sign(quote);
+
+        vm.prank(trader);
+        bytes32 commitmentId = registry.accept(quote, _order(), signature);
+        Commitment memory accepted = registry.getCommitment(commitmentId);
+        bytes memory takerTraits = executor.buildTakerTraits(commitmentId);
+        uint40 nativeDeadline;
+        assembly ("memory-safe") {
+            nativeDeadline := shr(216, mload(add(takerTraits, 106)))
+        }
+
+        assertEq(accepted.quote.expiry, type(uint40).max);
+        assertEq(accepted.quote.pricingTtl, 60);
+        assertEq(nativeDeadline, accepted.quote.expiry);
+    }
+
+    function testNativeDeadlineAcceptsUint40MaximumMinusOneWithoutTruncation() public {
+        vm.warp(uint256(type(uint40).max) - 31);
+        FirmQuote memory quote = _quote(103);
+        bytes memory signature = _sign(quote);
+
+        vm.prank(trader);
+        bytes32 commitmentId = registry.accept(quote, _order(), signature);
+        bytes memory takerTraits = executor.buildTakerTraits(commitmentId);
+        uint40 nativeDeadline;
+        assembly ("memory-safe") {
+            nativeDeadline := shr(216, mload(add(takerTraits, 106)))
+        }
+
+        assertEq(quote.expiry, uint64(type(uint40).max) - 1);
+        assertEq(nativeDeadline, quote.expiry);
+    }
+
     function testPricingSnapshotTermsAreEnforcedOnchain() public {
         FirmQuote memory wrongVersion = _quote(45);
         wrongVersion.pricingVersion = 3;

@@ -107,6 +107,54 @@ test("binds the native SwapVM threshold and deadline in runtime traits byte-for-
   });
 });
 
+test("preserves accepted quote expiry across the uint40 native deadline boundaries", () => {
+  const maxDeadline = 2n ** 40n - 1n;
+  const baseTerms = {
+    maker: "0x0000000000000000000000000000000000000001",
+    taker: "0x0000000000000000000000000000000000000002",
+    executor: "0x0000000000000000000000000000000000000003",
+    swapRouter: "0x0000000000000000000000000000000000000004",
+    orderHash: `0x${"11".repeat(32)}` as const,
+    tokenIn: "0x0000000000000000000000000000000000000005",
+    tokenOut: "0x0000000000000000000000000000000000000006",
+    amountIn: 1n,
+    referenceAmountOut: 1n,
+    minAmountOut: 1n,
+    requiredBond: 1n,
+    premiumToken: "0x0000000000000000000000000000000000000005",
+    sigmaWad: 0n,
+    annualCapitalRateWad: 0n,
+    capacityKBps: 0,
+    utilizationAfterWad: 0n,
+    minPremiumOut: 0n,
+    nonce: 1n,
+  } as const;
+
+  for (const [expiry, currentTimestamp] of [
+    [maxDeadline, maxDeadline - 30n],
+    [maxDeadline - 1n, maxDeadline - 31n],
+    [2_000_000_030n, 2_000_000_000n],
+  ] as const) {
+    const quote = buildFirmQuote({ ...baseTerms, expiry }, currentTimestamp);
+    const traits = buildFirmTakerTraits({
+      amountOut: quote.minAmountOut,
+      commitmentId: `0x${"ab".repeat(32)}`,
+      tokenIn: quote.tokenIn,
+      tokenOut: quote.tokenOut,
+      taker: quote.executor,
+      recipient: quote.taker,
+      deadline: quote.expiry,
+    });
+    assert.equal(decodeFirmTakerTraits(traits).deadline, quote.expiry);
+    assert.equal(quote.pricingTtl, Number(expiry - currentTimestamp));
+  }
+
+  assert.throws(
+    () => buildFirmQuote({ ...baseTerms, expiry: maxDeadline + 1n }, 2_000_000_000n),
+    /must fit in SwapVM uint40 deadline/,
+  );
+});
+
 test("computes capacity as virtual-real-allowance minimum", () => {
   const capacity = effectiveAquaCapacity(900n, 700n, 800n);
   assert.equal(capacity.effectiveCapacity, 700n);

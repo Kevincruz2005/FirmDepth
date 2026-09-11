@@ -13,7 +13,10 @@ export type FirmQuoteTerms = Omit<FirmQuote, "maker" | "taker" | "executor" | "s
   premiumToken: string;
 };
 
+const MAX_SWAPVM_DEADLINE = 2n ** 40n - 1n;
+
 export function buildFirmQuote(terms: FirmQuoteTerms, currentTimestamp: bigint): FirmQuote {
+  if (terms.expiry > MAX_SWAPVM_DEADLINE) throw new RangeError("Firm quote expiry must fit in SwapVM uint40 deadline");
   if (terms.expiry <= currentTimestamp) throw new RangeError("Firm quote expiry must be in the future");
   const ttl = terms.expiry - currentTimestamp;
   if (ttl > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError("Firm pricing TTL exceeds safe integer range");
