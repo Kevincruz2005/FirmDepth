@@ -16,6 +16,7 @@
     "testnet:reseed": "hardhat run scripts/setup-sepolia.ts --network sepolia",
     "testnet:verify": "hardhat run scripts/verify-sepolia-deployment.ts --network sepolia",
     "testnet:deploy-fork": "hardhat ignition deploy ignition/modules/FirmDepth.ts --network sepoliaFork --parameters ignition/parameters/chain-11155111.json --deployment-id chain-31337",
+    "testnet:rehearse-fork": "hardhat run scripts/rehearse-sepolia-fork.ts --network sepoliaFork",
     "deploy:sepolia": "hardhat ignition deploy ignition/modules/FirmDepth.ts --network sepolia --parameters ignition/parameters/chain-11155111.json --deployment-id chain-11155111",
     "verify:sepolia": "hardhat ignition verify chain-11155111",
     "test": "hardhat test solidity",

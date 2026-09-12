@@ -195,6 +195,8 @@ npm --prefix packages/contracts run testnet:verify
 
 `testnet:setup` is explicit and idempotent. It verifies active strategies before changing anything, creates only missing Firm/Soft strategies, uses real Aqua `push` calls to replenish an active strategy, repairs required approvals/Bond, never docks a strategy, and never executes a trade. A previously docked immutable strategy stops setup with a concrete redeployment error. `testnet:reseed` invokes the same safe reconciliation.
 
+After setup, `scripts/rehearse_sepolia_fork.sh` forks the current Sepolia state without modifying it, authenticates the recorded deployment/strategies, creates genuine 120-second maker signatures, and uses fork-only funded taker/drainer accounts to prove `FILLED_AQUA`, sibling-drain `FILLED_BOND`, natural `EXPIRED`, and SDK receipt reconstruction. Hardhat time and account controls are confined to this rehearsal and are never used by the public setup scripts.
+
 Run the quote service locally with a private Azure-side RPC and a separate public browser RPC:
 
 ```bash

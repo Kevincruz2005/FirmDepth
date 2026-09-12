@@ -6,7 +6,7 @@ import { hashStruct, recoverTypedDataAddress, type PublicClient, type WalletClie
 import { acceptFirm, approveToken, depositBond, executeFirm, executeSoftSwap, expireFirm, withdrawBond } from "../src/actions.js";
 import { effectiveAquaCapacity, canUseAqua, firmDepthForQuote, sharedLiquidityRatioWad } from "../src/capacity.js";
 import { buildFirmTypedData, hashFirmQuote, verifyFirmQuote } from "../src/eip712.js";
-import { buildAquaShipRequest, aquaStrategyHash } from "../src/aqua.js";
+import { buildAquaPushRequest, buildAquaShipRequest, aquaStrategyHash } from "../src/aqua.js";
 import { calculateFirmPremium, computeFirmPrice } from "../src/pricing.js";
 import { buildFirmQuote } from "../src/quote.js";
 import { authenticateFirmDepthDeployment } from "../src/deployment.js";
@@ -29,12 +29,35 @@ import {
   decodeFirmTakerTraits,
   decodeFirmInstructionArgs,
   encodeInstruction,
+  buildSoftOrder,
+  buildSoftProgram,
+  buildSoftTakerTraits,
 } from "../src/swapvm.js";
 import { acceptRequest, approveTokenRequest, softSwapRequest } from "../src/requests.js";
 
 test("encodes the exact FirmDepth SwapVM program", () => {
   assert.equal(buildFirmProgram(), "0x52002100");
   assert.equal(encodeInstruction(0x21, "0x1234"), "0x21021234");
+});
+
+test("encodes the public Soft sibling and Aqua replenishment request", () => {
+  const maker = "0x0000000000000000000000000000000000000001";
+  const tokenIn = "0x0000000000000000000000000000000000000002";
+  const tokenOut = "0x0000000000000000000000000000000000000003";
+  assert.equal(buildSoftProgram(), "0x50000208000000000000004d");
+  const order = buildSoftOrder(maker, tokenIn, tokenOut);
+  assert.equal(order.data.slice(-24), "50000208000000000000004d");
+  assert.equal(buildSoftTakerTraits(tokenIn, tokenOut).length, 46);
+  const push = buildAquaPushRequest(
+    "0x0000000000000000000000000000000000000004",
+    maker,
+    "0x0000000000000000000000000000000000000005",
+    `0x${"11".repeat(32)}`,
+    tokenOut,
+    10n,
+  );
+  assert.equal(push.data.slice(0, 10), "0x47d72768");
+  assert.throws(() => buildAquaPushRequest(push.address, maker, maker, `0x${"11".repeat(32)}`, tokenOut, 0n), RangeError);
 });
 
 test("builds narrowly scoped Soft swap and approval requests", () => {

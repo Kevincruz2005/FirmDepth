@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateRuntimeArtifact } from "./runtime";
+import { quoteSecondsRemaining, runtimeEndpoint, validatePublicRuntimeMatch, validateRuntimeArtifact } from "./runtime";
 
 const valid = {
   schemaVersion: "2",
@@ -41,5 +41,35 @@ describe("runtime artifact validation", () => {
     const value = structuredClone(valid);
     value.opcodeConfiguration.program = "0x00";
     expect(() => validateRuntimeArtifact(value)).toThrow(/program mismatch/i);
+  });
+
+  it("uses the public API runtime only when explicitly configured", () => {
+    expect(runtimeEndpoint("")).toBe("/runtime/firmdepth.json");
+    expect(runtimeEndpoint("https://quotes.example/api/")).toBe("https://quotes.example/api/runtime");
+    expect(() => runtimeEndpoint("http://quotes.example")).toThrow(/HTTPS/);
+  });
+
+  it("marks quotes stale from a chain-anchored countdown", () => {
+    expect(quoteSecondsRemaining(130n, 100n, 1_000, 6_000)).toBe(25n);
+    expect(quoteSecondsRemaining(130n, 100n, 1_000, 31_000)).toBe(0n);
+  });
+
+  it("fails closed when API runtime and bundled Sepolia manifest differ", () => {
+    const input = structuredClone(valid) as any;
+    input.chainId = 11155111;
+    input.environment = { kind: "deployment", label: "SEPOLIA TESTNET · LIVE", controlledEvidence: false };
+    input.manifestRevision = `0x${"99".repeat(32)}`;
+    input.maker = "0x0000000000000000000000000000000000000005";
+    const artifact = validateRuntimeArtifact(input);
+    const manifest = {
+      status: "ready", manifestRevision: artifact.manifestRevision,
+      chain: { id: 11155111 }, deployment: { blockNumber: artifact.deploymentBlock },
+      addresses: structuredClone(artifact.addresses), maker: artifact.maker,
+      strategies: structuredClone(artifact.strategies),
+    };
+    artifact.deploymentManifest = manifest;
+    expect(() => validatePublicRuntimeMatch(artifact, manifest)).not.toThrow();
+    manifest.addresses.registry = "0x0000000000000000000000000000000000000099";
+    expect(() => validatePublicRuntimeMatch(artifact, manifest)).toThrow(/registry mismatch/);
   });
 });

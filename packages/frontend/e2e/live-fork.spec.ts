@@ -194,7 +194,9 @@ async function acceptFirmInUi(page: import("@playwright/test").Page) {
   if (await connect.isVisible()) await connect.click();
   await expect(page.getByText("Eligible at observed block")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/3,000(?:\.00)? USDC/).first()).toBeVisible();
+  const refreshedAfterAllowance = page.waitForResponse((response) => response.url().endsWith("/runtime/firm-quote") && response.request().method() === "POST" && response.ok());
   await page.getByRole("button", { name: "Accept Firm quote" }).click();
+  await refreshedAfterAllowance;
   await expect(page.getByText("Commitment accepted · bond locked")).toBeVisible({ timeout: 30_000 });
 }
 

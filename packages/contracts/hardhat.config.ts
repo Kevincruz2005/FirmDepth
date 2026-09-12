@@ -67,7 +67,7 @@ export default defineConfig({
     sepoliaFork: {
       type: "edr-simulated",
       chainType: "l1",
-      chainId: 31337,
+      chainId: 11155111,
       forking: {
         url: configVariable("SEPOLIA_RPC_URL"),
         ...(parsedSepoliaForkBlock === undefined ? {} : { blockNumber: parsedSepoliaForkBlock }),
