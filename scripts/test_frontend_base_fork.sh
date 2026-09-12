@@ -14,6 +14,7 @@ cleanup() {
     wait "$FORK_PID" 2>/dev/null || true
   fi
   rm -f "$FRONTEND_DIR/.runtime/firmdepth.json"
+  rm -f "$FORK_LOG"
 }
 trap cleanup EXIT INT TERM
 
@@ -32,11 +33,13 @@ npm --prefix "$CONTRACTS_DIR" run compile
 ) >"$FORK_LOG" 2>&1 &
 FORK_PID=$!
 
+FORK_READY=0
 for _ in $(seq 1 45); do
   if curl --silent --fail --request POST \
     --header 'content-type: application/json' \
     --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
     "$FORK_RPC_URL" >/dev/null; then
+    FORK_READY=1
     break
   fi
   if ! kill -0 "$FORK_PID" 2>/dev/null; then
@@ -45,6 +48,11 @@ for _ in $(seq 1 45); do
   fi
   sleep 1
 done
+
+if [[ "$FORK_READY" -ne 1 ]]; then
+  sed -n '1,240p' "$FORK_LOG" >&2
+  exit 1
+fi
 
 (
   cd "$CONTRACTS_DIR"

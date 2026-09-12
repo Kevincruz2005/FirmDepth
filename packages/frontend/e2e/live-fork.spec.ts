@@ -19,6 +19,7 @@ test.describe("real pinned Base-fork UI", () => {
 
   let pristineSnapshot: unknown;
   test.beforeAll(async () => {
+    test.setTimeout(120_000);
     seedFork();
     pristineSnapshot = await rpc("http://127.0.0.1:8545", "evm_snapshot", []);
   });

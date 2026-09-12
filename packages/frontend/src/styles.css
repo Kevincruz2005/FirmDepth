@@ -65,7 +65,7 @@ button { color: inherit; }
 .metric { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .metric > span { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .metric strong { font-size: 20px; letter-spacing: -.04em; }
-.metric small { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.metric small { color: var(--muted); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
 .hash-value { display: inline-flex; align-items: center; gap: 3px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
 
 .hero { min-height: calc(100vh - 76px); padding: 84px max(40px, calc((100vw - 1280px) / 2)); display: grid; grid-template-columns: 1.14fr .86fr; align-items: center; gap: clamp(50px, 8vw, 130px); overflow: hidden; position: relative; }
