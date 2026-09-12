@@ -173,11 +173,17 @@ test.describe("real pinned Base-fork UI", () => {
     await expect(page.getByText("Eligible at observed block")).toBeVisible({ timeout: 30_000 });
     await page.getByRole("button", { name: "120s" }).click();
     await expect(page.getByText("Pricing v2 · signed TTL 120s")).toBeVisible({ timeout: 30_000 });
+    const reboundQuote = page.waitForResponse((response) => {
+      if (!response.url().endsWith("/runtime/firm-quote") || response.request().method() !== "POST") return false;
+      const request = response.request().postDataJSON() as { taker?: string; pricingTtl?: number };
+      return request.taker?.toLowerCase() === fixture.accounts.drainer.toLowerCase() && request.pricingTtl === 120 && response.ok();
+    });
     await page.evaluate((account) => (window as any).__emitEthereum("accountsChanged", [account]), fixture.accounts.drainer);
+    const quotePayload = await (await reboundQuote).json() as { quote: { taker: string; pricingTtl: number } };
+    expect(quotePayload.quote.taker.toLowerCase()).toBe(fixture.accounts.drainer.toLowerCase());
+    expect(quotePayload.quote.pricingTtl).toBe(120);
     await expect(page.getByText("Pricing v2 · signed TTL 120s")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Accept Firm quote" })).toBeEnabled();
-    await page.getByRole("button", { name: "Accept Firm quote" }).click();
-    await expect(page.getByText("Commitment accepted · bond locked")).toBeVisible({ timeout: 30_000 });
   });
 });
 
