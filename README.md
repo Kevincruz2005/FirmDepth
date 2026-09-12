@@ -18,23 +18,40 @@ This keeps the maker's trading inventory reusable, makes accepted Firm commitmen
 
 Depth terminology is exact: **Virtual Depth** is Aqua's advertised output balance for the configured strategy; **Pullable Depth** is active `min(virtual balance, real inventory, Aqua allowance)`; **Firm Depth for a quote** is `min(Pullable Depth, floor(available Bond × minAmountOut / requiredBond))`. Firm Depth is deliberately quote-scoped because overcollateralized policies require more Bond than the promised output.
 
-## Verify in three minutes
+## Fresh-machine reproduction
 
-Requirements: Node.js 22+, npm, Bash, and network access to Base RPC. An optional `BASE_RPC_URL` can override the public endpoint.
+Prerequisites are Node.js 22+, npm, Bash, `curl`, Chrome or a compatible executable, and an archive-capable Base RPC. `BASE_RPC_URL` must be exported into the shell; the repository does not automatically load `.env`. [`.env.example`](.env.example) is reference-only unless you manually export its values or supply them through your shell or other tooling. Do not commit RPC credentials.
 
 ```bash
-npm --prefix packages/contracts ci
-npm --prefix packages/sdk ci
+git clone https://github.com/Kevincruz2005/FirmDepth.git
+cd FirmDepth
+
+npm --prefix packages/contracts ci --no-audit --no-fund
+npm --prefix packages/sdk ci --no-audit --no-fund
+npm --prefix packages/frontend ci --no-audit --no-fund
+
+export BASE_RPC_URL='https://your-base-archive-rpc.example'
+
+./scripts/test_frontend_base_fork.sh
+```
+
+The runner clears stale runtime state, starts a fresh Base fork pinned at block `51,123,118`, verifies official Aqua, SwapVM, WETH, and USDC bytecode, deploys FirmDepth, initializes deterministic fork state, generates the temporary runtime artifact, runs the full Playwright suite, and cleans up the artifact and child processes afterward. It does not depend on state from an earlier run. If Chrome is not installed at the runner's default `/usr/bin/google-chrome-stable`, export `PLAYWRIGHT_CHROME_PATH` with the path to a compatible executable before running the script.
+
+For the backend-only release gate after installing the contract and SDK dependencies:
+
+```bash
 ./scripts/demo_backend.sh
 ```
 
-The release gate compiles the contracts, runs all unit/fuzz tests, builds and tests the SDK, verifies the official sponsor contracts at pinned Base block `51,123,118`, executes the adversarial fork demo, then regenerates and validates the deterministic benchmark.
+That gate compiles the contracts, runs the unit/fuzz tests, builds and tests the SDK, verifies the official sponsor contracts at the pinned Base block, executes the adversarial fork demo, then regenerates and validates the deterministic benchmark.
 
 ## Frontend
 
 The product interface lives in `packages/frontend` and separates every displayed value into Live, Verified Base-fork Run, Synthetic Benchmark, or Illustrative evidence. It includes the product narrative at `/`, Soft/Firm execution at `/trade`, strict terminal receipt inspection at `/evidence`, and maker bond controls at `/maker`.
 
-Production hosting must route unknown document requests to `packages/frontend/dist/index.html` so direct navigation to `/trade`, `/evidence`, and `/maker` reaches the client router. It must also serve an authenticated schema-v2 deployment document at `/runtime/firmdepth.json` (or the configured equivalent) and a maker-operated Firm quote endpoint. The quote endpoint accepts `{ chainId, registry, strategyId, orderHash, taker, amountIn, pricingTtl }` and returns a signed `{ quote, makerSignature, quotedAtBlock }`; no maker key belongs in the frontend deployment. The local Base-fork adapter implements this interface only through Vite development middleware and is not emitted in the production bundle.
+Production hosting must route unknown document requests to `packages/frontend/dist/index.html` so direct navigation to `/trade`, `/evidence`, and `/maker` reaches the client router. Live Trade and Maker actions also require an authenticated schema-v2 deployment document at `/runtime/firmdepth.json` (or the configured equivalent), a reliable RPC, deployed and configured FirmDepth contracts and strategies, and a maker-operated Firm quote service. The quote service accepts `{ chainId, registry, strategyId, orderHash, taker, amountIn, pricingTtl }` and returns a signed `{ quote, makerSignature, quotedAtBlock }` by using the existing FirmDepth SDK for pricing, quote construction, hashing, and EIP-712 data. This repository documents that production boundary but does not include a production maker quote backend, and no maker key belongs in a browser deployment.
+
+A public static deployment without that transaction infrastructure still provides the Landing page, committed `VERIFIED BASE-FORK RUN` evidence, and `SYNTHETIC BENCHMARK` evidence. Trade and Maker retain their explanatory states, but live transaction controls fail closed rather than substituting `ILLUSTRATIVE` values. The four evidence labels remain distinct: `LIVE`, `VERIFIED BASE-FORK RUN`, `SYNTHETIC BENCHMARK`, and `ILLUSTRATIVE`. The controlled environment is shown as `Base Fork · Block 51,123,118`, never as a public Base-mainnet execution.
 
 Run the read-only product and evidence experience locally:
 
@@ -50,7 +67,7 @@ Run the complete UI against a fresh pinned Base fork, including real wallet-subm
 ./scripts/test_frontend_base_fork.sh
 ```
 
-The fork runner creates a short-lived runtime artifact under the ignored `packages/frontend/.runtime/` directory. It contains public fork addresses and a deterministic test signature but no private keys, and the runner removes it when the test process exits. Vite exposes this artifact only while the development server is running; production builds never include it.
+The fork runner creates a short-lived schema-v2 runtime artifact under the ignored `packages/frontend/.runtime/` directory. It contains public controlled-fork deployment and account addresses, environment metadata, strategy/order configuration, and runtime endpoints; it contains neither private keys nor a pre-signed maker quote. Dynamic demo quotes are generated on request by development-only Vite middleware, using the unlocked controlled-fork maker and the FirmDepth SDK. The middleware is not a production quote service and is not emitted in the production bundle. The runner removes the artifact when the test process exits.
 
 For a focused judge demo:
 
@@ -81,11 +98,13 @@ The fork demo discovers a real USDC holder from historical Base logs and uses re
 | [`receipt.ts`](packages/sdk/src/receipt.ts) | Reconciles terminal chain state with strict acceptance, execution, SwapVM, bond, and ERC-20 receipt evidence. |
 | [`base-fork-demo.json`](packages/contracts/evidence/base-fork-demo.json) | Records the canonical Base fork transactions, gas, terminal states, and reconciled balances. |
 
-## Verified backend
+## Verified implementation
 
-- 61 Solidity tests pass, including two vault/accounting invariants at 1,024 fuzz runs each.
-- 24 TypeScript SDK tests pass after a clean build.
-- 5 frontend unit tests and 15 pinned Base-fork browser tests pass, including five responsive widths and keyboard navigation.
+- Solidity: 61/61 tests pass, including two vault/accounting invariants at 1,024 fuzz runs each.
+- SDK: 27/27 tests pass after a clean build.
+- Benchmark: 8/8 tests pass against the deterministic aggregate artifacts.
+- Frontend unit: 5/5 tests pass.
+- Base-fork Playwright: 19/19 checks pass—7 live fork/integration checks and 12 standalone browser, responsive, and accessibility checks.
 - 810,000 seeded simulation episodes cover 81 parameter configurations across quote size, TTL, shared-liquidity ratio, and bond utilization.
 - The highest-loss admitted benchmark scenario observes 5,853 Soft capacity losses out of 10,000 episodes; the same seeded Firm scenario settles 4,147 through Aqua and 5,853 through locked collateral. These are synthetic stress results, not claimed real-network failure rates.
 - The canonical fork evidence uses Base chain ID `8453`, official Aqua `0x1111113ccf1426a8e30e2bff5e005d929bf6a90a`, official SwapVM `0x111111338c5091e8440b67b168bae16a668ac0de`, Base WETH, and Base USDC.
