@@ -152,7 +152,7 @@ export function Trade() {
   }
 
   const required = strategy?.firm ? deserializeQuote(strategy.firm.quote).minAmountOut : BigInt(strategy?.expectedAmountOut ?? 0);
-  const canTrade = runtime !== null && strategy !== null && wallet.account !== null && !["APPROVING", "SUBMITTING", "CONFIRMING"].includes(phase) && (mode === "SOFT" || eligibility?.eligible === true);
+  const canTrade = runtime !== null && strategy !== null && wallet.account !== null && !["APPROVING", "SUBMITTING", "CONFIRMING"].includes(phase) && (mode === "SOFT" || commitmentId !== null || eligibility?.eligible === true);
 
   return <div className="app-page trade-page">
     <header className="page-title"><div><Eyebrow>Execution terminal</Eyebrow><h1>Trade the depth you can prove.</h1><p>Compare live strategy accounting, then choose an ordinary Soft attempt or a signed, collateralized Firm commitment.</p></div><TruthTag value={runtime ? "LIVE" : "ILLUSTRATIVE"} /></header>

@@ -57,6 +57,9 @@ test.describe("real pinned Base-fork UI", () => {
     await expect(drainerPage.getByText(/Soft execution confirmed/)).toBeVisible({ timeout: 30_000 });
     await drainerPage.close();
 
+    await page.getByRole("button", { name: "Refresh depth" }).click();
+    await expect(page.getByText("Not Firm-eligible")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Execute accepted commitment" })).toBeEnabled();
     await page.getByRole("button", { name: "Execute accepted commitment" }).click();
     await expect(page.getByText("FILLED_BOND · receipt reconciled")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("BOND", { exact: true })).toBeVisible();
