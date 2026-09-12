@@ -51,7 +51,7 @@ export function Evidence() {
   }
 
   return <div className="app-page evidence-page">
-    <header className="page-title"><div><Eyebrow>Evidence Lab</Eyebrow><h1>Don’t trust the status badge.</h1><p>Reconcile terminal state, exact event cardinality, SwapVM traits, bond movement, and token deltas into one strict receipt.</p></div><TruthTag value="VERIFIED BASE-FORK RUN" /></header>
+    <header className="page-title"><div><Eyebrow>Evidence Lab</Eyebrow><h1>Don’t trust the status badge.</h1><p>Reconcile terminal state, exact event cardinality, SwapVM traits, bond movement, and token deltas into one strict receipt.</p></div><TruthTag value={runtime?.artifact.chainId === 11155111 ? "SEPOLIA TESTNET · LIVE" : "VERIFIED BASE-FORK RUN"} /></header>
 
     <section className="receipt-hero">
       <div className="receipt-proof">
@@ -71,7 +71,7 @@ export function Evidence() {
 
     {decoded && <ReceiptView receipt={decoded} />}
 
-    {runtime && <section className="evidence-section live-evidence"><div className="evidence-section-head"><div><Eyebrow>Controlled chain inspection</Eyebrow><h2>Current fork state, read back from the EVM.</h2></div><TruthTag value="LIVE" /></div>{liveRecords.length === 0 ? <p>No Firm commitments exist in this runtime yet. Execute a scenario in Trade, then return here.</p> : liveRecords.map(({ record, receipt, lock }) => <article key={record.commitmentId} className="live-evidence-record"><div><StatusDot tone={record.commitment.status === "ACCEPTED" ? "neutral" : "good"}>{record.commitment.status}</StatusDot><HashLink value={record.commitmentId} /><small>Bond currently locked: {lock.toString()} raw USDC units</small></div>{receipt ? <ReceiptView receipt={receipt} /> : <dl className="technical-list"><div><dt>Acceptance transaction</dt><dd><HashLink value={record.acceptanceTransactionHash} /></dd></div><div><dt>Chain state</dt><dd>ACCEPTED</dd></div><div><dt>Terminal receipt</dt><dd>— unavailable until settlement</dd></div></dl>}</article>)}</section>}
+    {runtime && <section className="evidence-section live-evidence"><div className="evidence-section-head"><div><Eyebrow>Chain inspection</Eyebrow><h2>Current runtime state, read back from the EVM.</h2></div><TruthTag value={runtime.artifact.chainId === 11155111 && liveRecords.some(({ receipt }) => receipt !== null) ? "SEPOLIA TESTNET · VERIFIED TRANSACTION" : "LIVE"} /></div>{liveRecords.length === 0 ? <p>No Firm commitments exist in this runtime yet. Execute a scenario in Trade, then return here.</p> : liveRecords.map(({ record, receipt, lock }) => <article key={record.commitmentId} className="live-evidence-record"><div><StatusDot tone={record.commitment.status === "ACCEPTED" ? "neutral" : "good"}>{record.commitment.status}</StatusDot><HashLink value={record.commitmentId} /><small>Bond currently locked: {lock.toString()} raw USDC units</small></div>{receipt ? <ReceiptView receipt={receipt} /> : <dl className="technical-list"><div><dt>Acceptance transaction</dt><dd><HashLink value={record.acceptanceTransactionHash} /></dd></div><div><dt>Chain state</dt><dd>ACCEPTED</dd></div><div><dt>Terminal receipt</dt><dd>— unavailable until settlement</dd></div></dl>}</article>)}</section>}
 
     <section className="evidence-section">
       <div className="evidence-section-head"><div><Eyebrow>Fork execution</Eyebrow><h2>Two terminal paths. Same promised output.</h2></div><TruthTag value={baseForkEvidence.provenance} /></div>

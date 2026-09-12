@@ -188,6 +188,15 @@ export async function readTokenBalance(client: PublicClient, token: Address, acc
   return client.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [account] });
 }
 
+export async function readTokenAllowance(
+  client: PublicClient,
+  token: Address,
+  owner: Address,
+  spender: Address,
+): Promise<bigint> {
+  return client.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [owner, spender] });
+}
+
 export async function quoteSwapExactIn(
   client: PublicClient,
   router: Address,

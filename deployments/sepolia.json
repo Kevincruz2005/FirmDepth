@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1",
+  "status": "pending",
+  "manifestRevision": "pending",
+  "chain": {
+    "id": 11155111,
+    "name": "Sepolia",
+    "explorerUrl": "https://sepolia.etherscan.io"
+  },
+  "deployment": {
+    "blockNumber": null,
+    "deployedAt": null
+  },
+  "addresses": {
+    "aqua": "0x499943E74FB0cE105688beeE8Ef2ABec5D936d31",
+    "weth": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+    "usdc": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    "bondVault": null,
+    "registry": null,
+    "firmRouter": null,
+    "executor": null
+  },
+  "tokens": {
+    "weth": { "symbol": "WETH", "decimals": 18, "provenance": "canonical Sepolia WETH" },
+    "usdc": { "symbol": "USDC", "decimals": 6, "provenance": "Circle Sepolia USDC" }
+  },
+  "maker": null,
+  "policies": {
+    "pricingVersion": 2,
+    "maxQuoteTtl": 120,
+    "horizons": [5, 30, 120],
+    "minimumAmountIn": "1000000000000000",
+    "maximumAmountIn": "1000000000000000000",
+    "requiredBondBps": 12000,
+    "sigmaWad": "800000000000000000",
+    "annualCapitalRateWad": "100000000000000000",
+    "capacityKBps": 10,
+    "minPremiumOut": "100000"
+  },
+  "opcodeConfiguration": {
+    "firmPrice": 82,
+    "firmGuard": 33,
+    "program": "0x52002100"
+  },
+  "strategies": [],
+  "sourceRevisions": {
+    "firmDepth": "1596b88b0bf1e4b2f5ceb99acb53c9470d015442",
+    "aqua": "9c5c42e5840e8741fba3597c48456c9510212b66",
+    "swapVM": "f09a41e689240adc645934f965c8061749397cd2",
+    "aquaSDK": "364e7155167957e6a24320c7beb90539e06c91eb"
+  },
+  "transactions": {
+    "deployment": [],
+    "setup": []
+  }
+}

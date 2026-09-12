@@ -1,8 +1,11 @@
 import type { DeploymentArtifact, FirmQuote, SwapVMOrder } from "@firmdepth/sdk/types";
 import { authenticateFirmDepthDeployment } from "@firmdepth/sdk/deployment";
+import { readAquaCapacity } from "@firmdepth/sdk/readers";
+import { erc20Abi, swapVmAbi } from "@firmdepth/sdk/requests";
 import type { FirmQuoteEnvelope } from "@firmdepth/sdk/quote-provider";
-import { createPublicClient, defineChain, getAddress, http, isAddress, isHex, type Address, type Hex, type PublicClient } from "viem";
+import { createPublicClient, defineChain, getAddress, http, isAddress, isHash, isHex, type Address, type Hex, type PublicClient } from "viem";
 import { baseForkEvidence } from "../data/evidence";
+import sepoliaManifest from "../../../../deployments/sepolia.json";
 
 export interface SerializedFirmQuote extends Omit<FirmQuote, "amountIn" | "referenceAmountOut" | "minAmountOut" | "requiredBond" | "premiumAmount" | "sigmaWad" | "annualCapitalRateWad" | "utilizationAfterWad" | "minPremiumOut" | "expiry" | "nonce"> {
   amountIn: string;
@@ -32,6 +35,11 @@ export interface FrontendRuntimeArtifact extends Omit<DeploymentArtifact, "schem
   schemaVersion: "2";
   rpcUrl: string;
   deploymentBlock: number;
+  manifestRevision?: Hex;
+  deploymentManifest?: unknown;
+  explorerUrl?: string;
+  maker?: Address;
+  tokenMetadata?: { weth: { symbol: string; decimals: number }; usdc: { symbol: string; decimals: number } };
   environment: { kind: "base-fork" | "deployment"; label: string; controlledEvidence: boolean };
   quoteProvider: { url: string; horizons: readonly [5, 30, 120] };
   strategies: RuntimeStrategy[];
@@ -63,12 +71,27 @@ export function deserializeQuote(quote: SerializedFirmQuote): FirmQuote {
   };
 }
 
-export async function loadRuntimeArtifact(url = "/runtime/firmdepth.json"): Promise<LoadedRuntime | null> {
+export function quoteSecondsRemaining(expiry: bigint, chainTimestamp: bigint, observedAtMs: number, nowMs = Date.now()): bigint {
+  const elapsed = BigInt(Math.max(0, Math.floor((nowMs - observedAtMs) / 1000)));
+  const estimatedChainTime = chainTimestamp + elapsed;
+  return expiry > estimatedChainTime ? expiry - estimatedChainTime : 0n;
+}
+
+export function runtimeEndpoint(apiUrl = import.meta.env.VITE_FIRMDEPTH_API_URL): string {
+  if (!apiUrl) return "/runtime/firmdepth.json";
+  const parsed = new URL(apiUrl);
+  if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && ["127.0.0.1", "localhost"].includes(parsed.hostname))) throw new Error("Public FirmDepth API must use HTTPS");
+  return `${parsed.toString().replace(/\/$/, "")}/runtime`;
+}
+
+export async function loadRuntimeArtifact(url = runtimeEndpoint()): Promise<LoadedRuntime | null> {
   const response = await fetch(url, { cache: "no-store" });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Runtime artifact request failed (${response.status})`);
   if (!response.headers.get("content-type")?.includes("application/json")) return null;
   const artifact = validateRuntimeArtifact(await response.json());
+  const isPublic = url !== "/runtime/firmdepth.json";
+  if (isPublic) validatePublicRuntimeMatch(artifact, sepoliaManifest);
   const chain = defineChain({
     id: artifact.chainId,
     name: artifact.networkName,
@@ -81,6 +104,7 @@ export async function loadRuntimeArtifact(url = "/runtime/firmdepth.json"): Prom
   const authenticated = await authenticateFirmDepthDeployment(publicClient, artifact.addresses);
   if (authenticated.blockNumber < BigInt(artifact.deploymentBlock)) throw new Error("RPC is behind the declared deployment block");
   if (authenticated.maxQuoteTtl !== BigInt(artifact.pricingPolicy.maxQuoteTtl)) throw new Error("Registry max quote TTL mismatch");
+  if (isPublic) await authenticatePublicRuntime(publicClient, artifact);
   return { artifact, publicClient };
 }
 
@@ -89,6 +113,8 @@ export function validateRuntimeArtifact(input: unknown): FrontendRuntimeArtifact
   if (!Number.isSafeInteger(input.chainId) || typeof input.networkName !== "string") throw new Error("Invalid runtime chain metadata");
   if (typeof input.rpcUrl !== "string" || !/^https?:\/\//.test(input.rpcUrl)) throw new Error("Invalid runtime RPC URL");
   if (!Number.isSafeInteger(input.deploymentBlock) || Number(input.deploymentBlock) < 0) throw new Error("Invalid deployment block");
+  if (input.manifestRevision !== undefined && (typeof input.manifestRevision !== "string" || !isHash(input.manifestRevision))) throw new Error("Invalid runtime manifest revision");
+  if (input.explorerUrl !== undefined && (typeof input.explorerUrl !== "string" || !input.explorerUrl.startsWith("https://"))) throw new Error("Invalid explorer URL");
   if (!isRecord(input.addresses)) throw new Error("Missing runtime addresses");
   for (const key of ["aqua", "weth", "usdc", "bondVault", "registry", "firmRouter", "executor"] as const) {
     if (!isAddress(input.addresses[key])) throw new Error(`Invalid runtime address: ${key}`);
@@ -110,6 +136,42 @@ export function validateRuntimeArtifact(input: unknown): FrontendRuntimeArtifact
   if (!isRecord(input.opcodeConfiguration) || input.opcodeConfiguration.program !== "0x52002100") throw new Error("Firm SwapVM program mismatch");
   if (!isRecord(input.pricingPolicy) || input.pricingPolicy.version !== 2) throw new Error("Firm pricing policy mismatch");
   return input as unknown as FrontendRuntimeArtifact;
+}
+
+export function validatePublicRuntimeMatch(artifact: FrontendRuntimeArtifact, manifestValue: unknown): void {
+  if (!isRecord(manifestValue) || manifestValue.status !== "ready") throw new Error("Bundled Sepolia manifest is not deployment-ready");
+  if (JSON.stringify(artifact.deploymentManifest) !== JSON.stringify(manifestValue)) throw new Error("Public API runtime does not exactly match the bundled Sepolia manifest");
+  if (artifact.chainId !== 11155111 || !isRecord(manifestValue.chain) || manifestValue.chain.id !== artifact.chainId) throw new Error("Public runtime must use Sepolia chain 11155111");
+  if (!isHex(manifestValue.manifestRevision) || artifact.manifestRevision !== manifestValue.manifestRevision) throw new Error("Public runtime manifest revision mismatch");
+  if (!isRecord(manifestValue.deployment) || artifact.deploymentBlock !== manifestValue.deployment.blockNumber) throw new Error("Public runtime deployment block mismatch");
+  if (!isRecord(manifestValue.addresses)) throw new Error("Bundled Sepolia addresses are missing");
+  for (const key of ["aqua", "weth", "usdc", "bondVault", "registry", "firmRouter", "executor"] as const) {
+    if (!isAddress(manifestValue.addresses[key]) || getAddress(String(manifestValue.addresses[key])) !== artifact.addresses[key]) throw new Error(`Public runtime ${key} mismatch`);
+  }
+  if (!isAddress(manifestValue.maker) || artifact.maker !== getAddress(String(manifestValue.maker))) throw new Error("Public runtime maker mismatch");
+  if (!Array.isArray(manifestValue.strategies) || manifestValue.strategies.length !== artifact.strategies.length) throw new Error("Public runtime strategy count mismatch");
+  for (const strategy of artifact.strategies) {
+    const bundled = manifestValue.strategies.find((value) => isRecord(value) && value.id === strategy.id);
+    if (!isRecord(bundled) || bundled.orderHash !== strategy.orderHash) throw new Error(`Public runtime strategy mismatch: ${strategy.id}`);
+  }
+}
+
+async function authenticatePublicRuntime(client: PublicClient, artifact: FrontendRuntimeArtifact): Promise<void> {
+  if (artifact.chainId !== 11155111 || artifact.environment.kind !== "deployment") throw new Error("Public runtime is not a Sepolia deployment");
+  const [wethSymbol, wethDecimals, usdcSymbol, usdcDecimals] = await Promise.all([
+    client.readContract({ address: artifact.addresses.weth, abi: erc20Abi, functionName: "symbol" }),
+    client.readContract({ address: artifact.addresses.weth, abi: erc20Abi, functionName: "decimals" }),
+    client.readContract({ address: artifact.addresses.usdc, abi: erc20Abi, functionName: "symbol" }),
+    client.readContract({ address: artifact.addresses.usdc, abi: erc20Abi, functionName: "decimals" }),
+  ]);
+  if (wethSymbol !== "WETH" || wethDecimals !== 18 || usdcSymbol !== "USDC" || usdcDecimals !== 6) throw new Error("Public runtime token metadata mismatch");
+  for (const strategy of artifact.strategies) {
+    const order = deserializeOrder(strategy.order);
+    const orderHash = await client.readContract({ address: artifact.addresses.firmRouter, abi: swapVmAbi, functionName: "hash", args: [order] });
+    if (orderHash.toLowerCase() !== strategy.orderHash.toLowerCase()) throw new Error(`Public runtime ${strategy.id} order hash mismatch`);
+    const capacity = await readAquaCapacity(client, { aqua: artifact.addresses.aqua, router: artifact.addresses.firmRouter, maker: order.maker, orderHash: strategy.orderHash, tokenIn: artifact.addresses.weth, tokenOut: artifact.addresses.usdc });
+    if (!capacity.strategyActive) throw new Error(`Public runtime ${strategy.id} Aqua strategy is inactive`);
+  }
 }
 
 function validateStrategy(value: unknown): void {
