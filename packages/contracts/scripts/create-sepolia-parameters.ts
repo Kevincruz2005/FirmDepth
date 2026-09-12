@@ -10,6 +10,9 @@ const parameters = {
     maxQuoteTtl: requiredInteger("MAX_QUOTE_TTL", 1, 300),
   },
 };
+const makerKey = process.env.MAKER_PRIVATE_KEY;
+if (makerKey === undefined || makerKey.length === 0) throw new Error("MAKER_PRIVATE_KEY is required to enforce distinct deployment and maker roles");
+if (new Wallet(makerKey).address === parameters.FirmDepth.owner) throw new Error("SEPOLIA_DEPLOYER_PRIVATE_KEY and MAKER_PRIVATE_KEY must control distinct addresses");
 
 await mkdir("ignition/parameters", { recursive: true });
 const outputPath = "ignition/parameters/chain-11155111.json";
@@ -33,7 +36,7 @@ function requiredInteger(name: string, minimum: number, maximum: number): number
 }
 
 function deployerAddress(): string {
-  const privateKey = process.env.SEPOLIA_PRIVATE_KEY;
-  if (privateKey === undefined || privateKey.length === 0) throw new Error("SEPOLIA_PRIVATE_KEY is required");
+  const privateKey = process.env.SEPOLIA_DEPLOYER_PRIVATE_KEY;
+  if (privateKey === undefined || privateKey.length === 0) throw new Error("SEPOLIA_DEPLOYER_PRIVATE_KEY is required");
   return new Wallet(privateKey).address;
 }

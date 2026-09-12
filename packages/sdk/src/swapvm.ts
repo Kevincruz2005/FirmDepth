@@ -33,6 +33,12 @@ export function buildFirmProgram(): Hex {
   ]);
 }
 
+/** Builds the pinned constant-price Soft program used by the public shared-liquidity sibling. */
+export function buildSoftProgram(rate = 77n): Hex {
+  if (rate <= 0n || rate > 2n ** 64n - 1n) throw new RangeError("Soft rate must fit in uint64");
+  return concatHex(["0x5000", "0x0208", numberToHex(rate, { size: 8 })]);
+}
+
 /** Builds the exact Aqua-backed, hook-free maker order allowlisted by FirmExecutor. */
 export function buildFirmOrder(maker: Address, tokenIn: Address, tokenOut: Address): SwapVMOrder {
   const normalizedMaker = getAddress(maker);
@@ -53,6 +59,29 @@ export function buildFirmOrder(maker: Address, tokenIn: Address, tokenOut: Addre
     traits,
     data: concatHex([tokenA, tokenB, buildFirmProgram()]).toLowerCase() as Hex,
   };
+}
+
+/** Builds the Aqua-backed Soft sibling order with the same immutable order envelope. */
+export function buildSoftOrder(
+  maker: Address,
+  tokenIn: Address,
+  tokenOut: Address,
+  rate = 77n,
+): SwapVMOrder {
+  const firm = buildFirmOrder(maker, tokenIn, tokenOut);
+  return {
+    ...firm,
+    data: concatHex([slice(firm.data, 0, 40), buildSoftProgram(rate)]).toLowerCase() as Hex,
+  };
+}
+
+export function buildSoftTakerTraits(tokenIn: Address, tokenOut: Address): Hex {
+  const normalizedIn = getAddress(tokenIn);
+  const normalizedOut = getAddress(tokenOut);
+  if (normalizedIn === normalizedOut) throw new RangeError("tokenIn and tokenOut must differ");
+  const isAToB = BigInt(normalizedIn) < BigInt(normalizedOut);
+  const flags = 0x0001 | 0x0020 | 0x0040 | (isAToB ? 0x0080 : 0);
+  return concatHex([`0x${"0000".repeat(10)}`, numberToHex(flags, { size: 2 })]);
 }
 
 export function buildFirmInstructionArgs(amountOut: bigint, commitmentId: Hex = zeroHash): Hex {

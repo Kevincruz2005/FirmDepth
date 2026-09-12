@@ -3,7 +3,11 @@ import {
   AquaProtocolContract,
   HexString,
 } from "@1inch/aqua-sdk";
-import type { Address, Hex } from "viem";
+import { encodeFunctionData, parseAbi, type Address, type Hex } from "viem";
+
+const aquaPushAbi = parseAbi([
+  "function push(address maker,address app,bytes32 strategyHash,address token,uint256 amount)",
+]);
 
 export interface AquaPositionAmount {
   token: Address;
@@ -49,4 +53,25 @@ export function buildAquaDockRequest(
 
 export function aquaStrategyHash(encodedStrategy: Hex): Hex {
   return AquaProtocolContract.calculateStrategyHash(new HexString(encodedStrategy)).toString();
+}
+
+/** Builds the real Aqua replenishment call for an existing active strategy. */
+export function buildAquaPushRequest(
+  aqua: Address,
+  maker: Address,
+  app: Address,
+  strategyHash: Hex,
+  token: Address,
+  amount: bigint,
+) {
+  if (amount <= 0n) throw new RangeError("Aqua push amount must be greater than zero");
+  return {
+    address: aqua,
+    data: encodeFunctionData({
+      abi: aquaPushAbi,
+      functionName: "push",
+      args: [maker, app, strategyHash, token, amount],
+    }),
+    value: 0n,
+  } as const;
 }
