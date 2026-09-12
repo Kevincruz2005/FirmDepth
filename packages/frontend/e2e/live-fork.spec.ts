@@ -31,14 +31,36 @@ test.describe("real pinned Base-fork UI", () => {
     }
   });
 
+  test("prices all production horizons through actual signed quote responses", async ({ page }) => {
+    const fixture = runtimeFixture();
+    await installRpcWallet(page, fixture.rpcUrl, fixture.accounts.trader);
+    await page.goto("/trade");
+    const premiums: string[] = [];
+    for (const horizon of [5, 30, 120]) {
+      await page.getByRole("button", { name: `${horizon}s` }).click();
+      await expect(page.getByText(`Pricing v2 · signed TTL ${horizon}s`)).toBeVisible({ timeout: 30_000 });
+      premiums.push(await page.locator(".premium-row strong").innerText());
+    }
+    expect(new Set(premiums).size).toBe(3);
+  });
+
   test("reads eligibility, accepts, executes through Aqua, and decodes the receipt", async ({ page }) => {
     const fixture = runtimeFixture();
     await installRpcWallet(page, fixture.rpcUrl, fixture.accounts.trader);
     await page.goto("/trade");
     await acceptFirmInUi(page);
+    await page.reload();
+    await expect(page.getByText("Commitment accepted · restored from chain")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Execute accepted commitment" })).toBeEnabled();
     await page.getByRole("button", { name: "Execute accepted commitment" }).click();
-    await expect(page.getByText("FILLED_AQUA · receipt reconciled")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/FILLED_AQUA · receipt reconstructed from chain/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("AQUA", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(/FILLED_AQUA · receipt reconstructed from chain/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("AQUA", { exact: true })).toBeVisible();
+    await page.goto("/evidence");
+    await expect(page.locator(".live-evidence").getByText("FILLED_AQUA", { exact: true }).first()).toBeVisible();
+    await expect(page.locator(".live-evidence").getByText("Amount received")).toBeVisible();
   });
 
   test("settles from the locked Bond after a real sibling Soft drain", async ({ page, context }) => {
@@ -52,7 +74,10 @@ test.describe("real pinned Base-fork UI", () => {
     await drainerPage.goto("/trade");
     await drainerPage.getByRole("tab", { name: "Soft" }).click();
     await expect(drainerPage.getByText("Strategy live")).toBeVisible();
-    await drainerPage.getByRole("button", { name: "Connect wallet" }).click();
+    const drainerConnect = drainerPage.getByRole("button", { name: "Connect wallet" });
+    if (await drainerConnect.isVisible()) await drainerConnect.click();
+    await drainerPage.getByLabel("WETH amount").fill("1");
+    await expect(drainerPage.getByText(/SwapVM quote · block/)).toBeVisible();
     await drainerPage.getByRole("button", { name: "Execute Soft swap" }).click();
     await expect(drainerPage.getByText(/Soft execution confirmed/)).toBeVisible({ timeout: 30_000 });
     await drainerPage.close();
@@ -61,8 +86,10 @@ test.describe("real pinned Base-fork UI", () => {
     await expect(page.getByText("Not Firm-eligible")).toBeVisible();
     await expect(page.getByRole("button", { name: "Execute accepted commitment" })).toBeEnabled();
     await page.getByRole("button", { name: "Execute accepted commitment" }).click();
-    await expect(page.getByText("FILLED_BOND · receipt reconciled")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/FILLED_BOND · receipt reconstructed from chain/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("BOND", { exact: true })).toBeVisible();
+    await page.goto("/evidence");
+    await expect(page.locator(".live-evidence").getByText("FILLED_BOND", { exact: true }).first()).toBeVisible();
   });
 
   test("expires naturally and unlocks the commitment bond", async ({ page }) => {
@@ -74,9 +101,11 @@ test.describe("real pinned Base-fork UI", () => {
     await rpc(fixture.rpcUrl, "evm_mine", []);
     await page.getByRole("button", { name: "Execute accepted commitment" }).click();
     await expect(page.locator(".action-state.error")).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("button", { name: "Settle expired commitment" }).click();
-    await expect(page.getByText("EXPIRED · bond unlocked")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText("EXPIRED", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Settle if expired" }).click();
+    await expect(page.getByText(/EXPIRED · receipt reconstructed from chain/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "EXPIRED", exact: true })).toBeVisible();
+    await page.goto("/evidence");
+    await expect(page.locator(".live-evidence").getByText("EXPIRED", { exact: true }).first()).toBeVisible();
   });
 
   test("keeps accepted state and bond intact on an unrelated executor revert", async ({ page }) => {
@@ -89,6 +118,7 @@ test.describe("real pinned Base-fork UI", () => {
     const commitmentId = events.at(-1)?.args.commitmentId;
     if (!commitmentId) throw new Error("Acceptance event did not expose a commitment ID");
     const before = await client.readContract({ address: fixture.addresses.bondVault, abi: bondVaultAbi, functionName: "lockedFor", args: [commitmentId] });
+    const executorCode = await rpc(fixture.rpcUrl, "eth_getCode", [fixture.addresses.executor, "latest"]);
     await rpc(fixture.rpcUrl, "hardhat_setCode", [fixture.addresses.executor, "0x60006000fd"]);
     await page.getByRole("button", { name: "Execute accepted commitment" }).click();
     await expect(page.locator(".action-state.error")).toBeVisible({ timeout: 30_000 });
@@ -98,28 +128,66 @@ test.describe("real pinned Base-fork UI", () => {
     ]);
     expect(after[1]).toBe(before[1]);
     expect(Number(commitment.status)).toBe(1);
+    await rpc(fixture.rpcUrl, "hardhat_setCode", [fixture.addresses.executor, executorCode]);
+    await page.goto("/evidence");
+    await expect(page.locator(".live-evidence").getByText("ACCEPTED", { exact: true }).first()).toBeVisible();
+    await expect(page.locator(".live-evidence").getByText(`Bond currently locked: ${before[1]} raw USDC units`)).toBeVisible();
   });
 
   test("reads and mutates real maker bond state", async ({ page }) => {
     const fixture = runtimeFixture();
     await installRpcWallet(page, fixture.rpcUrl, fixture.accounts.maker);
     await page.goto("/maker");
-    await expect(page.getByText("Base fork live")).toBeVisible();
-    await page.getByRole("button", { name: "Connect maker wallet" }).click();
+    await expect(page.getByText("Base Fork · Block 51,123,118")).toBeVisible();
+    const totalBond = page.locator(".metric").filter({ hasText: "Total bond" });
+    const availableBond = page.locator(".metric").filter({ hasText: "Available bond" });
+    const lockedBond = page.locator(".metric").filter({ hasText: "Locked bond" });
+    await expect(totalBond).toContainText("1,000 USDC");
+    await expect(availableBond).toContainText("1,000 USDC");
+    await expect(lockedBond).toContainText("0 USDC");
+    const makerConnect = page.getByRole("button", { name: "Connect maker wallet" });
+    if (await makerConnect.isVisible()) await makerConnect.click();
     await page.getByLabel("Amount").fill("10");
     await page.getByRole("button", { name: "Deposit" }).click();
     await expect(page.getByText("Deposit confirmed")).toBeVisible({ timeout: 30_000 });
+    await expect(totalBond).toContainText("1,010 USDC");
+    await expect(availableBond).toContainText("1,010 USDC");
+    await expect(lockedBond).toContainText("0 USDC");
     await page.getByLabel("Amount").fill("5");
     await page.getByRole("button", { name: "Withdraw" }).click();
     await expect(page.getByText("Withdrawal confirmed")).toBeVisible({ timeout: 30_000 });
+    await expect(totalBond).toContainText("1,005 USDC");
+    await expect(availableBond).toContainText("1,005 USDC");
+    await expect(lockedBond).toContainText("0 USDC");
+  });
+
+  test("invalidates live quote state on account and chain changes", async ({ page }) => {
+    const fixture = runtimeFixture();
+    await installRpcWallet(page, fixture.rpcUrl, fixture.accounts.trader);
+    await page.goto("/trade");
+    await expect(page.getByText("Pricing v2 · signed TTL 30s")).toBeVisible({ timeout: 30_000 });
+    await page.evaluate(() => (window as any).__emitEthereum("chainChanged", "0x1"));
+    await expect(page.getByText(/Wallet is on chain 1/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Connect wallet" })).toBeVisible();
+    await page.evaluate(() => (window as any).__emitEthereum("chainChanged", "0x2105"));
+    await expect(page.getByText("Eligible at observed block")).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "120s" }).click();
+    await expect(page.getByText("Pricing v2 · signed TTL 120s")).toBeVisible({ timeout: 30_000 });
+    await page.evaluate((account) => (window as any).__emitEthereum("accountsChanged", [account]), fixture.accounts.drainer);
+    await expect(page.getByText("Pricing v2 · signed TTL 120s")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Accept Firm quote" })).toBeEnabled();
+    await page.getByRole("button", { name: "Accept Firm quote" }).click();
+    await expect(page.getByText("Commitment accepted · bond locked")).toBeVisible({ timeout: 30_000 });
   });
 });
 
 async function acceptFirmInUi(page: import("@playwright/test").Page) {
-  await expect(page.getByText("Base fork live")).toBeVisible();
-  await expect(page.getByText("Eligible at observed block")).toBeVisible();
+  await expect(page.getByText("Base Fork · Block 51,123,118")).toBeVisible();
+  await page.getByRole("button", { name: "120s" }).click();
+  const connect = page.getByRole("button", { name: "Connect wallet" });
+  if (await connect.isVisible()) await connect.click();
+  await expect(page.getByText("Eligible at observed block")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/3,000(?:\.00)? USDC/).first()).toBeVisible();
-  await page.getByRole("button", { name: "Connect wallet" }).click();
   await page.getByRole("button", { name: "Accept Firm quote" }).click();
   await expect(page.getByText("Commitment accepted · bond locked")).toBeVisible({ timeout: 30_000 });
 }
@@ -145,6 +213,7 @@ function runtimeFixture(): RuntimeFixture {
 async function installRpcWallet(page: import("@playwright/test").Page, rpcUrl: string, account: string) {
   await page.addInitScript(({ url, selectedAccount }) => {
     let requestId = 0;
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
     const provider = {
       async request({ method, params }: { method: string; params?: unknown[] | object }) {
         if (method === "eth_requestAccounts" || method === "eth_accounts") return [selectedAccount];
@@ -157,9 +226,10 @@ async function installRpcWallet(page: import("@playwright/test").Page, rpcUrl: s
         if (payload.error) throw new Error(payload.error.message);
         return payload.result;
       },
-      on() {},
-      removeListener() {},
+      on(event: string, listener: (...args: unknown[]) => void) { const values = listeners.get(event) ?? new Set(); values.add(listener); listeners.set(event, values); },
+      removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); },
     };
+    (window as any).__emitEthereum = (event: string, value: unknown) => { for (const listener of listeners.get(event) ?? []) listener(value); };
     Object.defineProperty(window, "ethereum", { value: provider, configurable: true });
   }, { url: rpcUrl, selectedAccount: account });
 }

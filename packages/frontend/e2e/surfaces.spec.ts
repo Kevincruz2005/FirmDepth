@@ -37,3 +37,20 @@ test("keyboard navigation reaches the main application", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 });
+
+test("unknown routes render an explicit Not Found state", async ({ page }) => {
+  await page.goto("/not-a-firmdepth-route");
+  await expect(page.getByRole("heading", { name: "This depth does not exist." })).toBeVisible();
+  await expect(page).toHaveURL(/not-a-firmdepth-route/);
+});
+
+test("mobile navigation manages focus and closes on Escape", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const menu = page.getByRole("button", { name: "Toggle navigation" });
+  await menu.click();
+  await expect(page.getByRole("link", { name: "Trade" }).first()).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeFocused();
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+});

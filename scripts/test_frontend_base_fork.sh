@@ -18,6 +18,9 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# Never allow a prior successful run's generated deployment to seed this run.
+rm -f "$FRONTEND_DIR/.runtime/firmdepth.json"
+
 npm --prefix "$SDK_DIR" run build
 npm --prefix "$CONTRACTS_DIR" run compile
 
