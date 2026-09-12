@@ -1,0 +1,22 @@
+{
+  "name": "@firmdepth/quote-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "node --import tsx --test test/*.test.ts",
+    "readiness": "node dist/readiness.js"
+  },
+  "dependencies": {
+    "@firmdepth/sdk": "file:../sdk",
+    "viem": "^2.37.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

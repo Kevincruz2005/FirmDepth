@@ -49,7 +49,7 @@ That gate compiles the contracts, runs the unit/fuzz tests, builds and tests the
 
 The product interface lives in `packages/frontend` and separates every displayed value into Live, Verified Base-fork Run, Synthetic Benchmark, or Illustrative evidence. It includes the product narrative at `/`, Soft/Firm execution at `/trade`, strict terminal receipt inspection at `/evidence`, and maker bond controls at `/maker`.
 
-Production hosting must route unknown document requests to `packages/frontend/dist/index.html` so direct navigation to `/trade`, `/evidence`, and `/maker` reaches the client router. Live Trade and Maker actions also require an authenticated schema-v2 deployment document at `/runtime/firmdepth.json` (or the configured equivalent), a reliable RPC, deployed and configured FirmDepth contracts and strategies, and a maker-operated Firm quote service. The quote service accepts `{ chainId, registry, strategyId, orderHash, taker, amountIn, pricingTtl }` and returns a signed `{ quote, makerSignature, quotedAtBlock }` by using the existing FirmDepth SDK for pricing, quote construction, hashing, and EIP-712 data. This repository documents that production boundary but does not include a production maker quote backend, and no maker key belongs in a browser deployment.
+Production hosting routes unknown document requests to `packages/frontend/dist/index.html` so direct navigation to `/trade`, `/evidence`, and `/maker` reaches the client router. Live Trade and Maker actions require an authenticated schema-v2 runtime, a browser-safe RPC, deployed and configured FirmDepth contracts and strategies, and the maker-operated service in `packages/quote-service`. The service accepts only `{ chainId, registry, strategyId, orderHash, taker, amountIn, pricingTtl }` for the allowlisted deployment and returns a signed `{ quote, makerSignature, quotedAtBlock }`. It derives output from the configured live Soft SwapVM strategy and uses the SDK for pricing, eligibility, quote construction, and EIP-712 signing. No maker key belongs in a browser deployment.
 
 A public static deployment without that transaction infrastructure still provides the Landing page, committed `VERIFIED BASE-FORK RUN` evidence, and `SYNTHETIC BENCHMARK` evidence. Trade and Maker retain their explanatory states, but live transaction controls fail closed rather than substituting `ILLUSTRATIVE` values. The four evidence labels remain distinct: `LIVE`, `VERIFIED BASE-FORK RUN`, `SYNTHETIC BENCHMARK`, and `ILLUSTRATIVE`. The controlled environment is shown as `Base Fork · Block 51,123,118`, never as a public Base-mainnet execution.
 
@@ -101,9 +101,10 @@ The fork demo discovers a real USDC holder from historical Base logs and uses re
 ## Verified implementation
 
 - Solidity: 61/61 tests pass, including two vault/accounting invariants at 1,024 fuzz runs each.
-- SDK: 27/27 tests pass after a clean build.
+- SDK: 28/28 tests pass after a clean build.
+- Quote service: 6/6 boundary, signing, policy, capacity, and secret-redaction tests pass.
 - Benchmark: 8/8 tests pass against the deterministic aggregate artifacts.
-- Frontend unit: 5/5 tests pass.
+- Frontend unit: 10/10 tests pass.
 - Base-fork Playwright: 19/19 checks pass—7 live fork/integration checks and 12 standalone browser, responsive, and accessibility checks.
 - 810,000 seeded simulation episodes cover 81 parameter configurations across quote size, TTL, shared-liquidity ratio, and bond utilization.
 - The highest-loss admitted benchmark scenario observes 5,853 Soft capacity losses out of 10,000 episodes; the same seeded Firm scenario settles 4,147 through Aqua and 5,853 through locked collateral. These are synthetic stress results, not claimed real-network failure rates.
@@ -167,6 +168,60 @@ The benchmark commits deterministic source/config plus 81 aggregate rows for 810
 The [official Aqua repository](https://github.com/1inch/aqua) lists deterministic deployments on production networks, not Sepolia. FirmDepth therefore uses a pinned Base fork as its canonical sponsor-qualification proof. The included Sepolia scripts require the operator to supply and validate a compatible Aqua deployment plus funded credentials; no public-testnet deployment is claimed by this repository.
 
 The SDK production dependency audit is clean. The contract workspace inherits advisories through the pinned 1inch Solidity utility/tooling dependency graph; those packages are not linked into deployed bytecode, but remain an upstream tooling risk when processing untrusted input. Sponsor versions are intentionally pinned rather than upgraded solely to silence audit output.
+
+## Public Sepolia demo runbook
+
+The checked-in [`deployments/sepolia.json`](deployments/sepolia.json) is the only public deployment manifest. It intentionally remains `pending` until real deployment and setup receipts are available; no placeholder FirmDepth address or transaction is treated as live. Every command reads explicit shell variables and no package auto-loads `.env`.
+
+First validate the configured compatible Aqua, canonical WETH, Circle USDC, maker funding, bytecode, metadata, zero-transfer behavior, and `rawBalances`, then generate parameters and deploy:
+
+```bash
+export SEPOLIA_RPC_URL='https://credential-bearing-rpc.example'
+export SEPOLIA_DEPLOYER_PRIVATE_KEY='0x...'
+export MAKER_PRIVATE_KEY='0x...'
+export AQUA_ADDRESS='0x499943E74FB0cE105688beeE8Ef2ABec5D936d31'
+export WETH_ADDRESS='0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'
+export USDC_ADDRESS='0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'
+export MAX_QUOTE_TTL=120
+
+npm --prefix packages/contracts run testnet:check
+npm --prefix packages/contracts run testnet:parameters
+npm --prefix packages/contracts run deploy:sepolia
+npm --prefix packages/contracts run testnet:record
+npm --prefix packages/sdk run build
+npm --prefix packages/contracts run testnet:setup
+npm --prefix packages/contracts run testnet:verify
+```
+
+`testnet:setup` is explicit and idempotent. It verifies active strategies before changing anything, creates only missing Firm/Soft strategies, uses real Aqua `push` calls to replenish an active strategy, repairs required approvals/Bond, never docks a strategy, and never executes a trade. A previously docked immutable strategy stops setup with a concrete redeployment error. `testnet:reseed` invokes the same safe reconciliation.
+
+Run the quote service locally with a private Azure-side RPC and a separate public browser RPC:
+
+```bash
+npm --prefix packages/quote-service ci
+npm --prefix packages/quote-service run build
+export PUBLIC_BROWSER_RPC_URL='https://public-origin-restricted-rpc.example'
+export PUBLIC_API_URL='http://127.0.0.1:8080'
+export CORS_ORIGINS='http://127.0.0.1:4173'
+npm --prefix packages/quote-service start
+```
+
+Set `VITE_FIRMDEPTH_API_URL` to that API origin before building the frontend. When it is set, production loads only `GET /runtime` and compares it with the build-bundled Sepolia manifest before enabling live behavior. Without it, the ignored local Base-fork runtime remains available for the canonical regression suite.
+
+The Azure scripts in [`infra/azure/`](infra/azure/) create a Linux B1 App Service, system identity, RBAC-enabled purge-protected Key Vault, Key Vault references, HTTPS-only service, and Application Insights settings. Run `az login` yourself, export the names in `.env.example`, then run `infra/azure/deploy.sh`. It checks `az webapp list-runtimes --os linux` before selecting Node. After Vercel preview and production URLs exist, set exact comma-separated origins and run `infra/azure/update-cors.sh`; production CORS must never be `*`.
+
+Deploy Vercel from the repository root so its configuration builds both SDK and frontend. Set only `VITE_FIRMDEPTH_API_URL` in the frontend environment. Validate a preview manually before promoting that same revision to production.
+
+Finally run the read-only readiness probe. It checks frontend/API availability, runtime/manifest equality, authenticated Sepolia relationships, strategy activity and pullable backing, maker Bond, and a real signed—but unaccepted—probe quote:
+
+```bash
+export PUBLIC_FRONTEND_URL='https://your-project.vercel.app'
+export PUBLIC_API_URL='https://your-api.azurewebsites.net'
+export PUBLIC_TAKER_ADDRESS='0x...'
+./scripts/check_public_demo_readiness.sh
+```
+
+The only successful terminal output is `DEMO READY`; deficiencies are listed individually and the probe never submits a transaction. Public acceptance still requires manual injected-wallet Soft, `FILLED_AQUA`, refresh recovery, sibling-drain `FILLED_BOND`, and wall-clock expiry validation. The 5-second horizon remains experimental until an actual Sepolia timing smoke test lands; use 30 seconds as the shortest claimed reliable route if it does not.
 
 FirmDepth does not include Uniswap recovery, cross-chain behavior, undercollateralized credit, exotic ERC-20 support, or an independent production audit.
 

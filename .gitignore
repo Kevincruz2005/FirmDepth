@@ -12,6 +12,7 @@ broadcast/
 coverage/
 playwright-report/
 test-results/
+.azure-package/
 
 .idea/
 .vscode/
