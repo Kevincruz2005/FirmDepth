@@ -4,19 +4,21 @@ import test from "node:test";
 import { hashStruct, recoverTypedDataAddress, type PublicClient, type WalletClient } from "viem";
 
 import { acceptFirm, approveToken, depositBond, executeFirm, executeSoftSwap, expireFirm, withdrawBond } from "../src/actions.js";
-import { effectiveAquaCapacity, canUseAqua, sharedLiquidityRatioWad } from "../src/capacity.js";
+import { effectiveAquaCapacity, canUseAqua, firmDepthForQuote, sharedLiquidityRatioWad } from "../src/capacity.js";
 import { buildFirmTypedData, hashFirmQuote, verifyFirmQuote } from "../src/eip712.js";
 import { buildAquaShipRequest, aquaStrategyHash } from "../src/aqua.js";
 import { calculateFirmPremium, computeFirmPrice } from "../src/pricing.js";
 import { buildFirmQuote } from "../src/quote.js";
+import { authenticateFirmDepthDeployment } from "../src/deployment.js";
 import {
   checkFirmEligibility,
   commitmentStatus,
-  getFirmDepth,
   getLiquidityReality,
   getPullableBackingAtBlock,
   getVirtualDepth,
   readAquaCapacity,
+  quoteSwapExactIn,
+  readTokenBalance,
 } from "../src/readers.js";
 import {
   buildFirmInstructionArgs,
@@ -332,6 +334,48 @@ test("reads effective capacity from contract state", async () => {
   });
 });
 
+test("reads wallet balance and current exact-input SwapVM quote", async () => {
+  const hash = `0x${"44".repeat(32)}` as const;
+  const client = {
+    getBlockNumber: async () => 88n,
+    readContract: async ({ functionName }: { functionName: string }) => functionName === "balanceOf" ? 5n : [2n, 7n, hash],
+  } as unknown as PublicClient;
+  const token = "0x0000000000000000000000000000000000000001";
+  const router = "0x0000000000000000000000000000000000000002";
+  const order = { maker: "0x0000000000000000000000000000000000000003", traits: 1n, data: "0x12" as const };
+  assert.equal(await readTokenBalance(client, token, order.maker), 5n);
+  assert.deepEqual(await quoteSwapExactIn(client, router, order, 2n, "0xab"), { amountIn: 2n, amountOut: 7n, orderHash: hash, blockNumber: 88n });
+});
+
+test("authenticates FirmDepth through deployed code and contract relationships", async () => {
+  const addresses = {
+    aqua: "0x0000000000000000000000000000000000000001", weth: "0x0000000000000000000000000000000000000002",
+    usdc: "0x0000000000000000000000000000000000000003", bondVault: "0x0000000000000000000000000000000000000004",
+    registry: "0x0000000000000000000000000000000000000005", firmRouter: "0x0000000000000000000000000000000000000006",
+    executor: "0x0000000000000000000000000000000000000007",
+  } as const;
+  let breakExecutor = false;
+  const client = {
+    getBytecode: async () => "0x01",
+    getBlockNumber: async () => 99n,
+    readContract: async ({ functionName, address }: { functionName: string; address: string }) => {
+      const values: Record<string, unknown> = {
+        [`${addresses.registry}:vault`]: addresses.bondVault, [`${addresses.registry}:premiumToken`]: addresses.weth,
+        [`${addresses.registry}:tokenIn`]: addresses.weth, [`${addresses.registry}:tokenOut`]: addresses.usdc,
+        [`${addresses.registry}:executor`]: breakExecutor ? addresses.aqua : addresses.executor, [`${addresses.registry}:maxQuoteTtl`]: 300n,
+        [`${addresses.bondVault}:bondToken`]: addresses.usdc, [`${addresses.bondVault}:registry`]: addresses.registry,
+        [`${addresses.executor}:registry`]: addresses.registry, [`${addresses.executor}:aqua`]: addresses.aqua, [`${addresses.executor}:router`]: addresses.firmRouter,
+        [`${addresses.firmRouter}:FIRM_REGISTRY`]: addresses.registry, [`${addresses.firmRouter}:BOND_VAULT`]: addresses.bondVault,
+        [`${addresses.firmRouter}:AQUA`]: addresses.aqua, [`${addresses.firmRouter}:WETH`]: addresses.weth,
+      };
+      return values[`${address}:${functionName}`];
+    },
+  } as unknown as PublicClient;
+  assert.deepEqual(await authenticateFirmDepthDeployment(client, addresses), { blockNumber: 99n, maxQuoteTtl: 300n });
+  breakExecutor = true;
+  await assert.rejects(() => authenticateFirmDepthDeployment(client, addresses), /registry.executor mismatch/);
+});
+
 test("returns block-stamped Virtual, Pullable, and Firm depth", async () => {
   const query = {
     aqua: "0x0000000000000000000000000000000000000001",
@@ -356,7 +400,7 @@ test("returns block-stamped Virtual, Pullable, and Firm depth", async () => {
     realBalance: 700n,
     aquaAllowance: 800n,
     pullableBacking: 700n,
-    firmDepth: 700n,
+    pullableDepth: 700n,
     strategyActive: true,
   });
   assert.deepEqual(await getVirtualDepth(client, query), { blockNumber: 123n, value: 900n });
@@ -366,7 +410,19 @@ test("returns block-stamped Virtual, Pullable, and Firm depth", async () => {
     realBalance: 700n,
     aquaAllowance: 800n,
   });
-  assert.deepEqual(await getFirmDepth(client, query), { blockNumber: 123n, value: 700n });
+});
+
+test("computes quote-scoped Firm Depth from Aqua and dedicated bond constraints", () => {
+  assert.deepEqual(firmDepthForQuote(2_000n, 500n, 100n, 100n), {
+    pullableDepth: 2_000n, availableBond: 500n, bondSupportedDepth: 500n,
+    firmDepth: 500n, collateralRatioWad: 10n ** 18n,
+  });
+  assert.equal(firmDepthForQuote(300n, 2_000n, 100n, 100n).firmDepth, 300n);
+  assert.equal(firmDepthForQuote(2_000n, 0n, 100n, 100n).firmDepth, 0n);
+  assert.equal(firmDepthForQuote(2_000n, 600n, 100n, 120n).firmDepth, 500n);
+  assert.equal(firmDepthForQuote(2_000n, 480n, 100n, 120n).firmDepth, 400n);
+  assert.equal(firmDepthForQuote(2_000n, 600n, 100n, 120n).firmDepth, 500n);
+  assert.throws(() => firmDepthForQuote(1n, 1n, 2n, 1n), /cover/);
 });
 
 test("checks the same capacity, bond, and static quote gates as acceptance", async () => {

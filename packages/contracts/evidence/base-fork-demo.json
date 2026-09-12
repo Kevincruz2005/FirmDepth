@@ -21,7 +21,7 @@
   },
   "funding": {
     "holder": "0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59",
-    "transactionHash": "0x65ce92ec865c97a99813daf043c05883c0bcff9943b85c3c69a48effe0e823b7",
+    "transactionHash": "0x42c173fffbb373810c9eba00a42b3456ab049b158170bda14558c2beca98489c",
     "amount": "20000000000"
   },
   "deployedContracts": {
@@ -31,21 +31,21 @@
     "executor": "0xb5FBD9D362a5234f951b3F046E5Ee860EEd79BF5"
   },
   "setupTransactionHashes": [
-    "0x7370eec6c53fbb6b91f4560f411a8b2980aac49919a7b798444fad4e231702a9",
-    "0xb375c72028749be3c84cfe0cccb07a4334ff394b267007ca2d3baff8aad654eb",
-    "0xdea52cca3642361fab4ad964d9e4363f78027854e680a90211a64df2c1443163",
-    "0x06420857a99c2b19cbe66191f06d2d2e9a3b2ef680fddd06a3174eca34f9a397",
-    "0x7e9c400a8e9c6ff79a915d6b7f268c34f067f40d997df06a7a38ca5a2c540b97",
-    "0x2247036450c5136125bd15d6be777d732f69f76aae1b5ac36a2cd7aeb4ca0403",
-    "0xddbf8925a19b36d14405b132b7810d454e57fe69c98831cce8bcd7a9f0a76553",
-    "0x770a32d857231d134d64cd5b7b82f798c09a0d860efdca4cbcaf0626d800be35",
-    "0x4cd989047e99e8ade96fbf13c35be9d10eab23b214fac4c9a57e12f6e7d5062b"
+    "0x8b7b7aba0a341d14c8f48dffc3574dc2be76e39b1d62d1d4eeb268c9dca3e232",
+    "0x230639cd3094e7958807f8a235cbd10ed9c3687e0e7de7209c3ba27506edc0f8",
+    "0xa5d841db7076084096978ff4c8f322606c9252d6ea692accc0728c8cbef8987c",
+    "0x11a9b2b1212fd17f20f6322b0f5de4ca85e0f0e6791d2a3e49092c54e12db637",
+    "0x7eea0b3653c685e2f21294491d739d6f3833deb3d02d48deccef1c13fb65eda1",
+    "0x4559fc70686cb34e9252e28be00a20ece5b2c11bfe2b04e88872fd55fb760989",
+    "0x6842133b9778ecf63e1bc4f4e85cb1927f5070c1a820663631657f342dc3afd7",
+    "0x95c9bc5482915099e537ed38ec7d00f3b1029d7a157e4b44fa8fa57984bc1e07",
+    "0xd201133ab69aac681d24526bd4d9f6cf8be1998dc61179b41272705d6dbac795"
   ],
   "aquaPath": {
-    "commitmentId": "0x8d894f6660a415112879dafbd2755e1aefe65cc30f5aaf4e43ff49a5dd7274c5",
-    "acceptanceTransactionHash": "0xe4d7dc82dd6563319bd6a8cf7d186535edb2652638a4b793dd69803f41868b08",
-    "executionTransactionHash": "0xab5011efa55bdfba43857286ec3be0b7f99eefcc8629f844b9b2078d6bd0ee06",
-    "acceptanceGasUsed": "711459",
+    "commitmentId": "0x58de793a47e8172f4d0405598643e89d64ee0fe79210d5a183768a2d70362052",
+    "acceptanceTransactionHash": "0x1a5b19924fa3b2d08a85f6286738708bf0efd80cd44b6880a20ca40cec07152a",
+    "executionTransactionHash": "0x1d41daf479f5bebee505c96ef82c5c7bf5f86ead8bf5665441cc2be771ce8d8b",
+    "acceptanceGasUsed": "711483",
     "executionGasUsed": "338703",
     "terminalStatus": 2,
     "traderInputDelta": "100000000000000000",
@@ -55,11 +55,11 @@
   "sharedLiquidityDrain": {
     "orderHash": "0xd1d600b797a4932471e32871cc7c2c18629403c7b92a37ea02c9e69bd5e60591",
     "siblingOrderHash": "0x45a909eca9504085b614890fb8c11c1c4a5bb0b3929b5bb501e3c0603e03a318",
-    "shipTransactionHash": "0xfe7422923a62c1e9810298f49cb3e5a23d9ea72e9c02b333a1118d71c9d1f401",
-    "siblingShipTransactionHash": "0x41a692b7fbe22daef3f53640e8db62cedfaef013911e53082e61bb115bee504a",
-    "swapTransactionHash": "0x531e23e9166082ae2f94ffac00a7d5a1b1a5f320713a1898d749cd416b0a1c54",
+    "shipTransactionHash": "0x4ba03885c01ab9cad193dbdc6869a2f6403715ff85b16717d6070286012c79f2",
+    "siblingShipTransactionHash": "0x3fe65c6ee7d531aaeaeb975217347c048c8c250ce0b59e20a96dcc958a707992",
+    "swapTransactionHash": "0x8192b4dd20e3e0aa232c4af38ba8fc9cfdc15d7bfd054a559b931746eaf53ac5",
     "swapGasUsed": "140896",
-    "failedSiblingTransactionHash": "0x314741cdad76debf1c3837dc48adc1fcecb3780ae5d44d90d66446ba8bfd2ebf",
+    "failedSiblingTransactionHash": "0x0cf25b36f4ac2c175538c7b09b666fff7f96004fc1c53e9c1fe749a467a3eb57",
     "failedSiblingGasUsed": "141226",
     "failedSiblingStatus": 0,
     "failedSiblingAtomic": true,
@@ -67,16 +67,35 @@
     "firmEffectiveCapacityAfter": "100000000"
   },
   "bondPath": {
-    "commitmentId": "0xab48b1b4974664e0be9398d73572947ede70178f1ff324e2e0c43c441c1e1598",
-    "acceptanceTransactionHash": "0xa99d13e0d847d5188e948b16ab1b4188e74156d20779a403ddd06ad8eda6d5f4",
-    "executionTransactionHash": "0x5a3958fdaa25865148d944181e472c93615f1208a947f00e53beb535f5ba2c19",
+    "commitmentId": "0x65cd3c01b02754e9e845bc18740a23e9b7b121c58e66264d75e5e0c39840dc8e",
+    "acceptanceTransactionHash": "0x4a6c5204d452d233c4f3fb98dd78a76ae80f5667fa82e2e3102e0b27cae991f5",
+    "executionTransactionHash": "0x944b8590fd0efa1b4d68ee726ba2f42f06ffd3963a38f811d3beddd648f12797",
     "acceptanceGasUsed": "711483",
-    "executionGasUsed": "202210",
+    "executionGasUsed": "214862",
     "terminalStatus": 3,
     "grossTraderInputAmount": "100000000000000000",
     "premiumPaidToMaker": "50000000000000",
     "netTraderInputDelta": "100000000000000000",
     "traderOutputDelta": "200000000"
+  },
+  "expiredPath": {
+    "commitmentId": "0xbc091028a657f779460485a4872c60ee3a660836a37eb928ab9b31df120e8b3f",
+    "acceptanceTransactionHash": "0x6030d2a12c4db8936410e0f795e9f60e0362626e091ca77086c7c3beab3a76d3",
+    "expiryTransactionHash": "0xac0af7e7ee4628df6562b631fe9273a030d359ba4d31d2df3a048871524ea6a9",
+    "terminalStatus": 4,
+    "bondLockedBefore": "200000000",
+    "bondLockedAfter": "0",
+    "premiumPaidToMaker": "50000000000000",
+    "traderPrincipalOutputDelta": "0"
+  },
+  "unrelatedFirmFailure": {
+    "commitmentId": "0x3e4cf9f6dc4b9f054c157ffa396b47615c18d59f55ec79f4042ce88ff1dcfe11",
+    "acceptanceTransactionHash": "0xcb5395737ba77819fa04019e880cf493a93a8b6ac1bc718ea36fab264fe94c0f",
+    "revertedTransactionHash": "0x7653fc252673d96777f3bbf6a4a0b12386373e396263bf753d8e60b915983379",
+    "revertedStatus": 0,
+    "commitmentStatusAfter": 1,
+    "bondLockedBefore": "200000000",
+    "bondLockedAfter": "200000000"
   },
   "depletedAcceptance": {
     "rejected": true,

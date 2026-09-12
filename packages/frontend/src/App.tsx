@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Shell } from "./components/Shell";
 import { RuntimeProvider } from "./hooks/useRuntime";
-import { Evidence } from "./pages/Evidence";
-import { Landing } from "./pages/Landing";
-import { Maker } from "./pages/Maker";
-import { Trade } from "./pages/Trade";
+
+const Evidence = lazy(() => import("./pages/Evidence").then((module) => ({ default: module.Evidence })));
+const Landing = lazy(() => import("./pages/Landing").then((module) => ({ default: module.Landing })));
+const Maker = lazy(() => import("./pages/Maker").then((module) => ({ default: module.Maker })));
+const Trade = lazy(() => import("./pages/Trade").then((module) => ({ default: module.Trade })));
+const NotFound = lazy(() => import("./pages/NotFound").then((module) => ({ default: module.NotFound })));
 
 const knownRoutes = ["/", "/trade", "/evidence", "/maker"];
 
@@ -25,10 +27,11 @@ function usePathname() {
     window.addEventListener("popstate", pop);
     return () => { document.removeEventListener("click", navigate); window.removeEventListener("popstate", pop); };
   }, []);
-  return knownRoutes.includes(path) ? path : "/";
+  return path;
 }
 
 export default function App() {
   const route = usePathname();
-  return <RuntimeProvider><Shell route={route}>{route === "/trade" ? <Trade /> : route === "/evidence" ? <Evidence /> : route === "/maker" ? <Maker /> : <Landing />}</Shell></RuntimeProvider>;
+  const page = route === "/" ? <Landing /> : route === "/trade" ? <Trade /> : route === "/evidence" ? <Evidence /> : route === "/maker" ? <Maker /> : <NotFound />;
+  return <RuntimeProvider><Shell route={route}><Suspense fallback={<div className="route-loading" role="status">Loading FirmDepth…</div>}>{page}</Suspense></Shell></RuntimeProvider>;
 }

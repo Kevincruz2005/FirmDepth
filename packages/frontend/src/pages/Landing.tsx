@@ -30,8 +30,8 @@ export function Landing() {
         <DepthDiagram />
         <ol className="depth-definitions">
           <li><span>01</span><div><h3>Virtual depth</h3><p>The strategy’s Aqua accounting. Capital efficient and reusable across overlapping strategies.</p></div><b>declared</b></li>
-          <li><span>02</span><div><h3>Pullable backing</h3><p>The smaller of the maker’s real token balance and allowance to official Aqua.</p></div><b>observable</b></li>
-          <li><span>03</span><div><h3>Firm depth</h3><p>Active executable capacity plus an accepted, commitment-specific performance bond.</p></div><b>enforceable</b></li>
+          <li><span>02</span><div><h3>Pullable depth</h3><p>Active Aqua output capped by virtual balance, real inventory, and Aqua allowance.</p></div><b>executable now</b></li>
+          <li><span>03</span><div><h3>Firm depth for a quote</h3><p>New output exposure capped by both Pullable Depth and the quote policy’s available Bond capacity.</p></div><b>admissible</b></li>
         </ol>
       </div>
     </section>

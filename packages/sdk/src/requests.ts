@@ -17,6 +17,7 @@ export const bondVaultAbi = parseAbi([
   "function release(bytes32 commitmentId,address to,uint256 amount)",
   "function liabilities() view returns (uint256)",
   "function bondToken() view returns (address)",
+  "function registry() view returns (address)",
 ]);
 
 export const registryAbi = parseAbi([
@@ -35,6 +36,11 @@ export const registryAbi = parseAbi([
   "function utilizationAfter(address maker,uint256 requiredBond) view returns (uint256)",
   "function quotePremium((address maker,address taker,address executor,address swapRouter,bytes32 orderHash,address tokenIn,address tokenOut,uint256 amountIn,uint256 referenceAmountOut,uint256 minAmountOut,uint256 requiredBond,address premiumToken,uint256 premiumAmount,uint32 pricingVersion,uint256 sigmaWad,uint256 annualCapitalRateWad,uint16 capacityKBps,uint256 utilizationAfterWad,uint256 minPremiumOut,uint32 pricingTtl,uint64 expiry,uint256 nonce) quote) view returns ((uint256 sqrtTimeWad,uint256 optionalityOut,uint256 bondCarryOut,uint256 capacitySurchargeOut,uint256 premiumOut,uint256 premiumIn))",
   "function maxQuoteTtl() view returns (uint64)",
+  "function vault() view returns (address)",
+  "function premiumToken() view returns (address)",
+  "function tokenIn() view returns (address)",
+  "function tokenOut() view returns (address)",
+  "function executor() view returns (address)",
 ]);
 
 export const executorAbi = parseAbi([
@@ -43,6 +49,9 @@ export const executorAbi = parseAbi([
   "function execute(bytes32 commitmentId,(address maker,uint256 traits,bytes data) order) returns (uint8 terminalStatus,uint256 amountOut)",
   "function capacity(bytes32 commitmentId) view returns ((uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,bool strategyActive))",
   "function buildTakerTraits(bytes32 commitmentId) view returns (bytes)",
+  "function registry() view returns (address)",
+  "function aqua() view returns (address)",
+  "function router() view returns (address)",
 ]);
 
 export const erc20Abi = parseAbi([
@@ -65,6 +74,10 @@ export const swapVmAbi = parseAbi([
   "function hash((address maker,uint256 traits,bytes data) order) view returns (bytes32)",
   "function quote((address maker,uint256 traits,bytes data) order,uint256 amount,bytes takerTraitsAndData) view returns (uint256 amountIn,uint256 amountOut,bytes32 orderHash)",
   "function swap((address maker,uint256 traits,bytes data) order,uint256 amount,bytes takerTraitsAndData) payable returns (uint256 amountIn,uint256 amountOut,bytes32 orderHash)",
+  "function AQUA() view returns (address)",
+  "function WETH() view returns (address)",
+  "function FIRM_REGISTRY() view returns (address)",
+  "function BOND_VAULT() view returns (address)",
 ]);
 
 export function acceptRequest(registry: Address, quote: FirmQuote, order: SwapVMOrder, makerSignature: Hex) {

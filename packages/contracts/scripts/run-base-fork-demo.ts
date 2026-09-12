@@ -217,6 +217,8 @@ assertEqual(aquaBalancesBefore.makerUsdc - aquaBalancesAfter.makerUsdc, AMOUNT_O
 assertEqual(BigInt(await weth.balanceOf(await registry.getAddress())), 0n, "Aqua premium settlement");
 
 const bondAcceptance = await accept(2n);
+const expiredAcceptance = await accept(3n);
+const failureAcceptance = await accept(4n);
 const makerUsdcBeforeDrain = BigInt(await usdc.balanceOf(makerAddress));
 const retainedMakerOutput = 100_000_000n;
 const drainOutput = makerUsdcBeforeDrain - retainedMakerOutput;
@@ -297,11 +299,45 @@ assertEqual(
   "bond maker input and premium",
 );
 assertEqual(bondBalancesAfter.makerUsdc, bondBalancesBefore.makerUsdc, "bond maker output");
-assertEqual(BigInt(await weth.balanceOf(await registry.getAddress())), 0n, "bond premium settlement");
+assertEqual(BigInt(await weth.balanceOf(await registry.getAddress())), expiredAcceptance.quote.premiumAmount + failureAcceptance.quote.premiumAmount, "outstanding accepted premium escrow");
+
+const failureLockBefore = await vault.lockedFor(failureAcceptance.commitmentId);
+const executorAddress = await executor.getAddress();
+const executorCode = await provider.getCode(executorAddress);
+await provider.send("hardhat_setCode", [executorAddress, "0x60006000fd"]);
+const failureTransaction = await trader.sendTransaction({
+  to: executorAddress,
+  data: executor.interface.encodeFunctionData("execute", [failureAcceptance.commitmentId, firmOrder]),
+  gasLimit: 2_000_000,
+});
+let failureReceipt;
+try { failureReceipt = await failureTransaction.wait(); } catch (error) { failureReceipt = extractReceipt(error); }
+if (failureReceipt === null || failureReceipt.status !== 0) throw new Error("Unrelated Firm executor failure did not revert");
+await provider.send("hardhat_setCode", [executorAddress, executorCode]);
+const failureLockAfter = await vault.lockedFor(failureAcceptance.commitmentId);
+const failureCommitment = await registry.getCommitment(failureAcceptance.commitmentId);
+assertEqual(failureCommitment.status, 1n, "unrelated failure commitment status");
+assertEqual(failureLockAfter.amount, failureLockBefore.amount, "unrelated failure bond lock");
+
+await provider.send("evm_increaseTime", [241]);
+await provider.send("evm_mine", []);
+const expiredBalancesBefore = await balances(makerAddress, traderAddress);
+const expiredLockBefore = await vault.lockedFor(expiredAcceptance.commitmentId);
+const expireTransaction = await registry.expire(expiredAcceptance.commitmentId);
+const expireReceipt = await expireTransaction.wait();
+const expiredBalancesAfter = await balances(makerAddress, traderAddress);
+const expiredLockAfter = await vault.lockedFor(expiredAcceptance.commitmentId);
+const expiredCommitment = await registry.getCommitment(expiredAcceptance.commitmentId);
+assertEqual(expiredCommitment.status, 4n, "expired terminal status");
+assertEqual(expiredLockAfter.amount, 0n, "expired bond unlock");
+assertEqual(expiredBalancesAfter.makerWeth - expiredBalancesBefore.makerWeth, expiredAcceptance.quote.premiumAmount, "expired premium paid to maker");
+assertEqual(expiredBalancesAfter.traderUsdc, expiredBalancesBefore.traderUsdc, "expired principal output");
+await (await registry.expire(failureAcceptance.commitmentId)).wait();
+assertEqual(BigInt(await weth.balanceOf(await registry.getAddress())), 0n, "terminal premium settlement");
 assertEqual(BigInt(await vault.totalLocked()), 0n, "terminal vault locks");
 assertEqual(BigInt(await usdc.balanceOf(await vault.getAddress())), BigInt(await vault.liabilities()), "vault reconciliation");
 
-const rejected = await buildSignedQuote(3n);
+const rejected = await buildSignedQuote(5n);
 let rejectionData = "";
 try {
   await registry.connect(trader).accept.staticCall(rejected.quote, firmOrder, rejected.signature);
@@ -373,6 +409,25 @@ const evidence = {
     premiumPaidToMaker: bondAcceptance.quote.premiumAmount.toString(),
     netTraderInputDelta: (bondBalancesBefore.traderWeth - bondBalancesAfter.traderWeth).toString(),
     traderOutputDelta: (bondBalancesAfter.traderUsdc - bondBalancesBefore.traderUsdc).toString(),
+  },
+  expiredPath: {
+    commitmentId: expiredAcceptance.commitmentId,
+    acceptanceTransactionHash: transactionHash(expiredAcceptance.receipt),
+    expiryTransactionHash: transactionHash(expireReceipt),
+    terminalStatus: Number(expiredCommitment.status),
+    bondLockedBefore: expiredLockBefore.amount.toString(),
+    bondLockedAfter: expiredLockAfter.amount.toString(),
+    premiumPaidToMaker: expiredAcceptance.quote.premiumAmount.toString(),
+    traderPrincipalOutputDelta: (expiredBalancesAfter.traderUsdc - expiredBalancesBefore.traderUsdc).toString(),
+  },
+  unrelatedFirmFailure: {
+    commitmentId: failureAcceptance.commitmentId,
+    acceptanceTransactionHash: transactionHash(failureAcceptance.receipt),
+    revertedTransactionHash: transactionHash(failureReceipt),
+    revertedStatus: failureReceipt.status,
+    commitmentStatusAfter: Number(failureCommitment.status),
+    bondLockedBefore: failureLockBefore.amount.toString(),
+    bondLockedAfter: failureLockAfter.amount.toString(),
   },
   depletedAcceptance: { rejected: true, revertData: rejectionData },
   vault: {

@@ -1,5 +1,6 @@
 import type { Address, Hex, PublicClient } from "viem";
 
+import { firmDepthForQuote, type QuoteScopedFirmCapacity } from "./capacity.js";
 import { aquaAbi, bondVaultAbi, erc20Abi, registryAbi, swapVmAbi } from "./requests.js";
 import type {
   Capacity,
@@ -25,7 +26,7 @@ export interface LiquidityReality {
   realBalance: bigint;
   aquaAllowance: bigint;
   pullableBacking: bigint;
-  firmDepth: bigint;
+  pullableDepth: bigint;
   strategyActive: boolean;
 }
 
@@ -101,7 +102,7 @@ export async function getLiquidityReality(
     realBalance: capacity.realBalance,
     aquaAllowance: capacity.aquaAllowance,
     pullableBacking: min(capacity.realBalance, capacity.aquaAllowance),
-    firmDepth: capacity.effectiveCapacity,
+    pullableDepth: capacity.effectiveCapacity,
     strategyActive: capacity.strategyActive,
   };
 }
@@ -124,9 +125,16 @@ export async function getPullableBackingAtBlock(
   };
 }
 
-export async function getFirmDepth(client: PublicClient, query: CapacityQuery): Promise<{ blockNumber: bigint; value: bigint }> {
-  const liquidity = await getLiquidityReality(client, query);
-  return { blockNumber: liquidity.blockNumber, value: liquidity.firmDepth };
+export async function getFirmDepth(
+  client: PublicClient,
+  query: CapacityQuery & { vault: Address; requiredBond: bigint; minAmountOut: bigint },
+): Promise<{ blockNumber: bigint; value: bigint; capacity: QuoteScopedFirmCapacity }> {
+  const [liquidity, availableBond] = await Promise.all([
+    getLiquidityReality(client, query),
+    client.readContract({ address: query.vault, abi: bondVaultAbi, functionName: "availableOf", args: [query.maker] }),
+  ]);
+  const capacity = firmDepthForQuote(liquidity.pullableDepth, availableBond, query.minAmountOut, query.requiredBond);
+  return { blockNumber: liquidity.blockNumber, value: capacity.firmDepth, capacity };
 }
 
 export async function checkFirmEligibility(
@@ -150,7 +158,7 @@ export async function checkFirmEligibility(
   ]);
   const reasons: string[] = [];
   if (!liquidity.strategyActive) reasons.push("STRATEGY_INACTIVE");
-  if (liquidity.firmDepth < query.requiredOutput) reasons.push("INSUFFICIENT_AQUA_CAPACITY");
+  if (liquidity.pullableDepth < query.requiredOutput) reasons.push("INSUFFICIENT_AQUA_CAPACITY");
   if (availableBond < query.requiredBond) reasons.push("INSUFFICIENT_BOND");
 
   let quotedAmountIn: bigint | null = null;
@@ -176,6 +184,25 @@ export async function checkFirmEligibility(
   };
 }
 
+export async function readTokenBalance(client: PublicClient, token: Address, account: Address): Promise<bigint> {
+  return client.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [account] });
+}
+
+export async function quoteSwapExactIn(
+  client: PublicClient,
+  router: Address,
+  order: { maker: Address; traits: bigint; data: Hex },
+  amountIn: bigint,
+  takerTraits: Hex,
+): Promise<{ amountIn: bigint; amountOut: bigint; orderHash: Hex; blockNumber: bigint }> {
+  if (amountIn <= 0n) throw new RangeError("amountIn must be greater than zero");
+  const [quoted, blockNumber] = await Promise.all([
+    client.readContract({ address: router, abi: swapVmAbi, functionName: "quote", args: [order, amountIn, takerTraits] }),
+    client.getBlockNumber(),
+  ]);
+  return { amountIn: quoted[0], amountOut: quoted[1], orderHash: quoted[2], blockNumber };
+}
+
 export async function readMakerBond(
   client: PublicClient,
   vault: Address,
@@ -186,6 +213,11 @@ export async function readMakerBond(
     client.readContract({ address: vault, abi: bondVaultAbi, functionName: "lockedOf", args: [maker] }),
   ]);
   return { available, locked, total: available + locked };
+}
+
+export async function readCommitmentBondLock(client: PublicClient, vault: Address, commitmentId: Hex): Promise<{ maker: Address; amount: bigint }> {
+  const value = await client.readContract({ address: vault, abi: bondVaultAbi, functionName: "lockedFor", args: [commitmentId] });
+  return { maker: value[0], amount: value[1] };
 }
 
 export async function readCommitment(

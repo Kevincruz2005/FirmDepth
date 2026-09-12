@@ -25,6 +25,37 @@ export function sharedLiquidityRatioWad(totalVirtualDepth: bigint, realInventory
   return (totalVirtualDepth * WAD) / realInventory;
 }
 
+export interface QuoteScopedFirmCapacity {
+  pullableDepth: bigint;
+  availableBond: bigint;
+  bondSupportedDepth: bigint;
+  firmDepth: bigint;
+  collateralRatioWad: bigint;
+}
+
+/**
+ * New Firm output exposure admissible under one quote's collateral policy.
+ * Acceptance requires the full requiredBond, including any overcollateralization.
+ */
+export function firmDepthForQuote(
+  pullableDepth: bigint,
+  availableBond: bigint,
+  minAmountOut: bigint,
+  requiredBond: bigint,
+): QuoteScopedFirmCapacity {
+  if (pullableDepth < 0n || availableBond < 0n) throw new RangeError("capacity values cannot be negative");
+  if (minAmountOut <= 0n) throw new RangeError("minAmountOut must be greater than zero");
+  if (requiredBond < minAmountOut) throw new RangeError("requiredBond must cover minAmountOut");
+  const bondSupportedDepth = (availableBond * minAmountOut) / requiredBond;
+  return {
+    pullableDepth,
+    availableBond,
+    bondSupportedDepth,
+    firmDepth: min(pullableDepth, bondSupportedDepth),
+    collateralRatioWad: (requiredBond * WAD) / minAmountOut,
+  };
+}
+
 function min(a: bigint, b: bigint): bigint {
   return a < b ? a : b;
 }

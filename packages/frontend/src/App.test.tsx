@@ -9,7 +9,7 @@ beforeEach(() => {
 describe("FirmDepth application", () => {
   it("renders the product-led landing narrative with explicit provenance", async () => {
     render(<App />);
-    expect(screen.getByRole("heading", { name: /the quote is soft/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /the quote is soft/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /one market. three depths/i })).toBeInTheDocument();
     expect(screen.getAllByText("VERIFIED BASE-FORK RUN").length).toBeGreaterThan(0);
     expect(screen.getAllByText("SYNTHETIC BENCHMARK").length).toBeGreaterThan(0);

@@ -16,6 +16,8 @@ FirmDepth instead reserves separate performance collateral only while a commitme
 
 This keeps the maker's trading inventory reusable, makes accepted Firm commitments fully collateralized, and turns the key claim into reproducible onchain evidence rather than a UI promise.
 
+Depth terminology is exact: **Virtual Depth** is Aqua's advertised output balance for the configured strategy; **Pullable Depth** is active `min(virtual balance, real inventory, Aqua allowance)`; **Firm Depth for a quote** is `min(Pullable Depth, floor(available Bond × minAmountOut / requiredBond))`. Firm Depth is deliberately quote-scoped because overcollateralized policies require more Bond than the promised output.
+
 ## Verify in three minutes
 
 Requirements: Node.js 22+, npm, Bash, and network access to Base RPC. An optional `BASE_RPC_URL` can override the public endpoint.
@@ -31,6 +33,8 @@ The release gate compiles the contracts, runs all unit/fuzz tests, builds and te
 ## Frontend
 
 The product interface lives in `packages/frontend` and separates every displayed value into Live, Verified Base-fork Run, Synthetic Benchmark, or Illustrative evidence. It includes the product narrative at `/`, Soft/Firm execution at `/trade`, strict terminal receipt inspection at `/evidence`, and maker bond controls at `/maker`.
+
+Production hosting must route unknown document requests to `packages/frontend/dist/index.html` so direct navigation to `/trade`, `/evidence`, and `/maker` reaches the client router. It must also serve an authenticated schema-v2 deployment document at `/runtime/firmdepth.json` (or the configured equivalent) and a maker-operated Firm quote endpoint. The quote endpoint accepts `{ chainId, registry, strategyId, orderHash, taker, amountIn, pricingTtl }` and returns a signed `{ quote, makerSignature, quotedAtBlock }`; no maker key belongs in the frontend deployment. The local Base-fork adapter implements this interface only through Vite development middleware and is not emitted in the production bundle.
 
 Run the read-only product and evidence experience locally:
 

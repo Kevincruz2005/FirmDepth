@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import { validateRuntimeArtifact } from "./runtime";
 
 const valid = {
-  schemaVersion: "1",
+  schemaVersion: "2",
   chainId: 8453,
   networkName: "Base fork",
   forkBlock: 51_123_118,
   createdAt: "2026-09-12T00:00:00.000Z",
   rpcUrl: "http://127.0.0.1:8545",
   deploymentBlock: 51_123_120,
+  environment: { kind: "base-fork", label: "Base Fork · Block 51,123,118", controlledEvidence: true },
+  quoteProvider: { url: "/runtime/firm-quote", horizons: [5, 30, 120] },
   sourceRevisions: { aqua: "a", swapVM: "b", aquaSDK: "c" },
   addresses: {
     aqua: "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
@@ -21,7 +23,7 @@ const valid = {
   },
   opcodeConfiguration: { firmPrice: 82, firmGuard: 33, program: "0x52002100" },
   pricingPolicy: { version: 2, maxQuoteTtl: 120 },
-  strategies: [{ id: "soft", label: "Soft fixture", kind: "SOFT", order: { maker: "0x0000000000000000000000000000000000000005", traits: "1", data: "0x1234" }, orderHash: `0x${"11".repeat(32)}`, takerTraits: "0xabcd", amountIn: "1", expectedAmountOut: "1" }],
+  strategies: [{ id: "soft", label: "Soft fixture", kind: "SOFT", order: { maker: "0x0000000000000000000000000000000000000005", traits: "1", data: "0x1234" }, orderHash: `0x${"11".repeat(32)}`, takerTraits: "0xabcd", suggestedAmountIn: "1" }],
 };
 
 describe("runtime artifact validation", () => {

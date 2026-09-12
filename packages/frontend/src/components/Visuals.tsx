@@ -4,7 +4,7 @@ export function DepthDiagram({ compact = false }: { compact?: boolean }) {
   return (
     <figure className={`depth-diagram ${compact ? "compact" : ""}`} aria-labelledby="depth-title depth-desc">
       <figcaption id="depth-title">WETH / USDC depth reality</figcaption>
-      <p id="depth-desc" className="sr-only">Virtual depth is largest. Pullable backing is smaller because it is capped by real balance and allowance. Firm depth is the executable portion backed by an accepted bond.</p>
+      <p id="depth-desc" className="sr-only">Virtual depth is advertised Aqua output. Pullable depth is capped by active virtual balance, real inventory, and Aqua allowance. Firm depth for a quote is capped again by free Bond under that quote's collateral ratio.</p>
       <svg viewBox="0 0 680 330" role="img" aria-hidden="true">
         <defs>
           <pattern id="dots" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="currentColor" opacity=".18" /></pattern>
