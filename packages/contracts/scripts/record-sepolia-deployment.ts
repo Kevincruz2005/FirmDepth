@@ -61,6 +61,19 @@ async function transactionHashes(root: string): Promise<string[]> {
   for (const name of await readdir(root, { recursive: true }) as string[]) {
     if (!name.endsWith(".json") && !name.endsWith(".jsonl")) continue;
     const text = await readFile(resolve(root, name), "utf8");
+    for (const line of text.split("\n")) {
+      if (line.trim().length === 0) continue;
+      try {
+        const entry = JSON.parse(line) as { type?: unknown; transaction?: { hash?: unknown } };
+        const hash = entry.type === "TRANSACTION_SEND" ? entry.transaction?.hash : undefined;
+        if (typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash)) {
+          const receipt = await ethers.provider.getTransactionReceipt(hash);
+          if (receipt) found.add(hash);
+        }
+      } catch {
+        // Whole JSON artifacts are handled by the backwards-compatible key scan below.
+      }
+    }
     for (const match of text.matchAll(/"(?:transactionHash|txHash)"\s*:\s*"(0x[0-9a-fA-F]{64})"/g)) {
       const hash = match[1]!;
       const receipt = await ethers.provider.getTransactionReceipt(hash);

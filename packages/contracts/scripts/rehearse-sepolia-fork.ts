@@ -22,8 +22,12 @@ const [, trader, drainer] = await ethers.getSigners();
 if (!trader || !drainer) throw new Error("Sepolia rehearsal requires two funded fork accounts");
 const [traderAddress, drainerAddress] = await Promise.all([trader.getAddress(), drainer.getAddress()]);
 
-const viemClient = createPublicClient({ transport: custom({ request: ({ method, params }) => networkProvider.request({ method, params: params as any }) }) });
+const viemClient = createPublicClient({
+  transport: custom({ request: ({ method, params }) => ethers.provider.send(method, (params ?? []) as any[]) }),
+});
+stage("authenticating deployment");
 await authenticateFirmDepthDeployment(viemClient as never, manifest.addresses);
+stage("deployment authenticated");
 const firmStrategy = manifest.strategies.find((value: any) => value.kind === "FIRM");
 const softStrategy = manifest.strategies.find((value: any) => value.kind === "SOFT");
 if (!firmStrategy || !softStrategy) throw new Error("Manifest strategies are incomplete");
@@ -42,36 +46,56 @@ const router: any = new ethersLibrary.Contract(addresses.firmRouter, [
 ], provider);
 const executor: any = new ethersLibrary.Contract(addresses.executor, ["function execute(bytes32,(address maker,uint256 traits,bytes data)) returns (uint8,uint256)"], provider);
 const weth: any = new ethersLibrary.Contract(addresses.weth, ["function deposit() payable", "function approve(address,uint256) returns (bool)"], provider);
-const usdc: any = new ethersLibrary.Contract(addresses.usdc, ["function balanceOf(address) view returns (uint256)"], provider);
+const usdc: any = new ethersLibrary.Contract(addresses.usdc, ["function balanceOf(address) view returns (uint256)", "function transfer(address,uint256) returns (bool)"], provider);
+const aqua: any = new ethersLibrary.Contract(addresses.aqua, ["function push(address,address,bytes32,address,uint256)"], provider);
+const makerOnFork = new ethersLibrary.Wallet(makerKey, provider);
 
+stage("funding fork trader WETH");
 await (await weth.connect(trader).deposit({ value: ethersLibrary.parseEther("5") })).wait();
 await (await weth.connect(trader).approve(addresses.registry, ethersLibrary.MaxUint256)).wait();
 await (await weth.connect(trader).approve(addresses.executor, ethersLibrary.MaxUint256)).wait();
 const amountIn = BigInt(firmStrategy.suggestedAmountIn);
+const softReference = await router.quote(softOrder, amountIn, softStrategy.takerTraits);
+const referenceAmountOut = BigInt(softReference[1]);
+const rehearsalInventory = referenceAmountOut * 2n + 1n;
+const makerInventoryBefore = BigInt(await usdc.balanceOf(maker.address));
+if (makerInventoryBefore < rehearsalInventory) throw new Error("Maker inventory cannot cover the Aqua fill and sibling-drain rehearsal");
+if (makerInventoryBefore > rehearsalInventory) {
+  stage("normalizing fork-only maker inventory");
+  await (await usdc.connect(makerOnFork).transfer(drainerAddress, makerInventoryBefore - rehearsalInventory)).wait();
+}
+stage("accepting Aqua commitment");
 const aquaAcceptance = await accept(1n);
-const bondAcceptance = await accept(2n);
-const expiryAcceptance = await accept(3n);
 
-const aquaTx = await executor.connect(trader).execute(aquaAcceptance.commitmentId, firmOrder);
+stage("executing Aqua path");
+const aquaTx = await executor.connect(trader).execute(aquaAcceptance.commitmentId, firmOrder, { gasLimit: 2_000_000 });
 const aquaReceipt = await aquaTx.wait();
 if (!aquaReceipt || aquaReceipt.status !== 1) throw new Error("Aqua rehearsal execution failed");
+stage("replenishing Firm virtual depth");
+await (await aqua.connect(makerOnFork).push(maker.address, addresses.firmRouter, firmStrategy.orderHash, addresses.usdc, referenceAmountOut, { gasLimit: 500_000 })).wait();
 
 const makerInventory = BigInt(await usdc.balanceOf(maker.address));
-if (makerInventory <= bondAcceptance.minAmountOut) throw new Error("Maker inventory is already below the accepted output");
+if (makerInventory <= referenceAmountOut) throw new Error("Maker inventory is already below the next accepted output");
+stage("accepting Bond and expiry commitments");
+const bondAcceptance = await accept(2n);
+const expiryAcceptance = await accept(3n);
 const drainTarget = makerInventory - bondAcceptance.minAmountOut + 1n;
 const drainAmountIn = await findSoftInput(drainTarget);
-await (await weth.connect(drainer).deposit({ value: drainAmountIn })).wait();
-await (await weth.connect(drainer).approve(addresses.firmRouter, drainAmountIn)).wait();
-const drainTx = await router.connect(drainer).swap(softOrder, drainAmountIn, softStrategy.takerTraits);
+stage("executing sibling Soft drain");
+await (await weth.connect(drainer).deposit({ value: drainAmountIn, gasLimit: 100_000 })).wait();
+await (await weth.connect(drainer).approve(addresses.firmRouter, drainAmountIn, { gasLimit: 100_000 })).wait();
+const drainTx = await router.connect(drainer).swap(softOrder, drainAmountIn, softStrategy.takerTraits, { gasLimit: 2_000_000 });
 const drainReceipt = await drainTx.wait();
 if (!drainReceipt || drainReceipt.status !== 1) throw new Error("Sibling Soft drain failed");
 
-const bondTx = await executor.connect(trader).execute(bondAcceptance.commitmentId, firmOrder);
+stage("executing Bond path");
+const bondTx = await executor.connect(trader).execute(bondAcceptance.commitmentId, firmOrder, { gasLimit: 2_000_000 });
 const bondReceipt = await bondTx.wait();
 if (!bondReceipt || bondReceipt.status !== 1) throw new Error("Bond rehearsal execution failed");
 await networkProvider.request({ method: "evm_increaseTime", params: [121] });
 await networkProvider.request({ method: "evm_mine", params: [] });
-const expiryTx = await registry.connect(trader).expire(expiryAcceptance.commitmentId);
+stage("settling expiry path");
+const expiryTx = await registry.connect(trader).expire(expiryAcceptance.commitmentId, { gasLimit: 500_000 });
 const expiryReceipt = await expiryTx.wait();
 if (!expiryReceipt || expiryReceipt.status !== 1) throw new Error("Expiry rehearsal settlement failed");
 
@@ -92,6 +116,7 @@ console.log(JSON.stringify({
 }, null, 2));
 
 async function accept(nonceOffset: bigint) {
+  stage(`building commitment ${nonceOffset}`);
   const block = await provider.getBlock("latest");
   if (!block) throw new Error("Latest fork block is unavailable");
   const quoted = await router.quote(softOrder, amountIn, softStrategy.takerTraits);
@@ -110,7 +135,10 @@ async function accept(nonceOffset: bigint) {
   }, BigInt(block.timestamp));
   const signature = await signFirmQuote(makerViem, addresses.registry, Number(SEPOLIA_CHAIN_ID), quote);
   const commitmentId = await registry.quoteDigest(quote);
-  const transaction = await registry.connect(trader).accept(quote, firmOrder, signature);
+  // EDR may spend longer than the 120-second protocol ceiling hydrating remote
+  // fork state during eth_estimateGas. The tested call has a stable bound, so
+  // skip that duplicate remote read and mine the signed fork transaction now.
+  const transaction = await registry.connect(trader).accept(quote, firmOrder, signature, { gasLimit: 2_000_000 });
   const acceptedReceipt = await transaction.wait();
   if (!acceptedReceipt || acceptedReceipt.status !== 1) throw new Error("Fork acceptance failed");
   return { commitmentId, acceptanceHash: transaction.hash, minAmountOut };
@@ -141,4 +169,8 @@ function receipt(acceptance: { commitmentId: string; acceptanceHash: string }, t
 
 function order(value: { maker: string; traits: string; data: string }) {
   return { maker: ethersLibrary.getAddress(value.maker), traits: BigInt(value.traits), data: value.data as `0x${string}` };
+}
+
+function stage(message: string): void {
+  console.error(`[sepolia-fork] ${message}`);
 }

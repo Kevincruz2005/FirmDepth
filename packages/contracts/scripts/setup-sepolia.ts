@@ -14,10 +14,14 @@ for (const key of ["aqua", "weth", "usdc", "bondVault", "registry", "firmRouter"
 if (manifest.maker && ethersLibrary.getAddress(manifest.maker) !== makerAddress) throw new Error("MAKER_PRIVATE_KEY does not match the recorded maker");
 if (manifest.deployment.deployer && ethersLibrary.getAddress(manifest.deployment.deployer) === makerAddress) throw new Error("Maker and deployer roles must use distinct addresses");
 
-const FIRM_VIRTUAL = units("FIRM_VIRTUAL_USDC", "3000", 6);
-const SOFT_VIRTUAL = units("SOFT_VIRTUAL_USDC", "3000", 6);
-const BOND_TARGET = units("BOND_USDC", "1000", 6);
-const SUGGESTED_INPUT = units("SUGGESTED_WETH", "0.1", 18);
+// Public-testnet scale only. The zero-input-reserve XYC sibling quotes its full
+// virtual USDC reserve, so each 5 USDC Firm quote locks exactly 6 USDC at the
+// manifest's 120% policy. Eighteen USDC comfortably supports all three
+// Aqua/Bond/expiry commitments used by the Sepolia-fork rehearsal.
+const FIRM_VIRTUAL = units("FIRM_VIRTUAL_USDC", "5", 6);
+const SOFT_VIRTUAL = units("SOFT_VIRTUAL_USDC", "5", 6);
+const BOND_TARGET = units("BOND_USDC", "18", 6);
+const SUGGESTED_INPUT = units("SUGGESTED_WETH", "0.001", 18);
 const addresses = manifest.addresses;
 const erc20Abi = ["function balanceOf(address) view returns (uint256)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"];
 const aquaAbi = ["function rawBalances(address,address,bytes32,address) view returns (uint248,uint8)", "function ship(address,bytes,address[],uint256[]) returns (bytes32)", "function push(address,address,bytes32,address,uint256)"];
@@ -32,14 +36,15 @@ const softOrder = buildSoftOrder(makerAddress as `0x${string}`, addresses.weth, 
 const firmHash = await router.hash(firmOrder);
 const softHash = await router.hash(softOrder);
 const transactions: string[] = [...(manifest.transactions.setup ?? [])];
+const existingTransactionCount = transactions.length;
 
 const [makerUsdc, available, locked] = await Promise.all([usdc.balanceOf(makerAddress), vault.availableOf(makerAddress), vault.lockedOf(makerAddress)]);
 const targetInventory = FIRM_VIRTUAL > SOFT_VIRTUAL ? FIRM_VIRTUAL : SOFT_VIRTUAL;
 if (makerUsdc + available + locked < targetInventory + BOND_TARGET) throw new Error(`Maker requires at least ${ethersLibrary.formatUnits(targetInventory + BOND_TARGET, 6)} total USDC across wallet and Bond`);
 if (await usdc.allowance(makerAddress, addresses.aqua) < targetInventory) transactions.push(await waitForSuccess(await usdc.approve(addresses.aqua, ethersLibrary.MaxUint256)));
 
-await ensureStrategy("Firm", firmOrder, firmHash, FIRM_VIRTUAL);
-await ensureStrategy("Soft", softOrder, softHash, SOFT_VIRTUAL);
+const firmBalances = await ensureStrategy("Firm", firmOrder, firmHash, FIRM_VIRTUAL);
+const softBalances = await ensureStrategy("Soft", softOrder, softHash, SOFT_VIRTUAL);
 
 const currentBond = available + locked;
 if (currentBond < BOND_TARGET) {
@@ -51,14 +56,14 @@ if (currentBond < BOND_TARGET) {
 manifest.status = "ready";
 manifest.maker = makerAddress;
 manifest.strategies = [
-  { id: "soft-drain", label: "Shared inventory drain", kind: "SOFT", order: serializeOrder(softOrder), orderHash: softHash, takerTraits: buildSoftTakerTraits(addresses.weth, addresses.usdc), suggestedAmountIn: SUGGESTED_INPUT.toString(), virtualBalances: { weth: "0", usdc: SOFT_VIRTUAL.toString() } },
-  { id: "firm-primary", label: "Bond-backed exact input", kind: "FIRM", order: serializeOrder(firmOrder), orderHash: firmHash, takerTraits: "0x", suggestedAmountIn: SUGGESTED_INPUT.toString(), virtualBalances: { weth: "0", usdc: FIRM_VIRTUAL.toString() } },
+  { id: "soft-drain", label: "Shared inventory drain", kind: "SOFT", order: serializeOrder(softOrder), orderHash: softHash, takerTraits: buildSoftTakerTraits(addresses.weth, addresses.usdc), suggestedAmountIn: SUGGESTED_INPUT.toString(), virtualBalances: { weth: softBalances.weth.toString(), usdc: softBalances.usdc.toString() } },
+  { id: "firm-primary", label: "Bond-backed exact input", kind: "FIRM", order: serializeOrder(firmOrder), orderHash: firmHash, takerTraits: "0x", suggestedAmountIn: SUGGESTED_INPUT.toString(), virtualBalances: { weth: firmBalances.weth.toString(), usdc: firmBalances.usdc.toString() } },
 ];
 manifest.transactions.setup = [...new Set(transactions)];
 await writePublicManifest(manifest);
-console.log(JSON.stringify({ status: "ready", maker: makerAddress, firmHash, softHash, firmProgram: FIRM_PROGRAM, newTransactions: transactions.length }, null, 2));
+console.log(JSON.stringify({ status: "ready", maker: makerAddress, firmHash, softHash, firmProgram: FIRM_PROGRAM, newTransactions: transactions.length - existingTransactionCount }, null, 2));
 
-async function ensureStrategy(label: string, order: { maker: string; traits: bigint; data: string }, hash: string, targetOutput: bigint): Promise<void> {
+async function ensureStrategy(label: string, order: { maker: string; traits: bigint; data: string }, hash: string, targetOutput: bigint): Promise<{ weth: bigint; usdc: bigint }> {
   const [input, output] = await Promise.all([
     aqua.rawBalances(makerAddress, addresses.firmRouter, hash, addresses.weth),
     aqua.rawBalances(makerAddress, addresses.firmRouter, hash, addresses.usdc),
@@ -67,10 +72,12 @@ async function ensureStrategy(label: string, order: { maker: string; traits: big
   if (counts.includes(255)) throw new Error(`${label} strategy is docked and immutable; deploy a new router/order configuration`);
   if (counts.every((value) => value === 0)) {
     transactions.push(await waitForSuccess(await aqua.ship(addresses.firmRouter, encodeOrder(order), [addresses.weth, addresses.usdc], [0n, targetOutput])));
-    return;
+    return { weth: 0n, usdc: targetOutput };
   }
   if (!counts.every((value) => value === 2)) throw new Error(`${label} strategy has inconsistent Aqua token state`);
-  if (BigInt(output[0]) < targetOutput) transactions.push(await waitForSuccess(await aqua.push(makerAddress, addresses.firmRouter, hash, addresses.usdc, targetOutput - BigInt(output[0]))));
+  const currentOutput = BigInt(output[0]);
+  if (currentOutput < targetOutput) transactions.push(await waitForSuccess(await aqua.push(makerAddress, addresses.firmRouter, hash, addresses.usdc, targetOutput - currentOutput)));
+  return { weth: BigInt(input[0]), usdc: currentOutput < targetOutput ? targetOutput : currentOutput };
 }
 
 function units(name: string, fallback: string, decimals: number): bigint {

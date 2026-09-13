@@ -13,6 +13,14 @@ const addresses = {
 const makerKey = process.env.MAKER_PRIVATE_KEY;
 if (!makerKey || !/^0x[0-9a-fA-F]{64}$/.test(makerKey)) throw new Error("MAKER_PRIVATE_KEY is required for funding and transfer compatibility checks");
 const makerAddress = new ethers.Wallet(makerKey).address;
+const deployerKey = process.env.SEPOLIA_DEPLOYER_PRIVATE_KEY;
+if (!deployerKey || !/^0x[0-9a-fA-F]{64}$/.test(deployerKey)) throw new Error("SEPOLIA_DEPLOYER_PRIVATE_KEY is required for deployment funding checks");
+const deployerAddress = new ethers.Wallet(deployerKey).address;
+if (deployerAddress === makerAddress) throw new Error("Maker and deployer roles must use distinct addresses");
+const firmVirtual = units("FIRM_VIRTUAL_USDC", "5", 6);
+const softVirtual = units("SOFT_VIRTUAL_USDC", "5", 6);
+const bondTarget = units("BOND_USDC", "18", 6);
+const makerUsdcRequired = (firmVirtual > softVirtual ? firmVirtual : softVirtual) + bondTarget;
 
 const bytecode: Record<string, { bytes: number; hash: string }> = {};
 for (const [name, address] of Object.entries(addresses)) {
@@ -29,10 +37,11 @@ const aqua = new ethers.Contract(
   ["function rawBalances(address,address,bytes32,address) view returns (uint248,uint8)"],
   ethers.provider,
 );
-const [[wethSymbol, wethDecimals], [usdcSymbol, usdcDecimals], rawBalance, makerEth, makerWeth, makerUsdc] = await Promise.all([
+const [[wethSymbol, wethDecimals], [usdcSymbol, usdcDecimals], rawBalance, deployerEth, makerEth, makerWeth, makerUsdc] = await Promise.all([
   Promise.all([weth.symbol(), weth.decimals()]),
   Promise.all([usdc.symbol(), usdc.decimals()]),
   aqua.rawBalances(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroHash, ethers.ZeroAddress),
+  ethers.provider.getBalance(deployerAddress),
   ethers.provider.getBalance(makerAddress),
   weth.balanceOf(makerAddress),
   usdc.balanceOf(makerAddress),
@@ -42,8 +51,9 @@ if (usdcSymbol !== "USDC" || usdcDecimals !== 6n) throw new Error("Configured US
 if (rawBalance[0] !== 0n || rawBalance[1] !== 0n) throw new Error("Aqua rawBalances compatibility probe failed");
 if (!(await weth.transfer.staticCall(makerAddress, 0n, { from: makerAddress }))) throw new Error("WETH transfer compatibility probe failed");
 if (!(await usdc.transfer.staticCall(makerAddress, 0n, { from: makerAddress }))) throw new Error("USDC transfer compatibility probe failed");
+if (deployerEth === 0n) throw new Error("Deployer has no Sepolia ETH for deployment transactions");
 if (makerEth === 0n) throw new Error("Maker has no Sepolia ETH for setup transactions");
-if (makerUsdc === 0n) throw new Error("Maker has no Circle Sepolia USDC for inventory or Bond");
+if (makerUsdc < makerUsdcRequired) throw new Error(`Maker requires at least ${ethers.formatUnits(makerUsdcRequired, 6)} Circle Sepolia USDC for configured inventory and Bond; observed ${ethers.formatUnits(makerUsdc, 6)}`);
 
 console.log(JSON.stringify({
   chainId: Number(chain.chainId),
@@ -56,11 +66,25 @@ console.log(JSON.stringify({
   },
   aquaRawBalancesCompatible: true,
   transferCompatible: true,
-  makerFunding: { address: makerAddress, eth: makerEth.toString(), weth: makerWeth.toString(), usdc: makerUsdc.toString() },
+  deployerFunding: { address: deployerAddress, eth: deployerEth.toString() },
+  makerFunding: {
+    address: makerAddress,
+    eth: makerEth.toString(),
+    weth: makerWeth.toString(),
+    usdc: makerUsdc.toString(),
+    minimumUsdcRequired: makerUsdcRequired.toString(),
+  },
 }, null, 2));
 
 function requiredAddress(name: string): string {
   const value = process.env[name];
   if (value === undefined || value.length === 0) throw new Error(`${name} is required`);
   return ethers.getAddress(value);
+}
+
+function units(name: string, fallback: string, decimals: number): bigint {
+  const value = process.env[name] ?? fallback;
+  const parsed = ethers.parseUnits(value, decimals);
+  if (parsed <= 0n) throw new Error(`${name} must be positive`);
+  return parsed;
 }

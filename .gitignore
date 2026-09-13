@@ -27,6 +27,11 @@ packages/frontend/.runtime/
 packages/contracts/ignition/parameters/chain-11155111.json
 anvil-state.json
 
+# Preserve the real public Sepolia Ignition journal needed to verify/resume it.
+!packages/contracts/ignition/deployments/
+!packages/contracts/ignition/deployments/chain-11155111/
+!packages/contracts/ignition/deployments/chain-11155111/**
+
 # Secrets
 *.pem
 *.key

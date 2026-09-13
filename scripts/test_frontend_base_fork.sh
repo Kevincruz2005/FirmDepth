@@ -63,4 +63,5 @@ fi
 )
 
 FIRMDEPTH_LIVE_E2E=1 PLAYWRIGHT_CHROME_PATH="${PLAYWRIGHT_CHROME_PATH:-/usr/bin/google-chrome-stable}" \
+  FIRMDEPTH_E2E_PORT="${FIRMDEPTH_E2E_PORT:-4174}" \
   npm --prefix "$FRONTEND_DIR" run test:browser -- --workers=1

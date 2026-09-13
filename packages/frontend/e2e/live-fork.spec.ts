@@ -165,13 +165,12 @@ test.describe("real pinned Base-fork UI", () => {
     const fixture = runtimeFixture();
     await installRpcWallet(page, fixture.rpcUrl, fixture.accounts.trader);
     await page.goto("/trade");
-    await expect(page.getByText("Pricing v2 · signed TTL 30s")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Pricing v2 · signed TTL 120s")).toBeVisible({ timeout: 30_000 });
     await page.evaluate(() => (window as any).__emitEthereum("chainChanged", "0x1"));
     await expect(page.getByText(/Wallet is on chain 1/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect wallet" })).toBeVisible();
     await page.evaluate(() => (window as any).__emitEthereum("chainChanged", "0x2105"));
     await expect(page.getByText("Eligible at observed block")).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("button", { name: "120s" }).click();
     await expect(page.getByText("Pricing v2 · signed TTL 120s")).toBeVisible({ timeout: 30_000 });
     const reboundQuote = page.waitForResponse((response) => {
       if (!response.url().endsWith("/runtime/firm-quote") || response.request().method() !== "POST") return false;

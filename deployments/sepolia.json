@@ -1,56 +1,118 @@
 {
   "schemaVersion": "1",
-  "status": "pending",
-  "manifestRevision": "pending",
+  "status": "ready",
+  "manifestRevision": "0xf06a05372c706b743e5e6e491f73af93122a87fcc52084f962c4418db3424183",
   "chain": {
     "id": 11155111,
     "name": "Sepolia",
     "explorerUrl": "https://sepolia.etherscan.io"
   },
   "deployment": {
-    "blockNumber": null,
-    "deployedAt": null
+    "blockNumber": 11690171,
+    "deployedAt": "2026-09-12T16:48:12.000Z",
+    "deployer": "0xD93CF267F2E92340f0c314cad15821c3190929c6"
   },
   "addresses": {
     "aqua": "0x499943E74FB0cE105688beeE8Ef2ABec5D936d31",
     "weth": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
     "usdc": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-    "bondVault": null,
-    "registry": null,
-    "firmRouter": null,
-    "executor": null
+    "bondVault": "0xffE7e4e548063ec024D749A9B3faAAFc7E1f67f9",
+    "registry": "0xdC23826bDf63a6EA8FB987425b3caACCA8666a3b",
+    "firmRouter": "0x80dc2fcc6340d4F6213D5838334C68d03B34bcc0",
+    "executor": "0x2F699176336026101D87FF59e7179038Bb6820A9"
   },
   "tokens": {
-    "weth": { "symbol": "WETH", "decimals": 18, "provenance": "canonical Sepolia WETH" },
-    "usdc": { "symbol": "USDC", "decimals": 6, "provenance": "Circle Sepolia USDC" }
+    "weth": {
+      "symbol": "WETH",
+      "decimals": 18,
+      "provenance": "canonical Sepolia WETH"
+    },
+    "usdc": {
+      "symbol": "USDC",
+      "decimals": 6,
+      "provenance": "Circle Sepolia USDC"
+    }
   },
-  "maker": null,
+  "maker": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
   "policies": {
     "pricingVersion": 2,
     "maxQuoteTtl": 120,
-    "horizons": [5, 30, 120],
-    "minimumAmountIn": "1000000000000000",
-    "maximumAmountIn": "1000000000000000000",
+    "horizons": [
+      5,
+      30,
+      120
+    ],
+    "minimumAmountIn": "10000000000000",
+    "maximumAmountIn": "10000000000000000",
     "requiredBondBps": 12000,
     "sigmaWad": "800000000000000000",
     "annualCapitalRateWad": "100000000000000000",
     "capacityKBps": 10,
-    "minPremiumOut": "100000"
+    "minPremiumOut": "1000"
   },
   "opcodeConfiguration": {
     "firmPrice": 82,
     "firmGuard": 33,
     "program": "0x52002100"
   },
-  "strategies": [],
+  "strategies": [
+    {
+      "id": "soft-drain",
+      "label": "Shared inventory drain",
+      "kind": "SOFT",
+      "order": {
+        "maker": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
+        "traits": "28948022309345504152553859026408935710098245199828632457959369381241264617389",
+        "data": "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238fff9976782d46cc05630d1f6ebab18b2324d6b1450000208000000000000004d"
+      },
+      "orderHash": "0x9cf5f8c76221310df08d35edad52e5c41a99c2602d9d395eda6f9fe3e2bd0e5c",
+      "takerTraits": "0x00000000000000000000000000000000000000000061",
+      "suggestedAmountIn": "1000000000000000",
+      "virtualBalances": {
+        "weth": "1000000000000000",
+        "usdc": "5000000"
+      }
+    },
+    {
+      "id": "firm-primary",
+      "label": "Bond-backed exact input",
+      "kind": "FIRM",
+      "order": {
+        "maker": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
+        "traits": "28948022309345504152553859026408935710098245199828632457959369381241264617389",
+        "data": "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238fff9976782d46cc05630d1f6ebab18b2324d6b1452002100"
+      },
+      "orderHash": "0x7c3dee96fb571812c8f0e0f41a06eebaf62302c203187e32ecd407713a33e0ab",
+      "takerTraits": "0x",
+      "suggestedAmountIn": "1000000000000000",
+      "virtualBalances": {
+        "weth": "0",
+        "usdc": "5000000"
+      }
+    }
+  ],
   "sourceRevisions": {
-    "firmDepth": "1596b88b0bf1e4b2f5ceb99acb53c9470d015442",
+    "firmDepth": "2570854520ebe60579c145a1fcd6371d0d13d41b",
     "aqua": "9c5c42e5840e8741fba3597c48456c9510212b66",
     "swapVM": "f09a41e689240adc645934f965c8061749397cd2",
     "aquaSDK": "364e7155167957e6a24320c7beb90539e06c91eb"
   },
   "transactions": {
-    "deployment": [],
-    "setup": []
+    "deployment": [
+      "0x354c09661487f28cc54de00570a7d2bdb36c72939626841ab1fd6e0b9cc363df",
+      "0x26c88c712fcded8238ae736331efa629f9121e5c43e5b53bd239ef013ca7dd53",
+      "0xf7ce681f3e2860d007e3dc451cb9b6e09e448be8f7236de7344045237bcdbf94",
+      "0x522c010bbfb16ab69d6693c517913f412847471832e5d80da90e34925e2aa850",
+      "0x86020d9c05633ccab3f55d0d43feec0a62e95db45d0f007b5bf1641c47c371a8",
+      "0x264b4cf9d2ea0d92edc770123071532c474f6e9a99e65e8bdff020a90f3eb357"
+    ],
+    "setup": [
+      "0xf9f598882c5d1c53c60958bc858efd359f84c320c53405de02582b64d3cc55dd",
+      "0x000e55cbecea38af8e176088b42874106b856f90635fd2f831569bfa7d573276",
+      "0x27196786d75ffca270ef0286d8e2c3b4bfa98cc67d866357802d7c954362fef8",
+      "0xc33dc5171fd6ae0644b6e1c9b3f092f815ebaa11c5381cbf0f098ca847f49dbe",
+      "0x3013d2f5aca0dea12a61112633270bebe47b66360ead4fcb95c5e8ca9e463d65",
+      "0x4d9ea96bed59a823026909ffaf11f196bdbd146ee0bd2063821146230671ba40"
+    ]
   }
 }

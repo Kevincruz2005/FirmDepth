@@ -165,13 +165,13 @@ The benchmark commits deterministic source/config plus 81 aggregate rows for 810
 - `@1inch/aqua-sdk@0.3.2` and `@1inch/solidity-utils@6.9.10`.
 - Solidity `0.8.30` with optimizer and IR compilation enabled.
 
-The [official Aqua repository](https://github.com/1inch/aqua) lists deterministic deployments on production networks, not Sepolia. FirmDepth therefore uses a pinned Base fork as its canonical sponsor-qualification proof. The included Sepolia scripts require the operator to supply and validate a compatible Aqua deployment plus funded credentials; no public-testnet deployment is claimed by this repository.
+The [official Aqua repository](https://github.com/1inch/aqua) lists deterministic deployments on production networks, not Sepolia. FirmDepth therefore keeps a pinned Base fork as its canonical sponsor-qualification proof and separately records its live Sepolia deployment against the compatible Aqua address authenticated in the public manifest.
 
 The SDK production dependency audit is clean. The contract workspace inherits advisories through the pinned 1inch Solidity utility/tooling dependency graph; those packages are not linked into deployed bytecode, but remain an upstream tooling risk when processing untrusted input. Sponsor versions are intentionally pinned rather than upgraded solely to silence audit output.
 
 ## Public Sepolia demo runbook
 
-The checked-in [`deployments/sepolia.json`](deployments/sepolia.json) is the only public deployment manifest. It intentionally remains `pending` until real deployment and setup receipts are available; no placeholder FirmDepth address or transaction is treated as live. Every command reads explicit shell variables and no package auto-loads `.env`.
+The checked-in [`deployments/sepolia.json`](deployments/sepolia.json) is the only public deployment manifest. Its `ready` status, addresses, strategy hashes, and transaction lists are backed by real Sepolia receipts. Every command reads explicit shell variables and no package auto-loads `.env`.
 
 First validate the configured compatible Aqua, canonical WETH, Circle USDC, maker funding, bytecode, metadata, zero-transfer behavior, and `rawBalances`, then generate parameters and deploy:
 
@@ -194,6 +194,33 @@ npm --prefix packages/contracts run testnet:verify
 ```
 
 `testnet:setup` is explicit and idempotent. It verifies active strategies before changing anything, creates only missing Firm/Soft strategies, uses real Aqua `push` calls to replenish an active strategy, repairs required approvals/Bond, never docks a strategy, and never executes a trade. A previously docked immutable strategy stops setup with a concrete redeployment error. `testnet:reseed` invokes the same safe reconciliation.
+
+Sepolia uses deliberately small public-testnet economics: 5 USDC of virtual output per strategy, 0.001 WETH suggested input, and 18 USDC of Bond. After the successful Soft swap and output-only reseed, the Soft XYC reserves are 0.001 WETH and 5 USDC. The unchanged curve therefore quotes exactly 2.5 USDC for another 0.001 WETH input, and the unchanged 120% policy requires exactly 3 USDC of Bond. Quote input bounds and the minimum premium are scaled down with the trade size. These are setup/manifest values only and do not alter Solidity or protocol semantics.
+
+### 2026-09-13 incident chronology
+
+| Nonce | Transaction | Result |
+|---|---|---|
+| 0 | [Wrap 0.003 ETH](https://sepolia.etherscan.io/tx/0xe5e15cd8b5236b2d4a7f54b018bc3101db4548364bb648493c1038dca13407c8) | Succeeded |
+| 1 | [Approve Router for 0.001 WETH](https://sepolia.etherscan.io/tx/0x9f71db685f4185acfbadc239b436d6e624d459d1c53d46e3bec4cc1e2c2a54b1) | Succeeded; allowance only |
+| 2 | [Approve Registry premium](https://sepolia.etherscan.io/tx/0x9c2e26b850cabd5902c594afc7f132f940fefa07da903a3a29302ac2fc3a06d4) | Succeeded; allowance only |
+| 3 | [Firm acceptance](https://sepolia.etherscan.io/tx/0x3651c2e926747d48778db930e77667b753ad9b7c286d0b3a401f4d69cedd7237) | Reverted with `QuoteExpired(uint64)` after its 30-second quote expired |
+| 4 | — | EIP-7702 authorization nonce embedded in nonce 3, not a transaction |
+| 5 | [Soft swap](https://sepolia.etherscan.io/tx/0x91a644d50a4b3db682d0c3cc78191e8dd4248c72aa189990cac817ce5e9e4fa9) | Succeeded: 0.001 WETH to 5 USDC |
+
+The Firm quote expired at `2026-09-13T01:12:30Z` and was mined at `01:12:48Z`. Commitment `0xc346…e5d4` remains `NONE` with zero timestamps, no Bond was locked, and its maker quote nonce was not consumed. The successful Soft swap is the public Soft-path evidence; do not execute it again during the recovery walkthrough. The Router's subsequent zero-output error is `TakerTraitsAmountOutMustBeGreaterThanZero(uint256)` (`0xf6ab88ca`), caused by depleted Soft output depth rather than a contract defect.
+
+Use the idempotent reseed with credentials entered without shell-history persistence. It performs exactly one Aqua `push` when only the Soft 5 USDC output is missing, records the successful hash, preserves the accumulated 0.001 WETH input reserve, and recomputes the manifest revision:
+
+```bash
+read -rsp 'Sepolia RPC URL: ' SEPOLIA_RPC_URL; echo
+read -rsp 'Maker private key: ' MAKER_PRIVATE_KEY; echo
+export SEPOLIA_RPC_URL MAKER_PRIVATE_KEY
+./scripts/reseed_sepolia.sh
+unset SEPOLIA_RPC_URL MAKER_PRIVATE_KEY
+```
+
+Firm horizons of 5, 30, and 120 seconds are all supported. Use 120 seconds for the public Sepolia manual demo. The 5- and 30-second options are deliberately retained, but they are more sensitive to wallet-confirmation and block-inclusion latency.
 
 After setup, `scripts/rehearse_sepolia_fork.sh` forks the current Sepolia state without modifying it, authenticates the recorded deployment/strategies, creates genuine 120-second maker signatures, and uses fork-only funded taker/drainer accounts to prove `FILLED_AQUA`, sibling-drain `FILLED_BOND`, natural `EXPIRED`, and SDK receipt reconstruction. Hardhat time and account controls are confined to this rehearsal and are never used by the public setup scripts.
 
@@ -219,11 +246,16 @@ Finally run the read-only readiness probe. It checks frontend/API availability, 
 ```bash
 export PUBLIC_FRONTEND_URL='https://your-project.vercel.app'
 export PUBLIC_API_URL='https://your-api.azurewebsites.net'
-export PUBLIC_TAKER_ADDRESS='0x...'
+# Optional incident check only; the application never requires a fixed taker.
+export READINESS_TAKER_ADDRESS='0x...'
 ./scripts/check_public_demo_readiness.sh
 ```
 
-The only successful terminal output is `DEMO READY`; deficiencies are listed individually and the probe never submits a transaction. Public acceptance still requires manual injected-wallet Soft, `FILLED_AQUA`, refresh recovery, sibling-drain `FILLED_BOND`, and wall-clock expiry validation. The 5-second horizon remains experimental until an actual Sepolia timing smoke test lands; use 30 seconds as the shortest claimed reliable route if it does not.
+The only successful terminal output is `DEMO READY`; deficiencies are listed individually and the probe never submits a transaction. `READINESS_TAKER_ADDRESS` is optional and only adds a stale-`ACCEPTED` incident check; it is not a runtime or application dependency. The 120-second maker-signed probe validates positive live Soft output and the configured collateral ratio without hardcoding a taker or expected quote amount, and is never accepted.
+
+With the rebuilt API on `127.0.0.1:8080` and frontend on `127.0.0.1:4173`, run `./scripts/test_frontend_sepolia_live.sh` for the read-only real-Sepolia browser smoke. It authenticates the runtime and deployed contracts, validates current Soft/Firm capacity and Bond, verifies a genuine maker-signed 120-second quote, and checks disconnected-wallet and responsive surfaces without injecting a fake taker or submitting a transaction.
+
+For the manual browser retry, reject old wallet requests, hard-refresh the rebuilt frontend, and connect the designated taker on Sepolia. Inspect Soft and verify the live 0.001 WETH to 2.5 USDC quote without executing it. Then switch to Firm, keep 0.001 WETH and the recommended 120-second horizon, and click Accept. Confirm any Registry-premium and Executor-input approvals; the app discards quotes observed during approvals and validates a fresh signed quote before acceptance. Promptly confirm acceptance, wait for `ACCEPTED` and its explorer link, refresh to verify Registry recovery, then execute with the preapproved input. Confirm `FILLED_AQUA` and receipt reconstruction after another refresh. Finally reseed consumed Firm depth and require `DEMO READY` before beginning Azure deployment.
 
 FirmDepth does not include Uniswap recovery, cross-chain behavior, undercollateralized credit, exotic ERC-20 support, or an independent production audit.
 

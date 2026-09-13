@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-for name in PUBLIC_FRONTEND_URL PUBLIC_API_URL PUBLIC_TAKER_ADDRESS; do
+for name in PUBLIC_FRONTEND_URL PUBLIC_API_URL; do
   if [[ -z "${!name:-}" ]]; then
     echo "DEMO NOT READY"
     echo "- $name is required"

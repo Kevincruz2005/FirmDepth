@@ -1,6 +1,7 @@
 import { authenticateFirmDepthDeployment } from "@firmdepth/sdk/deployment";
 import { validateFirmQuoteEnvelope } from "@firmdepth/sdk/quote-provider";
-import { readAquaCapacity, readMakerBond } from "@firmdepth/sdk/readers";
+import { readAquaCapacity, readCommitment, readMakerBond } from "@firmdepth/sdk/readers";
+import { registryAbi } from "@firmdepth/sdk/requests";
 import { createPublicClient, getAddress, http, isAddress, type Hex } from "viem";
 import { fileURLToPath } from "node:url";
 import { loadManifest } from "./manifest.js";
@@ -9,13 +10,14 @@ const failures: string[] = [];
 const manifestPath = process.env.FIRMDEPTH_MANIFEST_PATH ?? fileURLToPath(new URL("../../../deployments/sepolia.json", import.meta.url));
 const frontendUrl = required("PUBLIC_FRONTEND_URL").replace(/\/$/, "");
 const apiUrl = required("PUBLIC_API_URL").replace(/\/$/, "");
-const takerValue = required("PUBLIC_TAKER_ADDRESS");
-if (!isAddress(takerValue)) throw new Error("PUBLIC_TAKER_ADDRESS is invalid");
-const taker = getAddress(takerValue);
 const manifest = await loadManifest(manifestPath);
+const readinessTakerValue = process.env.READINESS_TAKER_ADDRESS?.trim();
+if (readinessTakerValue && !isAddress(readinessTakerValue)) throw new Error("READINESS_TAKER_ADDRESS is invalid");
+const readinessTaker = readinessTakerValue ? getAddress(readinessTakerValue) : null;
+const probeTaker = readinessTaker ?? manifest.maker;
 
 const [frontendResponse, healthResponse, runtimeResponse] = await Promise.all([
-  safeFetch(frontendUrl), safeFetch(`${apiUrl}/health`), safeFetch(`${apiUrl}/runtime`),
+  safeFetch(frontendUrl, "text/html"), safeFetch(`${apiUrl}/health`), safeFetch(`${apiUrl}/runtime`),
 ]);
 if (!frontendResponse?.ok) failures.push("Vercel frontend is unavailable");
 const health = await safeJson(healthResponse, "Azure /health");
@@ -39,13 +41,31 @@ if (runtime?.rpcUrl) {
     const bond = await readMakerBond(client, manifest.addresses.bondVault, manifest.maker);
     if (bond.available === 0n) failures.push("Maker has no available Bond");
     const firm = manifest.strategies.find((value) => value.kind === "FIRM")!;
+    if (readinessTaker) {
+      const acceptedEvents = await client.getContractEvents({
+        address: manifest.addresses.registry,
+        abi: registryAbi,
+        eventName: "CommitmentAccepted",
+        args: { taker: readinessTaker },
+        fromBlock: BigInt(manifest.deployment.blockNumber),
+        toBlock: "latest",
+      });
+      const acceptedCommitments = await Promise.all(acceptedEvents.map(async (event) => {
+        const commitmentId = event.args.commitmentId;
+        return commitmentId ? readCommitment(client, manifest.addresses.registry, commitmentId) : null;
+      }));
+      if (acceptedCommitments.some((commitment) => commitment?.status === "ACCEPTED")) failures.push("READINESS_TAKER_ADDRESS has an onchain ACCEPTED commitment");
+    }
     const amountIn = BigInt(firm.suggestedAmountIn);
-    const quoteResponse = await fetch(`${apiUrl}/quote/firm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chainId: 11155111, registry: manifest.addresses.registry, strategyId: firm.id, orderHash: firm.orderHash, taker, amountIn: amountIn.toString(), pricingTtl: 120 }) });
+    const quoteResponse = await fetch(`${apiUrl}/quote/firm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chainId: 11155111, registry: manifest.addresses.registry, strategyId: firm.id, orderHash: firm.orderHash, taker: probeTaker, amountIn: amountIn.toString(), pricingTtl: 120 }) });
     const payload = await quoteResponse.json() as any;
     if (!quoteResponse.ok) failures.push(`Signed probe quote failed (${quoteResponse.status}): ${String(payload.error ?? "unknown")}`);
     else {
       const quote = deserializeQuote(payload.quote);
-      await validateFirmQuoteEnvelope(client, { quote, makerSignature: payload.makerSignature, quotedAtBlock: BigInt(payload.quotedAtBlock) }, { chainId: 11155111, registry: manifest.addresses.registry, executor: manifest.addresses.executor, router: manifest.addresses.firmRouter, tokenIn: manifest.addresses.weth, tokenOut: manifest.addresses.usdc, orderHash: firm.orderHash, order: { maker: firm.order.maker, traits: BigInt(firm.order.traits), data: firm.order.data }, maker: manifest.maker, taker, amountIn, pricingTtl: 120 });
+      await validateFirmQuoteEnvelope(client, { quote, makerSignature: payload.makerSignature, quotedAtBlock: BigInt(payload.quotedAtBlock) }, { chainId: 11155111, registry: manifest.addresses.registry, executor: manifest.addresses.executor, router: manifest.addresses.firmRouter, tokenIn: manifest.addresses.weth, tokenOut: manifest.addresses.usdc, orderHash: firm.orderHash, order: { maker: firm.order.maker, traits: BigInt(firm.order.traits), data: firm.order.data }, maker: manifest.maker, taker: probeTaker, amountIn, pricingTtl: 120 });
+      if (quote.referenceAmountOut <= 0n || quote.minAmountOut !== quote.referenceAmountOut) failures.push("120-second probe does not preserve positive live Soft reference output");
+      const expectedBond = ceilDiv(quote.minAmountOut * BigInt(manifest.policies.requiredBondBps), 10_000n);
+      if (quote.requiredBond !== expectedBond) failures.push("120-second probe Bond does not match the configured collateral ratio");
     }
   } catch (cause) { failures.push(`Sepolia readiness read failed: ${cause instanceof Error ? cause.message : String(cause)}`); }
 } else failures.push("API runtime does not provide a public browser RPC");
@@ -64,8 +84,8 @@ function deserializeQuote(value: any) {
   return result;
 }
 
-async function safeFetch(url: string): Promise<Response | null> {
-  try { return await fetch(url, { signal: AbortSignal.timeout(10_000), headers: { accept: "application/json" } }); }
+async function safeFetch(url: string, accept = "application/json"): Promise<Response | null> {
+  try { return await fetch(url, { signal: AbortSignal.timeout(10_000), headers: { accept } }); }
   catch { return null; }
 }
 
@@ -78,4 +98,8 @@ function required(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required`);
   return value;
+}
+
+function ceilDiv(value: bigint, denominator: bigint): bigint {
+  return value === 0n ? 0n : (value - 1n) / denominator + 1n;
 }
