@@ -10,6 +10,7 @@ import { Eyebrow, Metric, StatusDot, TruthTag } from "../components/Primitives";
 import { benchmarkEvidence } from "../data/evidence";
 import { useRuntime, useWallet } from "../hooks/useRuntime";
 import { formatPercent, formatToken, shortHex } from "../lib/format";
+import { readErrorMessage } from "../lib/trade-errors";
 
 export function Maker() {
   const { runtime } = useRuntime();
@@ -33,7 +34,7 @@ export function Maker() {
         readMakerCommitmentHistory(runtime.publicClient, runtime.artifact.addresses.registry, maker, BigInt(runtime.artifact.deploymentBlock)),
       ]);
       setBond(nextBond); setLiquidity(nextLiquidity); setHistory(nextHistory);
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Maker state read failed"); }
+    } catch (cause) { setMessage(readErrorMessage(cause, "Maker state read failed")); }
   }, [maker, runtime, strategy]);
 
   useEffect(() => { void inspect(); }, [inspect, wallet.epoch]);

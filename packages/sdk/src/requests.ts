@@ -45,6 +45,7 @@ export const registryAbi = parseAbi([
 ]);
 
 export const executorAbi = parseAbi([
+  "error CommitmentExpired(uint64 expiry)",
   "event PathSelected(bytes32 indexed commitmentId,bool indexed aquaPath,uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,uint256 requiredOutput)",
   "event FirmTradeExecuted(bytes32 indexed commitmentId,uint8 indexed status,address indexed trader,address maker,uint256 amountIn,uint256 amountOut)",
   "function execute(bytes32 commitmentId,(address maker,uint256 traits,bytes data) order) returns (uint8 terminalStatus,uint256 amountOut)",

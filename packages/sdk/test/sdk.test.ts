@@ -33,7 +33,7 @@ import {
   buildSoftProgram,
   buildSoftTakerTraits,
 } from "../src/swapvm.js";
-import { acceptRequest, approveTokenRequest, registryAbi, softSwapRequest, swapVmAbi } from "../src/requests.js";
+import { acceptRequest, approveTokenRequest, executorAbi, registryAbi, softSwapRequest, swapVmAbi } from "../src/requests.js";
 
 test("encodes the exact FirmDepth SwapVM program", () => {
   assert.equal(buildFirmProgram(), "0x52002100");
@@ -79,7 +79,7 @@ test("builds narrowly scoped Soft swap and approval requests", () => {
   assert.equal(typeof approveToken, "function");
 });
 
-test("decodes the observed Sepolia Router and Registry error selectors", () => {
+test("decodes the observed Sepolia Router, Registry, and Executor error selectors", () => {
   assert.deepEqual(decodeErrorResult({
     abi: swapVmAbi,
     data: `0xf6ab88ca${"0".repeat(64)}`,
@@ -95,6 +95,14 @@ test("decodes the observed Sepolia Router and Registry error selectors", () => {
     abiItem: registryAbi.find((item) => item.type === "error" && item.name === "QuoteExpired"),
     args: [1_789_261_950n],
     errorName: "QuoteExpired",
+  });
+  assert.deepEqual(decodeErrorResult({
+    abi: executorAbi,
+    data: `0x4a50a71e${1_789_282_824n.toString(16).padStart(64, "0")}`,
+  }), {
+    abiItem: executorAbi.find((item) => item.type === "error" && item.name === "CommitmentExpired"),
+    args: [1_789_282_824n],
+    errorName: "CommitmentExpired",
   });
 });
 

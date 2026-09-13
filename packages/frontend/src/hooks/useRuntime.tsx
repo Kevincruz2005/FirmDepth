@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { readTokenBalance } from "@firmdepth/sdk/readers";
 import { createWalletClient, custom, getAddress, type Address, type WalletClient } from "viem";
 import { loadRuntimeArtifact, type LoadedRuntime } from "../lib/runtime";
+import { readErrorMessage } from "../lib/trade-errors";
 
 interface RuntimeState {
   runtime: LoadedRuntime | null;
@@ -24,7 +25,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       setRuntime(await loadRuntimeArtifact());
     } catch (cause) {
       setRuntime(null);
-      setError(cause instanceof Error ? cause.message : "Unable to load runtime");
+      setError(readErrorMessage(cause, "Unable to load runtime"));
     } finally {
       setLoading(false);
     }

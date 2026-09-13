@@ -9,6 +9,7 @@ import { ReceiptView } from "../components/ReceiptView";
 import { benchmarkEvidence, baseForkEvidence } from "../data/evidence";
 import { useRuntime } from "../hooks/useRuntime";
 import { formatPercent } from "../lib/format";
+import { readErrorMessage } from "../lib/trade-errors";
 
 export function Evidence() {
   const { runtime } = useRuntime();
@@ -27,7 +28,7 @@ export function Evidence() {
       record,
       lock: (await readCommitmentBondLock(runtime.publicClient, runtime.artifact.addresses.bondVault, record.commitmentId)).amount,
       receipt: record.terminalTransactionHash ? await getFirmExecutionReceipt(runtime.publicClient, { registry: runtime.artifact.addresses.registry, executor: runtime.artifact.addresses.executor, router: runtime.artifact.addresses.firmRouter, vault: runtime.artifact.addresses.bondVault, commitmentId: record.commitmentId, acceptanceTransactionHash: record.acceptanceTransactionHash, terminalTransactionHash: record.terminalTransactionHash }) : null,
-    })))).then((records) => { if (current) setLiveRecords(records); }).catch((cause) => { if (current) setDecodeError(cause instanceof Error ? cause.message : "Live evidence read failed"); });
+    })))).then((records) => { if (current) setLiveRecords(records); }).catch((cause) => { if (current) setDecodeError(readErrorMessage(cause, "Live evidence read failed")); });
     return () => { current = false; };
   }, [runtime]);
 
@@ -46,7 +47,7 @@ export function Evidence() {
         terminalTransactionHash: terminalHash as Hex,
       }));
     } catch (cause) {
-      setDecodeError(cause instanceof Error ? cause.message : "Receipt reconciliation failed");
+      setDecodeError(readErrorMessage(cause, "Receipt reconciliation failed"));
     } finally { setDecoding(false); }
   }
 
