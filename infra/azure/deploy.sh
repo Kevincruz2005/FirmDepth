@@ -7,11 +7,11 @@ done
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CORS_ORIGINS="${CORS_ORIGINS:-http://127.0.0.1:4173}"
-AZURE_NODE_RUNTIME="${AZURE_NODE_RUNTIME:-NODE:22-lts}"
+AZURE_NODE_RUNTIME="${AZURE_NODE_RUNTIME:-NODE|22-lts}"
 PACKAGE_PATH="$($REPO_ROOT/infra/azure/build-package.sh)"
 
 az account set --subscription "$AZURE_SUBSCRIPTION_ID"
-AVAILABLE_RUNTIMES="$(az webapp list-runtimes --os linux --output tsv)"
+AVAILABLE_RUNTIMES="$(az webapp list-runtimes --os linux --query '[].config' --output tsv)"
 if ! rg -Fxq "$AZURE_NODE_RUNTIME" <<<"$AVAILABLE_RUNTIMES"; then
   echo "AZURE_NODE_RUNTIME=$AZURE_NODE_RUNTIME is not supported. Choose a Node 22+ LTS value from: az webapp list-runtimes --os linux" >&2
   exit 1
