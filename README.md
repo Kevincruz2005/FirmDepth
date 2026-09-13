@@ -210,7 +210,15 @@ Sepolia uses deliberately small public-testnet economics: 5 USDC of virtual outp
 
 The Firm quote expired at `2026-09-13T01:12:30Z` and was mined at `01:12:48Z`. Commitment `0xc346…e5d4` remains `NONE` with zero timestamps, no Bond was locked, and its maker quote nonce was not consumed. The successful Soft swap is the public Soft-path evidence; do not execute it again during the recovery walkthrough. The Router's subsequent zero-output error is `TakerTraitsAmountOutMustBeGreaterThanZero(uint256)` (`0xf6ab88ca`), caused by depleted Soft output depth rather than a contract defect.
 
-Use the idempotent reseed with credentials entered without shell-history persistence. It performs exactly one Aqua `push` when only the Soft 5 USDC output is missing, records the successful hash, preserves the accumulated 0.001 WETH input reserve, and recomputes the manifest revision:
+### Real manual Firm validation
+
+The dynamic injected-wallet validation accepted commitment `0x864e…0695` in [transaction `0x1e85…5a74`](https://sepolia.etherscan.io/tx/0x1e8525be7106bf5ea7a0163bb17e1ad0a249fbbf975a126e9055cfdfcc5e5a74) at block `11694311` and executed it in [transaction `0x51af…dc42`](https://sepolia.etherscan.io/tx/0x51af9f91be8c755aa70283fbac35a2f1a8dd213bd445de89b47b5674d2e2dc42) at block `11694313`. Registry state and the SDK receipt both resolve to `FILLED_AQUA`. The receipt contains one SwapVM `Swapped`, Aqua `Pushed` 0.001 WETH and `Pulled` 2.5 USDC, one 2.5 USDC maker-to-taker transfer, one 3 USDC `BondUnlocked`, zero `BondReleased`, and the accepted premium moving from Registry to maker exactly once. Runtime traits bind `FIRM_PRICE` (`0x52`), `FIRM_GUARD` (`0x21`), the 2.5 USDC threshold, commitment ID, and expiry.
+
+That fill reduced Firm virtual output to 2.5 USDC. The idempotent setup restored only the missing 2.5 USDC with one Aqua `Pushed` event in [transaction `0x7fe3…f1f`](https://sepolia.etherscan.io/tx/0x7fe385d457eb8f1173b2e972ab69efce01a002f96eccdbde80eaabee04762f1f) at block `11694351`. The full machine-readable receipt, transfer cardinalities, and post-reseed state are recorded in [`packages/contracts/evidence/sepolia-manual-firm.json`](packages/contracts/evidence/sepolia-manual-firm.json).
+
+An execution attempted after an accepted commitment expires reverts with Executor `CommitmentExpired(uint64)` (`0x4a50a71e`). This is distinct from Registry `QuoteExpired(uint64)` during quote acceptance. The frontend directs the former to expiry settlement; neither expiry rule is relaxed.
+
+Use the idempotent reseed with credentials entered without shell-history persistence. It pushes only the exact output delta missing from each active strategy, records every successful hash, preserves accumulated WETH input reserves, and recomputes the manifest revision:
 
 ```bash
 read -rsp 'Sepolia RPC URL: ' SEPOLIA_RPC_URL; echo

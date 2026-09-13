@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { authenticateFirmDepthDeployment } from "@firmdepth/sdk/deployment";
 import { validateFirmQuoteEnvelope } from "@firmdepth/sdk/quote-provider";
 import { getLiquidityReality, quoteSwapExactIn, readMakerBond } from "@firmdepth/sdk/readers";
+import { getFirmExecutionReceipt } from "@firmdepth/sdk/receipt";
 import { createPublicClient, http } from "viem";
 
 interface Manifest {
@@ -70,6 +71,29 @@ test.describe("read-only live Sepolia smoke", () => {
     expect(quote.referenceAmountOut).toBe(softQuote.amountOut);
     expect(quote.minAmountOut).toBeGreaterThan(0n);
     expect(quote.requiredBond).toBe(ceilDiv(quote.minAmountOut * BigInt(manifest.policies.requiredBondBps), 10_000n));
+
+    const evidence = readManualEvidence();
+    const reconstructed = await getFirmExecutionReceipt(client, {
+      registry: manifest.addresses.registry,
+      executor: manifest.addresses.executor,
+      router: manifest.addresses.firmRouter,
+      vault: manifest.addresses.bondVault,
+      commitmentId: evidence.commitmentId,
+      acceptanceTransactionHash: evidence.acceptance.transactionHash,
+      terminalTransactionHash: evidence.execution.transactionHash,
+    });
+    expect(reconstructed.finalState).toBe("FILLED_AQUA");
+    expect(reconstructed.path).toBe("AQUA");
+    expect(reconstructed.acceptanceBlock).toBe(BigInt(evidence.acceptance.blockNumber));
+    expect(reconstructed.executionBlock).toBe(BigInt(evidence.execution.blockNumber));
+    expect(reconstructed.totalTokenDeltas.traderTokenIn).toBe(-1_000_650_400_000_000n);
+    expect(reconstructed.totalTokenDeltas.traderTokenOut).toBe(2_500_000n);
+    expect(reconstructed.bondInitiallyLocked).toBe(3_000_000n);
+    expect(reconstructed.bondReleased).toBe(3_000_000n);
+    expect(reconstructed.bondConsumed).toBe(0n);
+    expect(reconstructed.bondRemaining).toBe(0n);
+    expect(reconstructed.firmPrice).toMatchObject({ opcode: 82, executed: true });
+    expect(reconstructed.firmGuard).toMatchObject({ opcode: 33, executed: true });
   });
 
   test("renders live Sepolia routes, depletion-safe Soft data, and disconnected-wallet UX", async ({ page }) => {
@@ -94,6 +118,11 @@ test.describe("read-only live Sepolia smoke", () => {
     await expect(page.locator(".maker-metrics .metric").filter({ hasText: "Locked bond" })).toContainText(/0(?:\.00)? USDC/);
     await page.goto("/evidence");
     await expect(page.getByRole("heading", { name: /Don’t trust the status badge/ })).toBeVisible();
+    await page.reload();
+    const liveEvidence = page.locator(".live-evidence");
+    await expect(liveEvidence.getByText("FILLED_AQUA", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(liveEvidence.getByText("2.5 USDC", { exact: true }).first()).toBeVisible();
+    await expect(liveEvidence.getByText("AQUA terminal path", { exact: true }).first()).toBeVisible();
     expect(consoleErrors).toEqual([]);
   });
 
@@ -109,6 +138,14 @@ test.describe("read-only live Sepolia smoke", () => {
 
 function readManifest(): Manifest {
   return JSON.parse(readFileSync(resolve(process.cwd(), "../../deployments/sepolia.json"), "utf8")) as Manifest;
+}
+
+function readManualEvidence() {
+  return JSON.parse(readFileSync(resolve(process.cwd(), "../contracts/evidence/sepolia-manual-firm.json"), "utf8")) as {
+    commitmentId: `0x${string}`;
+    acceptance: { transactionHash: `0x${string}`; blockNumber: number };
+    execution: { transactionHash: `0x${string}`; blockNumber: number };
+  };
 }
 
 function deserializeOrder(order: Manifest["strategies"][number]["order"]) {

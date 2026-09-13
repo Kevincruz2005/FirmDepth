@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "1",
+  "provenance": "REAL SEPOLIA · VERIFIED TRANSACTIONS",
+  "chainId": 11155111,
+  "verifiedAtBlock": 11694358,
+  "manifestRevision": "0xff0b9afcb25a8d6e84ef200655600d6d1df722352ba80c029f075bd26d8526f8",
+  "commitmentId": "0x864ebb4f346f9df1f65fa1bb1d4fc33b4980484e512582e62756c10012560695",
+  "maker": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
+  "taker": "0x885a51365c30De518a1efAd46a28531B9ad9B509",
+  "acceptance": {
+    "transactionHash": "0x1e8525be7106bf5ea7a0163bb17e1ad0a249fbbf975a126e9055cfdfcc5e5a74",
+    "blockNumber": 11694311,
+    "status": "success",
+    "amountIn": "1000000000000000",
+    "referenceAmountOut": "2500000",
+    "minAmountOut": "2500000",
+    "premiumAmount": "650400000000",
+    "requiredBond": "3000000",
+    "pricingTtl": 120,
+    "expiry": "1789282824",
+    "nonce": "112560524661821568864551006957584280367863239134974151933707139564958244252431",
+    "events": {
+      "CommitmentAccepted": 1,
+      "BondLocked": 1
+    },
+    "premiumEscrowTransfer": {
+      "token": "WETH",
+      "from": "0x885a51365c30De518a1efAd46a28531B9ad9B509",
+      "to": "0xdC23826bDf63a6EA8FB987425b3caACCA8666a3b",
+      "amount": "650400000000"
+    }
+  },
+  "execution": {
+    "transactionHash": "0x51af9f91be8c755aa70283fbac35a2f1a8dd213bd445de89b47b5674d2e2dc42",
+    "blockNumber": 11694313,
+    "status": "success",
+    "terminalRegistryStatus": "FILLED_AQUA",
+    "path": "AQUA",
+    "events": {
+      "CommitmentSettled": 1,
+      "PathSelected": 1,
+      "FirmTradeExecuted": 1,
+      "Swapped": 1,
+      "AquaPushed": 1,
+      "AquaPulled": 1,
+      "BondUnlocked": 1,
+      "BondReleased": 0
+    },
+    "transfers": [
+      {
+        "token": "WETH",
+        "from": "0x885a51365c30De518a1efAd46a28531B9ad9B509",
+        "to": "0x2F699176336026101D87FF59e7179038Bb6820A9",
+        "amount": "1000000000000000"
+      },
+      {
+        "token": "WETH",
+        "from": "0x2F699176336026101D87FF59e7179038Bb6820A9",
+        "to": "0x80dc2fcc6340d4F6213D5838334C68d03B34bcc0",
+        "amount": "1000000000000000"
+      },
+      {
+        "token": "WETH",
+        "from": "0x80dc2fcc6340d4F6213D5838334C68d03B34bcc0",
+        "to": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
+        "amount": "1000000000000000"
+      },
+      {
+        "token": "USDC",
+        "from": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
+        "to": "0x885a51365c30De518a1efAd46a28531B9ad9B509",
+        "amount": "2500000"
+      },
+      {
+        "token": "WETH",
+        "from": "0xdC23826bDf63a6EA8FB987425b3caACCA8666a3b",
+        "to": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
+        "amount": "650400000000"
+      }
+    ],
+    "aqua": {
+      "strategyHash": "0x7c3dee96fb571812c8f0e0f41a06eebaf62302c203187e32ecd407713a33e0ab",
+      "pushedWeth": "1000000000000000",
+      "pulledUsdc": "2500000"
+    },
+    "sdkReceipt": {
+      "finalState": "FILLED_AQUA",
+      "path": "AQUA",
+      "program": "0x52002100",
+      "firmPrice": {
+        "opcode": 82,
+        "executed": true,
+        "proof": "SUCCESSFUL_BOUND_SWAP"
+      },
+      "firmGuard": {
+        "opcode": 33,
+        "executed": true,
+        "proof": "SUCCESSFUL_BOUND_SWAP"
+      },
+      "bondInitiallyLocked": "3000000",
+      "bondReleased": "3000000",
+      "bondConsumed": "0",
+      "bondRemaining": "0",
+      "traderTokenIn": "-1000650400000000",
+      "traderTokenOut": "2500000"
+    }
+  },
+  "reseed": {
+    "transactionHash": "0x7fe385d457eb8f1173b2e972ab69efce01a002f96eccdbde80eaabee04762f1f",
+    "blockNumber": 11694351,
+    "status": "success",
+    "event": "Pushed",
+    "strategyHash": "0x7c3dee96fb571812c8f0e0f41a06eebaf62302c203187e32ecd407713a33e0ab",
+    "token": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    "amount": "2500000"
+  },
+  "postReseed": {
+    "soft": {
+      "active": true,
+      "virtualWeth": "1000000000000000",
+      "virtualUsdc": "5000000",
+      "pullableUsdc": "5000000"
+    },
+    "firm": {
+      "active": true,
+      "virtualWeth": "1000000000000000",
+      "virtualUsdc": "5000000",
+      "pullableUsdc": "5000000"
+    },
+    "makerUsdc": "34500000",
+    "availableBond": "18000000",
+    "lockedBond": "0"
+  },
+  "invariants": {
+    "singleTraderInputDebit": true,
+    "singleTraderOutputCredit": true,
+    "premiumEscrowedThenPaidToMaker": true,
+    "bondUnlockedExactlyOnce": true,
+    "bondConsumed": false,
+    "remainingCommitmentLockIsZero": true
+  }
+}

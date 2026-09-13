@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "status": "ready",
-  "manifestRevision": "0xf06a05372c706b743e5e6e491f73af93122a87fcc52084f962c4418db3424183",
+  "manifestRevision": "0xff0b9afcb25a8d6e84ef200655600d6d1df722352ba80c029f075bd26d8526f8",
   "chain": {
     "id": 11155111,
     "name": "Sepolia",
@@ -86,7 +86,7 @@
       "takerTraits": "0x",
       "suggestedAmountIn": "1000000000000000",
       "virtualBalances": {
-        "weth": "0",
+        "weth": "1000000000000000",
         "usdc": "5000000"
       }
     }
@@ -112,7 +112,8 @@
       "0x27196786d75ffca270ef0286d8e2c3b4bfa98cc67d866357802d7c954362fef8",
       "0xc33dc5171fd6ae0644b6e1c9b3f092f815ebaa11c5381cbf0f098ca847f49dbe",
       "0x3013d2f5aca0dea12a61112633270bebe47b66360ead4fcb95c5e8ca9e463d65",
-      "0x4d9ea96bed59a823026909ffaf11f196bdbd146ee0bd2063821146230671ba40"
+      "0x4d9ea96bed59a823026909ffaf11f196bdbd146ee0bd2063821146230671ba40",
+      "0x7fe385d457eb8f1173b2e972ab69efce01a002f96eccdbde80eaabee04762f1f"
     ]
   }
 }
