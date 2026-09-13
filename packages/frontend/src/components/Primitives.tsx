@@ -11,6 +11,10 @@ export function TruthTag({ value }: { value: Provenance }) {
   return <span className={`truth-tag truth-${value.toLowerCase().replaceAll(" ", "-")}`}><span aria-hidden="true" />{value}</span>;
 }
 
+export function SourceBadge({ tone, children }: { tone: "sepolia" | "base" | "live"; children: ReactNode }) {
+  return <span className={`source-badge source-${tone}`}><span aria-hidden="true" />{children}</span>;
+}
+
 export function StatusDot({ tone = "neutral", children }: { tone?: "good" | "bad" | "live" | "neutral"; children: ReactNode }) {
   const Icon = tone === "good" ? Check : tone === "bad" ? CircleAlert : tone === "live" ? Radio : LoaderCircle;
   return <span className={`status-dot status-${tone}`}><Icon size={13} aria-hidden="true" />{children}</span>;

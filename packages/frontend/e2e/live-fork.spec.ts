@@ -266,6 +266,8 @@ async function installRpcWallet(page: import("@playwright/test").Page, rpcUrl: s
       removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); },
     };
     (window as any).__emitEthereum = (event: string, value: unknown) => { for (const listener of listeners.get(event) ?? []) listener(value); };
+    const announce = () => window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail: Object.freeze({ info: { uuid: "00000000-0000-4000-8000-000000000001", name: "Base Fork Test Wallet", icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>", rdns: "test.firmdepth.wallet" }, provider }) }));
+    window.addEventListener("eip6963:requestProvider", announce);
     Object.defineProperty(window, "ethereum", { value: provider, configurable: true });
   }, { url: rpcUrl, selectedAccount: account });
 }

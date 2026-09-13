@@ -13,6 +13,12 @@ describe("FirmDepth application", () => {
     expect(screen.getByRole("heading", { name: /one market. three depths/i })).toBeInTheDocument();
     expect(screen.getAllByText("VERIFIED BASE-FORK RUN").length).toBeGreaterThan(0);
     expect(screen.getAllByText("SYNTHETIC BENCHMARK").length).toBeGreaterThan(0);
+    expect(document.body).not.toHaveTextContent("0.2000 WETH");
+    expect(document.body).not.toHaveTextContent("690.00 USDC");
+    expect(document.body).not.toHaveTextContent("0.000173 WETH");
+    expect(screen.queryByRole("link", { name: /Verify the Base-fork run/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Trade on Sepolia" })).toHaveAttribute("href", "/trade");
+    expect(screen.getByRole("link", { name: "View evidence" })).toHaveAttribute("href", "/evidence");
     await waitFor(() => expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument());
   });
 
@@ -29,8 +35,18 @@ describe("FirmDepth application", () => {
     expect(screen.getByText(/120s is recommended for Sepolia manual demos/i)).toBeInTheDocument();
     fireEvent.click(within(navigation).getByRole("link", { name: "Evidence" }));
     expect(await screen.findByRole("heading", { name: /trust the status badge/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /real wallet reached FILLED_AQUA/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /deterministic sponsor-compliance proof/i })).toBeInTheDocument();
+    const manualProof = screen.getByRole("heading", { name: /real wallet reached FILLED_AQUA/i });
+    const liveRuntime = screen.getByRole("heading", { name: /current contract state/i });
+    const sponsorProof = screen.getByRole("heading", { name: /pinned proof, available on demand/i });
+    expect(manualProof.compareDocumentPosition(liveRuntime) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(liveRuntime.compareDocumentPosition(sponsorProof) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByText("REAL SEPOLIA · VERIFIED")[0]).toHaveClass("source-badge");
+    const disclosureLabel = screen.getByText("View canonical Base-fork proof");
+    const disclosure = disclosureLabel.closest("details");
+    expect(disclosure).not.toHaveAttribute("open");
+    fireEvent.click(disclosureLabel);
+    expect(disclosure).toHaveAttribute("open");
+    expect(within(disclosure!).getByText("Base · block 51,123,118")).toBeInTheDocument();
     expect(screen.getByText("11694311")).toBeInTheDocument();
     expect(screen.getAllByText("0x52002100").length).toBeGreaterThan(0);
     fireEvent.click(within(navigation).getByRole("link", { name: "Maker" }));
@@ -43,6 +59,6 @@ describe("FirmDepth application", () => {
 
   it("keeps the landing CTA pointed at Trade", async () => {
     render(<App />);
-    expect(await screen.findByRole("link", { name: "Inspect live depth" })).toHaveAttribute("href", "/trade");
+    expect(await screen.findByRole("link", { name: "Trade on Sepolia" })).toHaveAttribute("href", "/trade");
   });
 });

@@ -127,7 +127,10 @@ test.describe("read-only live Sepolia smoke", () => {
     await expect(liveEvidence.getByText("2.5 USDC", { exact: true }).first()).toBeVisible();
     await expect(liveEvidence.getByText("AQUA terminal path", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "A real wallet reached FILLED_AQUA." })).toBeVisible();
-    await expect(page.getByText("Base · block 51,123,118")).toBeVisible();
+    const baseProof = page.locator(".base-proof-disclosure");
+    await expect(baseProof).not.toHaveAttribute("open", "");
+    await baseProof.locator(":scope > summary").click();
+    await expect(baseProof.getByText("Base · block 51,123,118")).toBeVisible();
     await page.goto("/docs");
     await expect(page.getByRole("heading", { name: "Execution certainty, explained." })).toBeVisible();
     expect(consoleErrors).toEqual([]);

@@ -13,7 +13,38 @@ test("application navigation has Docs and no redundant Open app control", async 
   await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Docs" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Open app/i })).toHaveCount(0);
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Inspect live depth" })).toHaveAttribute("href", "/trade");
+  await expect(page.getByRole("link", { name: "Trade on Sepolia" })).toHaveAttribute("href", "/trade");
+  await expect(page.getByRole("link", { name: "View evidence" })).toHaveAttribute("href", "/evidence");
+  await expect(page.getByText(/0\.2000 WETH|690\.00 USDC|0\.000173 WETH/)).toHaveCount(0);
+});
+
+test("no-wallet discovery offers safe installation guidance", async ({ page }) => {
+  await page.goto("/trade");
+  await page.getByRole("button", { name: "Connect wallet" }).click();
+  await expect(page.getByText("No browser wallet detected.")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Install MetaMask/ })).toHaveAttribute("href", "https://metamask.io/download/");
+  await expect(page.getByRole("link", { name: /Install Rabby/ })).toHaveAttribute("href", "https://rabby.io/");
+});
+
+test("Sepolia proof leads and canonical Base details are compact by default", async ({ page }) => {
+  await page.goto("/evidence");
+  const manual = page.getByRole("heading", { name: "A real wallet reached FILLED_AQUA." });
+  const runtime = page.getByRole("heading", { name: "Current contract state, read from the EVM." });
+  await expect(manual).toBeVisible();
+  await expect(runtime).toBeVisible();
+  expect(await page.evaluate(() => {
+    const first = document.querySelector("#manual-proof-title");
+    const second = document.querySelector("#runtime-title");
+    return first !== null && second !== null && Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+  })).toBe(true);
+  const badges = page.locator(".source-badge");
+  expect(await badges.count()).toBeGreaterThanOrEqual(4);
+  for (const badge of await badges.all()) expect((await badge.boundingBox())!.height).toBeLessThanOrEqual(34);
+  const disclosure = page.locator(".base-proof-disclosure");
+  await expect(disclosure).not.toHaveAttribute("open", "");
+  await disclosure.locator(":scope > summary").click();
+  await expect(disclosure).toHaveAttribute("open", "");
+  await expect(disclosure.getByText("Base · block 51,123,118")).toBeVisible();
 });
 
 for (const [path, heading] of routes) {

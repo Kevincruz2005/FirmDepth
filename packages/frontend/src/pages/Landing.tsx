@@ -10,22 +10,19 @@ export function Landing() {
       <div className="hero-copy">
         <Eyebrow>Execution certainty for shared liquidity</Eyebrow>
         <h1>The quote is soft.<br /><em>Your outcome</em> doesn’t have to be.</h1>
-        <p className="hero-lede">FirmDepth lets a trader accept a maker-signed WETH → USDC quote and lock the minimum output in separate performance collateral—without taking reusable Aqua inventory out of circulation.</p>
-        <div className="hero-buttons"><a className="button button-primary" href="/trade">Inspect live depth <ArrowRight /></a><a className="text-link" href="/evidence">Verify the Base-fork run <ArrowDown size={16} /></a></div>
+        <p className="hero-lede">FirmDepth lets a trader upgrade eligible reusable Aqua liquidity into a short-lived, maker-signed, Bond-backed execution commitment.</p>
+        <div className="hero-buttons"><a className="button button-primary" href="/trade">Trade on Sepolia <ArrowRight /></a><a className="text-link" href="/evidence">View evidence <ArrowRight size={16} /></a></div>
       </div>
-      <div className="hero-console" aria-label="Illustrative Firm quote panel">
-        <div className="console-head"><span>WETH / USDC</span><TruthTag value="ILLUSTRATIVE" /></div>
-        <div className="console-amount"><span>You commit</span><strong>0.2000 <small>WETH</small></strong></div>
-        <div className="quote-rule"><i /><span>signed minimum</span><i /></div>
-        <div className="console-output"><span>You receive</span><strong>≥ 690.00 <small>USDC</small></strong></div>
-        <div className="certainty-toggle"><span><ShieldCheck size={18} /> Firm execution</span><b>30 sec</b></div>
-        <dl className="console-facts"><div><dt>Premium</dt><dd>0.000173 WETH</dd></div><div><dt>Bond locked</dt><dd>690.00 USDC</dd></div><div><dt>Settlement</dt><dd>Aqua or Bond</dd></div></dl>
-        <div className="console-status"><span><Check size={14} /> Pricing v2 bound</span><span>Program 0x52002100</span></div>
+      <div className="hero-mechanism" aria-label="Soft liquidity can be upgraded to a Firm commitment that settles through Aqua or Bond">
+        <article className="mechanism-class soft"><header><span>SOFT</span><strong>Reusable Aqua liquidity</strong></header><ul><li><Check size={15} /> Best-effort execution</li><li>No Firm premium</li><li>No Bond lock</li></ul></article>
+        <div className="mechanism-upgrade"><span>Optional upgrade</span><ArrowDown size={18} /></div>
+        <article className="mechanism-class firm"><header><span><ShieldCheck size={15} /> FIRM</span><strong>Maker-signed minimum</strong></header><ul><li><Check size={15} /> Short-lived commitment</li><li>Premium paid</li><li>Output Bond locked</li></ul></article>
+        <div className="mechanism-settlement"><span>Settlement</span><div><strong>AQUA</strong><i>or</i><strong>BOND</strong></div></div>
       </div>
     </section>
 
     <section className="section depths-section">
-      <SectionIntro number="01" eyebrow="Liquidity reality" title="One market. Three depths." copy="A quote can advertise virtual inventory without proving it can be pulled now. FirmDepth separates what is declared, what is currently executable, and what can be contractually guaranteed." />
+      <SectionIntro number="01" eyebrow="Liquidity reality" title="One market. Three depths." copy="A quote can advertise virtual inventory without proving it can be pulled now. FirmDepth separates what is declared, what is currently executable, and what can be protected by an accepted collateralized commitment." />
       <div className="depths-layout">
         <DepthDiagram />
         <ol className="depth-definitions">
