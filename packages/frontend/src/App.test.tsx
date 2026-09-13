@@ -21,6 +21,8 @@ describe("FirmDepth application", () => {
     const navigation = screen.getByRole("navigation", { name: "Primary navigation" });
     fireEvent.click(within(navigation).getByRole("link", { name: "Trade" }));
     expect(await screen.findByRole("heading", { name: /trade the depth you can prove/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "120s" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/120s is recommended for Sepolia manual demos/i)).toBeInTheDocument();
     fireEvent.click(within(navigation).getByRole("link", { name: "Evidence" }));
     expect(await screen.findByRole("heading", { name: /trust the status badge/i })).toBeInTheDocument();
     fireEvent.click(within(navigation).getByRole("link", { name: "Maker" }));

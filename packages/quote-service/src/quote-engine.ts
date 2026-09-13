@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { authenticateFirmDepthDeployment } from "@firmdepth/sdk/deployment";
 import { signFirmQuote, type FirmQuoteSigner } from "@firmdepth/sdk/eip712";
 import { buildFirmQuote } from "@firmdepth/sdk/quote";
-import { checkFirmEligibility, quoteSwapExactIn } from "@firmdepth/sdk/readers";
+import { checkFirmEligibility, getLiquidityReality, quoteSwapExactIn } from "@firmdepth/sdk/readers";
 import { registryAbi } from "@firmdepth/sdk/requests";
 import { buildFirmQuoteTakerTraits } from "@firmdepth/sdk/swapvm";
 import type { FirmQuoteEnvelope } from "@firmdepth/sdk/quote-provider";
@@ -10,6 +10,7 @@ import { encodePacked, getAddress, isAddress, isHash, keccak256, type Account, t
 import type { FirmQuoteRequestBody, ManifestStrategy, SepoliaManifest } from "./types.js";
 
 const requestKeys = ["amountIn", "chainId", "orderHash", "pricingTtl", "registry", "strategyId", "taker"];
+export const SOFT_DEPLETED_MESSAGE = "Soft reference liquidity is depleted; reseed the Soft strategy before requesting a Firm quote";
 
 export function parseQuoteRequest(value: unknown, manifest: SepoliaManifest): FirmQuoteRequestBody {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new QuoteError(400, "Request body must be a JSON object");
@@ -54,7 +55,22 @@ export async function createFirmQuote(
   const soft = manifest.strategies.find((value) => value.kind === "SOFT")!;
   const block = await client.getBlock();
   const amountIn = BigInt(request.amountIn);
-  const reference = await quoteSwapExactIn(client, manifest.addresses.firmRouter, order(soft), amountIn, soft.takerTraits);
+  const softCapacity = await getLiquidityReality(client, {
+    aqua: manifest.addresses.aqua,
+    router: manifest.addresses.firmRouter,
+    maker: manifest.maker,
+    orderHash: soft.orderHash,
+    tokenIn: manifest.addresses.weth,
+    tokenOut: manifest.addresses.usdc,
+  });
+  if (!softCapacity.strategyActive || softCapacity.pullableDepth === 0n) throw new QuoteError(409, SOFT_DEPLETED_MESSAGE);
+  let reference: Awaited<ReturnType<typeof quoteSwapExactIn>>;
+  try {
+    reference = await quoteSwapExactIn(client, manifest.addresses.firmRouter, order(soft), amountIn, soft.takerTraits);
+  } catch (cause) {
+    if (isSoftDepletionError(cause)) throw new QuoteError(409, SOFT_DEPLETED_MESSAGE);
+    throw cause;
+  }
   if (reference.amountIn !== amountIn || reference.orderHash.toLowerCase() !== soft.orderHash.toLowerCase() || reference.amountOut <= 0n) throw new QuoteError(409, "Live Soft pricing strategy returned an inconsistent quote");
   const requiredBond = ceilDiv(reference.amountOut * BigInt(manifest.policies.requiredBondBps), 10_000n);
   const nonce = await availableNonce(client, manifest, request, block.hash ?? "0x");
@@ -127,4 +143,24 @@ function ceilDiv(value: bigint, denominator: bigint): bigint {
 
 export class QuoteError extends Error {
   constructor(readonly statusCode: number, message: string) { super(message); }
+}
+
+function isSoftDepletionError(cause: unknown): boolean {
+  const pending: unknown[] = [cause];
+  const seen = new Set<unknown>();
+  while (pending.length > 0 && seen.size < 12) {
+    const value = pending.shift();
+    if (value === null || value === undefined || seen.has(value)) continue;
+    seen.add(value);
+    if (typeof value === "string") {
+      if (/TakerTraitsAmountOutMustBeGreaterThanZero|0xf6ab88ca/i.test(value)) return true;
+      continue;
+    }
+    if (value instanceof Error && /TakerTraitsAmountOutMustBeGreaterThanZero|0xf6ab88ca/i.test(value.message)) return true;
+    if (typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      for (const key of ["cause", "data", "details", "errorName", "message", "name", "shortMessage"]) pending.push(record[key]);
+    }
+  }
+  return false;
 }

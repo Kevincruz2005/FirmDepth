@@ -7,7 +7,7 @@ import { getAddress, verifyTypedData, type Address, type Hex, type PublicClient 
 import { privateKeyToAccount } from "viem/accounts";
 import { createHandler, IpRateLimiter } from "../src/app.js";
 import { parseManifest } from "../src/manifest.js";
-import { createFirmQuote, parseQuoteRequest } from "../src/quote-engine.js";
+import { createFirmQuote, parseQuoteRequest, QuoteError, SOFT_DEPLETED_MESSAGE } from "../src/quote-engine.js";
 import type { SepoliaManifest } from "../src/types.js";
 
 const privateKey = `0x${"11".repeat(32)}` as const;
@@ -72,6 +72,18 @@ test("rejects insufficient Bond, depleted capacity, and stale utilization", asyn
   await assert.rejects(createFirmQuote(fakeClient({ staleUtilization: true }), makerAccount, manifest, request), /utilization changed/);
 });
 
+test("reports zero-pullable Soft reference liquidity as an actionable conflict", async () => {
+  const request = parseQuoteRequest(requestBody(), manifest);
+  await assert.rejects(
+    createFirmQuote(fakeClient({ virtualOutput: 0n }), makerAccount, manifest, request),
+    (cause: unknown) => cause instanceof QuoteError && cause.statusCode === 409 && cause.message === SOFT_DEPLETED_MESSAGE,
+  );
+  await assert.rejects(
+    createFirmQuote(fakeClient({ softQuoteError: new Error("execution reverted: TakerTraitsAmountOutMustBeGreaterThanZero(0) [0xf6ab88ca]") }), makerAccount, manifest, request),
+    (cause: unknown) => cause instanceof QuoteError && cause.statusCode === 409 && cause.message === SOFT_DEPLETED_MESSAGE,
+  );
+});
+
 test("rate limiter enforces a bounded per-IP burst", () => {
   const limiter = new IpRateLimiter(2, 1000);
   assert.equal(limiter.take("one", 0), true);
@@ -109,11 +121,36 @@ test("HTTP boundary applies CORS and never returns internal failures", async () 
   } finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
 });
 
+test("HTTP boundary preserves the actionable Soft-depletion 409", async () => {
+  const handler = createHandler({
+    manifest,
+    runtime: {},
+    corsOrigins: new Set(),
+    production: false,
+    health: async () => ({ status: "ok" }),
+    quote: async () => { throw new QuoteError(409, SOFT_DEPLETED_MESSAGE); },
+    log: () => undefined,
+  });
+  const server = createServer(handler);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const location = server.address();
+  assert(location && typeof location === "object");
+  try {
+    const response = await fetch(`http://127.0.0.1:${location.port}/quote/firm`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(requestBody()),
+    });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json() as { error: string }).error, SOFT_DEPLETED_MESSAGE);
+  } finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+});
+
 function requestBody() {
   return { chainId: 11155111, registry: addresses.registry, strategyId: "firm-primary", orderHash: firmHash, taker: address(8), amountIn: "100000000000000000", pricingTtl: 30 };
 }
 
-function fakeClient(options: { availableBond?: bigint; virtualOutput?: bigint; staleUtilization?: boolean } = {}): PublicClient {
+function fakeClient(options: { availableBond?: bigint; virtualOutput?: bigint; staleUtilization?: boolean; softQuoteError?: Error } = {}): PublicClient {
   let utilizationReads = 0;
   const client = {
     getChainId: async () => 11155111,
@@ -151,6 +188,7 @@ function fakeClient(options: { availableBond?: bigint; virtualOutput?: bigint; s
         const quotedOrder = args[0] as { data: Hex };
         const amount = args[1] as bigint;
         const isSoft = quotedOrder.data === softOrder.data;
+        if (isSoft && options.softQuoteError) throw options.softQuoteError;
         return [amount, 200_000_000n, isSoft ? softHash : firmHash];
       }
       throw new Error(`unexpected read ${functionName}`);

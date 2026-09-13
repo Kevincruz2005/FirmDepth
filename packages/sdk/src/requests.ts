@@ -21,6 +21,7 @@ export const bondVaultAbi = parseAbi([
 ]);
 
 export const registryAbi = parseAbi([
+  "error QuoteExpired(uint64 expiry)",
   "event CommitmentAccepted(bytes32 indexed commitmentId,address indexed maker,address indexed taker,bytes32 orderHash,uint256 amountIn,uint256 minAmountOut,uint256 premiumAmount,uint64 expiry,uint256 nonce,uint64 acceptedBlock,uint256 virtualBalance,uint256 realBalance,uint256 aquaAllowance,uint256 effectiveCapacity,uint256 quotedAmountOut,uint256 utilizationAfterWad)",
   "event CommitmentSettled(bytes32 indexed commitmentId,uint8 indexed status,address indexed beneficiary)",
   "event NonceCancelled(address indexed maker,uint256 indexed nonce)",
@@ -70,6 +71,7 @@ export const aquaAbi = parseAbi([
 ]);
 
 export const swapVmAbi = parseAbi([
+  "error TakerTraitsAmountOutMustBeGreaterThanZero(uint256 amountOut)",
   "event Swapped(bytes32 orderHash,address maker,address taker,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut)",
   "function hash((address maker,uint256 traits,bytes data) order) view returns (bytes32)",
   "function quote((address maker,uint256 traits,bytes data) order,uint256 amount,bytes takerTraitsAndData) view returns (uint256 amountIn,uint256 amountOut,bytes32 orderHash)",

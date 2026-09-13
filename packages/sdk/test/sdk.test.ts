@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { hashStruct, recoverTypedDataAddress, type PublicClient, type WalletClient } from "viem";
+import { decodeErrorResult, hashStruct, recoverTypedDataAddress, type PublicClient, type WalletClient } from "viem";
 
 import { acceptFirm, approveToken, depositBond, executeFirm, executeSoftSwap, expireFirm, withdrawBond } from "../src/actions.js";
 import { effectiveAquaCapacity, canUseAqua, firmDepthForQuote, sharedLiquidityRatioWad } from "../src/capacity.js";
@@ -33,7 +33,7 @@ import {
   buildSoftProgram,
   buildSoftTakerTraits,
 } from "../src/swapvm.js";
-import { acceptRequest, approveTokenRequest, softSwapRequest } from "../src/requests.js";
+import { acceptRequest, approveTokenRequest, registryAbi, softSwapRequest, swapVmAbi } from "../src/requests.js";
 
 test("encodes the exact FirmDepth SwapVM program", () => {
   assert.equal(buildFirmProgram(), "0x52002100");
@@ -77,6 +77,25 @@ test("builds narrowly scoped Soft swap and approval requests", () => {
   assert.equal(approveTokenRequest(token, router, 10n).functionName, "approve");
   assert.equal(typeof executeSoftSwap, "function");
   assert.equal(typeof approveToken, "function");
+});
+
+test("decodes the observed Sepolia Router and Registry error selectors", () => {
+  assert.deepEqual(decodeErrorResult({
+    abi: swapVmAbi,
+    data: `0xf6ab88ca${"0".repeat(64)}`,
+  }), {
+    abiItem: swapVmAbi.find((item) => item.type === "error" && item.name === "TakerTraitsAmountOutMustBeGreaterThanZero"),
+    args: [0n],
+    errorName: "TakerTraitsAmountOutMustBeGreaterThanZero",
+  });
+  assert.deepEqual(decodeErrorResult({
+    abi: registryAbi,
+    data: `0x1f99570c${1_789_261_950n.toString(16).padStart(64, "0")}`,
+  }), {
+    abiItem: registryAbi.find((item) => item.type === "error" && item.name === "QuoteExpired"),
+    args: [1_789_261_950n],
+    errorName: "QuoteExpired",
+  });
 });
 
 test("builds the exact hook-free Aqua maker order accepted by FirmExecutor", () => {

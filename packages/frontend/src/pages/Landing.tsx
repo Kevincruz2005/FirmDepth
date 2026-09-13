@@ -40,7 +40,7 @@ export function Landing() {
       <SectionIntro number="02" eyebrow="Choose the execution class" title="Soft when speed matters. Firm when the outcome does." copy="The route remains Aqua-native. Firm adds a short-lived, fully collateralized obligation around the exact accepted order." />
       <div className="compare-grid">
         <article className="compare-card soft"><header><span>SOFT</span><h3>Best available execution</h3><p>No premium. No reservation.</p></header><ul><li><Check /> Reads current Aqua quote</li><li><Check /> Preserves full inventory reuse</li><li><span>×</span> Capacity may be consumed by a sibling</li></ul><footer><span>Outcome</span><strong>Execution attempt</strong></footer></article>
-        <article className="compare-card firm"><header><span>FIRM</span><h3>Minimum output locked</h3><p>Paid certainty for 5–300 seconds.</p></header><ul><li><Check /> Maker-signed pricing snapshot</li><li><Check /> Dedicated USDC bond lock</li><li><Check /> Aqua or exact Bond settlement</li></ul><footer><span>Outcome</span><strong>Protected settlement</strong></footer></article>
+        <article className="compare-card firm"><header><span>FIRM</span><h3>Minimum output locked</h3><p>Paid certainty for 5, 30, or 120 seconds.</p></header><ul><li><Check /> Maker-signed pricing snapshot</li><li><Check /> Dedicated USDC bond lock</li><li><Check /> Aqua or exact Bond settlement</li></ul><footer><span>Outcome</span><strong>Protected settlement</strong></footer></article>
       </div>
     </section>
 
