@@ -24,6 +24,10 @@ export function HashLink({ value, label }: { value: string; label?: string }) {
   return <span className="hash-value" title={value}>{label ?? shortHex(value)} <ArrowUpRight size={12} aria-hidden="true" /></span>;
 }
 
+export function ExplorerHashLink({ value, href, label }: { value: string; href: string; label?: string }) {
+  return <a className="hash-value explorer-hash" href={href} target="_blank" rel="noreferrer" title={value}>{label ?? shortHex(value)} <ArrowUpRight size={12} aria-hidden="true" /></a>;
+}
+
 export function SectionIntro({ number, eyebrow, title, copy }: { number: string; eyebrow: string; title: string; copy: string }) {
   return <header className="section-intro"><div className="section-number">{number}</div><div><Eyebrow>{eyebrow}</Eyebrow><h2>{title}</h2><p>{copy}</p></div></header>;
 }

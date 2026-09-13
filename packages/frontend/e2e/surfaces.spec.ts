@@ -5,7 +5,16 @@ const routes = [
   ["/trade", /Trade the depth you can prove/],
   ["/evidence", /Don’t trust the status badge/],
   ["/maker", /Make certainty a priced resource/],
+  ["/docs", /Execution certainty, explained/],
 ] as const;
+
+test("application navigation has Docs and no redundant Open app control", async ({ page }) => {
+  await page.goto("/trade");
+  await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Docs" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open app/i })).toHaveCount(0);
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Inspect live depth" })).toHaveAttribute("href", "/trade");
+});
 
 for (const [path, heading] of routes) {
   test(`${path} renders without console errors`, async ({ page }) => {

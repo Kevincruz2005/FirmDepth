@@ -12,6 +12,7 @@ interface RuntimeState {
 }
 
 const RuntimeContext = createContext<RuntimeState | null>(null);
+const WalletContext = createContext<WalletState | null>(null);
 
 export function RuntimeProvider({ children }: { children: ReactNode }) {
   const [runtime, setRuntime] = useState<LoadedRuntime | null>(null);
@@ -55,7 +56,7 @@ export interface WalletState {
   disconnect: () => void;
 }
 
-export function useWallet(): WalletState {
+export function WalletProvider({ children }: { children: ReactNode }) {
   const { runtime } = useRuntime();
   const [account, setAccount] = useState<Address | null>(null);
   const [walletClient, setWalletClient] = useState<WalletClient | null>(null);
@@ -164,7 +165,14 @@ export function useWallet(): WalletState {
     setDisconnected(true); setAccount(null); setWalletClient(null); setEthBalance(null); setWethBalance(null); setError(null); setEpoch((value) => value + 1);
   }, []);
 
-  return { account, walletClient, chainId, ethBalance, wethBalance, connecting, error, epoch, connect, disconnect };
+  const value = useMemo(() => ({ account, walletClient, chainId, ethBalance, wethBalance, connecting, error, epoch, connect, disconnect }), [account, walletClient, chainId, ethBalance, wethBalance, connecting, error, epoch, connect, disconnect]);
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
+}
+
+export function useWallet(): WalletState {
+  const value = useContext(WalletContext);
+  if (value === null) throw new Error("useWallet must be used inside WalletProvider");
+  return value;
 }
 
 export async function switchToSepolia(provider: EthereumProvider, rpcUrl: string, explorerUrl?: string): Promise<void> {

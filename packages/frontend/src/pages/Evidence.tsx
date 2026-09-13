@@ -1,106 +1,100 @@
 import { getFirmExecutionReceipt, type FirmExecutionReceipt } from "@firmdepth/sdk/receipt";
 import { findDeploymentCommitments, type CommitmentHistoryItem } from "@firmdepth/sdk/history";
-import { readCommitmentBondLock } from "@firmdepth/sdk/readers";
-import { ArrowRight, Braces, Check, CircleAlert, Copy, Search } from "lucide-react";
+import { getLiquidityReality, readCommitmentBondLock, readMakerBond, readTokenBalance, type LiquidityReality } from "@firmdepth/sdk/readers";
+import type { MakerBondState } from "@firmdepth/sdk/types";
+import { ArrowRight, Braces, CircleAlert, Copy, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { isHash, type Hex } from "viem";
-import { Eyebrow, HashLink, StatusDot, TruthTag } from "../components/Primitives";
+import { Eyebrow, ExplorerHashLink, HashLink, Metric, StatusDot, TruthTag } from "../components/Primitives";
 import { ReceiptView } from "../components/ReceiptView";
 import { benchmarkEvidence, baseForkEvidence } from "../data/evidence";
+import { sepoliaManualEvidence, sepoliaManifest } from "../data/project";
 import { useRuntime } from "../hooks/useRuntime";
-import { formatPercent } from "../lib/format";
+import { formatPercent, formatToken } from "../lib/format";
 import { readErrorMessage } from "../lib/trade-errors";
 
+interface LiveRecord { record: CommitmentHistoryItem; receipt: FirmExecutionReceipt | null; lock: bigint }
+interface RuntimeSnapshot { observedBlock: bigint; makerInventory: bigint; soft: LiquidityReality; firm: LiquidityReality; bond: MakerBondState }
+
 export function Evidence() {
-  const { runtime } = useRuntime();
+  const { runtime, refresh } = useRuntime();
   const [commitmentId, setCommitmentId] = useState("");
   const [acceptanceHash, setAcceptanceHash] = useState("");
   const [terminalHash, setTerminalHash] = useState("");
   const [decoded, setDecoded] = useState<FirmExecutionReceipt | null>(null);
   const [decodeError, setDecodeError] = useState<string | null>(null);
   const [decoding, setDecoding] = useState(false);
-  const [liveRecords, setLiveRecords] = useState<{ record: CommitmentHistoryItem; receipt: FirmExecutionReceipt | null; lock: bigint }[]>([]);
+  const [liveRecords, setLiveRecords] = useState<LiveRecord[]>([]);
+  const [runtimeSnapshot, setRuntimeSnapshot] = useState<RuntimeSnapshot | null>(null);
+  const [runtimeReadError, setRuntimeReadError] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
-    if (runtime === null) return setLiveRecords([]);
+    setLiveRecords([]); setRuntimeSnapshot(null); setRuntimeReadError(null);
+    if (runtime === null) return;
     let current = true;
+    const maker = runtime.artifact.maker ?? runtime.artifact.strategies[0]?.order.maker;
+    const soft = runtime.artifact.strategies.find((value) => value.kind === "SOFT");
+    const firm = runtime.artifact.strategies.find((value) => value.kind === "FIRM");
+    if (!maker || !soft || !firm) { setRuntimeReadError("Authenticated runtime is missing configured maker strategies."); return; }
+    const base = { aqua: runtime.artifact.addresses.aqua, router: runtime.artifact.addresses.firmRouter, maker, tokenIn: runtime.artifact.addresses.weth, tokenOut: runtime.artifact.addresses.usdc };
+    void Promise.all([
+      runtime.publicClient.getBlockNumber(),
+      readTokenBalance(runtime.publicClient, runtime.artifact.addresses.usdc, maker),
+      getLiquidityReality(runtime.publicClient, { ...base, orderHash: soft.orderHash }),
+      getLiquidityReality(runtime.publicClient, { ...base, orderHash: firm.orderHash }),
+      readMakerBond(runtime.publicClient, runtime.artifact.addresses.bondVault, maker),
+    ]).then(([observedBlock, makerInventory, softReality, firmReality, bond]) => { if (current) setRuntimeSnapshot({ observedBlock, makerInventory, soft: softReality, firm: firmReality, bond }); }).catch((cause) => { if (current) setRuntimeReadError(readErrorMessage(cause, "Current runtime read failed")); });
     void findDeploymentCommitments(runtime.publicClient, runtime.artifact.addresses.registry, BigInt(runtime.artifact.deploymentBlock)).then(async (records) => Promise.all(records.map(async (record) => ({
       record,
       lock: (await readCommitmentBondLock(runtime.publicClient, runtime.artifact.addresses.bondVault, record.commitmentId)).amount,
       receipt: record.terminalTransactionHash ? await getFirmExecutionReceipt(runtime.publicClient, { registry: runtime.artifact.addresses.registry, executor: runtime.artifact.addresses.executor, router: runtime.artifact.addresses.firmRouter, vault: runtime.artifact.addresses.bondVault, commitmentId: record.commitmentId, acceptanceTransactionHash: record.acceptanceTransactionHash, terminalTransactionHash: record.terminalTransactionHash }) : null,
-    })))).then((records) => { if (current) setLiveRecords(records); }).catch((cause) => { if (current) setDecodeError(readErrorMessage(cause, "Live evidence read failed")); });
+    })))).then((records) => { if (current) setLiveRecords(records); }).catch((cause) => { if (current) setRuntimeReadError(readErrorMessage(cause, "Live commitment history read failed")); });
     return () => { current = false; };
-  }, [runtime]);
+  }, [refreshNonce, runtime]);
 
   async function decode() {
     if (runtime === null) return;
     if (![commitmentId, acceptanceHash, terminalHash].every(isHash)) return setDecodeError("Enter three complete 32-byte hashes.");
     setDecoding(true); setDecodeError(null); setDecoded(null);
     try {
-      setDecoded(await getFirmExecutionReceipt(runtime.publicClient, {
-        registry: runtime.artifact.addresses.registry,
-        executor: runtime.artifact.addresses.executor,
-        router: runtime.artifact.addresses.firmRouter,
-        vault: runtime.artifact.addresses.bondVault,
-        commitmentId: commitmentId as Hex,
-        acceptanceTransactionHash: acceptanceHash as Hex,
-        terminalTransactionHash: terminalHash as Hex,
-      }));
-    } catch (cause) {
-      setDecodeError(readErrorMessage(cause, "Receipt reconciliation failed"));
-    } finally { setDecoding(false); }
+      setDecoded(await getFirmExecutionReceipt(runtime.publicClient, { registry: runtime.artifact.addresses.registry, executor: runtime.artifact.addresses.executor, router: runtime.artifact.addresses.firmRouter, vault: runtime.artifact.addresses.bondVault, commitmentId: commitmentId as Hex, acceptanceTransactionHash: acceptanceHash as Hex, terminalTransactionHash: terminalHash as Hex }));
+    } catch (cause) { setDecodeError(readErrorMessage(cause, "Receipt reconciliation failed")); }
+    finally { setDecoding(false); }
   }
 
+  const manual = sepoliaManualEvidence;
+  const manualExplorer = sepoliaManifest.chain.explorerUrl;
+  const retryRuntime = () => runtime === null ? void refresh() : setRefreshNonce((value) => value + 1);
   return <div className="app-page evidence-page">
-    <header className="page-title"><div><Eyebrow>Evidence Lab</Eyebrow><h1>Don’t trust the status badge.</h1><p>Reconcile terminal state, exact event cardinality, SwapVM traits, bond movement, and token deltas into one strict receipt.</p></div><TruthTag value={runtime?.artifact.chainId === 11155111 ? "SEPOLIA TESTNET · LIVE" : "VERIFIED BASE-FORK RUN"} /></header>
+    <header className="page-title evidence-title"><div><Eyebrow>Evidence Lab</Eyebrow><h1>Don’t trust the status badge.</h1><p>Three deliberately separate evidence layers show a real Sepolia execution, a deterministic sponsor-compliance Base fork, and current live runtime reads.</p></div><div className="evidence-source-tags"><TruthTag value="REAL SEPOLIA · VERIFIED TRANSACTIONS" /><TruthTag value="VERIFIED BASE-FORK RUN" /><TruthTag value={runtime ? "LIVE RUNTIME" : "LIVE READ UNAVAILABLE"} /></div></header>
 
-    <section className="receipt-hero">
-      <div className="receipt-proof">
-        <div className="receipt-proof-head"><StatusDot tone="good">Canonical run reconciled</StatusDot><span>Base · block {baseForkEvidence.forkBlock.toLocaleString()}</span></div>
-        <div className="receipt-path"><div><small>01</small><span>Commitment</span><strong>ACCEPTED</strong></div><i /><div><small>02</small><span>Preflight</span><strong>CAPACITY</strong></div><i /><div className="active"><small>03</small><span>Settlement</span><strong>FILLED_AQUA</strong></div></div>
-        <div className="receipt-amount"><span>Terminal trader output</span><strong>{baseForkEvidence.aqua.outputUsdc}.00 <small>USDC</small></strong></div>
-        <dl className="receipt-details"><div><dt>Commitment</dt><dd><HashLink value={baseForkEvidence.aqua.commitmentId} /></dd></div><div><dt>Execution</dt><dd><HashLink value={baseForkEvidence.aqua.executionHash} /></dd></div><div><dt>FIRM_PRICE</dt><dd><Check size={14} /> executed · 0x52</dd></div><div><dt>FIRM_GUARD</dt><dd><Check size={14} /> executed · 0x21</dd></div><div><dt>Program</dt><dd><code>0x52002100</code></dd></div><div><dt>Bond remaining</dt><dd>0 USDC</dd></div></dl>
-      </div>
-      <aside className="decode-panel">
-        <Eyebrow>Live decoder</Eyebrow><h2>Rebuild a receipt</h2><p>The SDK rejects missing, duplicate, reverted, or inconsistent chain evidence.</p>
-        {["Commitment ID", "Acceptance transaction", "Terminal transaction"].map((label, index) => <label key={label}>{label}<input value={[commitmentId, acceptanceHash, terminalHash][index]} onChange={(event) => [setCommitmentId, setAcceptanceHash, setTerminalHash][index]!(event.target.value)} placeholder="0x…" spellCheck={false} /></label>)}
-        <button className="button button-primary button-wide" onClick={() => void decode()} disabled={runtime === null || decoding}><Search size={16} />{decoding ? "Reconciling…" : "Decode from chain"}</button>
-        {runtime === null && <small>Load the local Base-fork runtime to enable chain decoding.</small>}
-        {decodeError && <p className="inline-error"><CircleAlert size={15} />{decodeError}</p>}
-      </aside>
+    <section className="evidence-section manual-proof" aria-labelledby="manual-proof-title"><div className="evidence-section-head"><div><Eyebrow>Real Sepolia Manual Proof</Eyebrow><h2 id="manual-proof-title">A real wallet reached FILLED_AQUA.</h2><p>Public Sepolia transactions reconstructed from the canonical manual-evidence artifact.</p></div><TruthTag value="REAL SEPOLIA · VERIFIED TRANSACTIONS" /></div><div className="manual-proof-grid"><div className="manual-outcome"><StatusDot tone="good">{manual.execution.terminalRegistryStatus}</StatusDot><span>Path</span><strong>{manual.execution.path}</strong><small>Verified through block {manual.verifiedAtBlock.toLocaleString()}</small></div><dl className="proof-facts">
+      <Fact label="Input">{formatToken(BigInt(manual.acceptance.amountIn), 18, 3)} WETH</Fact><Fact label="Output">{formatToken(BigInt(manual.execution.sdkReceipt.traderTokenOut), 6, 2)} USDC</Fact><Fact label="Minimum">{formatToken(BigInt(manual.acceptance.minAmountOut), 6, 2)} USDC</Fact>
+      <Fact label="Bond locked">{formatToken(BigInt(manual.execution.sdkReceipt.bondInitiallyLocked), 6, 2)} USDC</Fact><Fact label="Bond released">{formatToken(BigInt(manual.execution.sdkReceipt.bondReleased), 6, 2)} USDC</Fact><Fact label="Bond consumed">{formatToken(BigInt(manual.execution.sdkReceipt.bondConsumed), 6, 2)} USDC</Fact>
+      <Fact label="Accepted block">{manual.acceptance.blockNumber}</Fact><Fact label="Terminal block">{manual.execution.blockNumber}</Fact><Fact label="FIRM_PRICE">0x{manual.execution.sdkReceipt.firmPrice.opcode.toString(16)}</Fact><Fact label="FIRM_GUARD">0x{manual.execution.sdkReceipt.firmGuard.opcode.toString(16)}</Fact><Fact label="Program"><code>{manual.execution.sdkReceipt.program}</code></Fact>
+      <Fact label="Commitment ID"><HashLink value={manual.commitmentId} /></Fact><Fact label="Acceptance transaction"><ExplorerHashLink value={manual.acceptance.transactionHash} href={`${manualExplorer}/tx/${manual.acceptance.transactionHash}`} /></Fact><Fact label="Execution transaction"><ExplorerHashLink value={manual.execution.transactionHash} href={`${manualExplorer}/tx/${manual.execution.transactionHash}`} /></Fact>
+    </dl></div></section>
+
+    <section className="evidence-section canonical-proof" aria-labelledby="canonical-title"><div className="evidence-section-head"><div><Eyebrow>Canonical Base-Fork Evidence</Eyebrow><h2 id="canonical-title">Deterministic sponsor-compliance proof.</h2><p>Reconstructed from the pinned Base fork using the official recorded Aqua and SwapVM environment.</p></div><TruthTag value="BASE FORK · BLOCK 51,123,118 · VERIFIED" /></div><div className="receipt-proof"><div className="receipt-proof-head"><StatusDot tone="good">Canonical run reconciled</StatusDot><strong>Base · block {baseForkEvidence.forkBlock.toLocaleString()}</strong></div><div className="receipt-path"><Stage number="01" label="ACCEPTED">Maker-signed quote accepted and collateral locked.</Stage><i /><Stage number="02" label="CAPACITY">Current output capacity verified before state-changing settlement.</Stage><i /><Stage number="03" label="FILLED_AQUA" active>Aqua/SwapVM fulfilled the signed minimum.</Stage></div><div className="receipt-amount"><span>Terminal trader output</span><strong>{baseForkEvidence.aqua.outputUsdc}.00 <small>USDC</small></strong></div><dl className="receipt-details"><Fact label="Commitment"><HashLink value={baseForkEvidence.aqua.commitmentId} /></Fact><Fact label="Execution"><HashLink value={baseForkEvidence.aqua.executionHash} /></Fact><Fact label="Bond still locked for this commitment">0 USDC</Fact></dl><details className="proof-explainer"><summary>Technical proof</summary><Definition term="FIRM_PRICE · opcode 0x52">Validates the Firm pricing and accepted pricing snapshot used during successful SwapVM execution.</Definition><Definition term="FIRM_GUARD · opcode 0x21">Binds state-changing execution to the accepted commitment’s relevant maker, taker, order, pair, amount, expiry, executor, router, and collateral constraints.</Definition><pre><code>{"0x52002100\n0x52 00 = FIRM_PRICE\n0x21 00 = FIRM_GUARD"}</code></pre></details></div></section>
+
+    <section className="evidence-section decoder-section" aria-labelledby="decoder-title"><div className="evidence-section-head"><div><Eyebrow>Live Decoder</Eyebrow><h2 id="decoder-title">Rebuild a receipt from chain.</h2><p>FirmDepth does not trust a status badge alone. The SDK reconciles Registry state, SwapVM/Aqua events, token transfers, and Bond movement, rejecting missing, duplicate, reverted, or inconsistent evidence. This never loads a mocked fixture.</p></div></div><div className="decode-panel">{["Commitment ID", "Acceptance transaction", "Terminal transaction"].map((label, index) => <label key={label}>{label}<input value={[commitmentId, acceptanceHash, terminalHash][index]} onChange={(event) => [setCommitmentId, setAcceptanceHash, setTerminalHash][index]!(event.target.value)} placeholder="0x…" spellCheck={false} /></label>)}<button className="button button-primary" onClick={() => void decode()} disabled={runtime === null || decoding}><Search size={16} />{decoding ? "Reconciling…" : "Decode from chain"}</button>{runtime === null && <small>A matching runtime is required for chain decoding; no fallback receipt is shown.</small>}{decodeError && <p className="inline-error"><CircleAlert size={15} />{decodeError}</p>}</div>{decoded && <ReceiptView receipt={decoded} />}</section>
+
+    <section className="evidence-section live-evidence" aria-labelledby="runtime-title"><div className="evidence-section-head"><div><Eyebrow>{runtime?.artifact.environment.kind === "base-fork" ? "Current Local Runtime — Base Fork" : "Current Live Runtime — Sepolia"}</Eyebrow><h2 id="runtime-title">Current contract state, read from the EVM.</h2><p>Every value below comes from the authenticated runtime, RPC, and deployed contracts.</p></div>{runtime && <TruthTag value={runtime.artifact.chainId === 11155111 ? "SEPOLIA TESTNET · LIVE" : "LIVE"} />}</div>{runtime === null ? <Unavailable message="No authenticated live runtime is available. No values were inferred." onRetry={retryRuntime} /> : runtimeReadError ? <Unavailable message={runtimeReadError} onRetry={retryRuntime} /> : runtimeSnapshot === null ? <p>Reading current runtime…</p> : <><div className="runtime-metrics"><Metric label="Observed block" value={runtimeSnapshot.observedBlock.toString()} /><Metric label="Maker inventory" value={`${formatToken(runtimeSnapshot.makerInventory, 6, 2)} USDC`} /><Metric label="Soft Virtual" value={`${formatToken(runtimeSnapshot.soft.virtualDepth, 6, 2)} USDC`} /><Metric label="Soft Pullable" value={`${formatToken(runtimeSnapshot.soft.pullableDepth, 6, 2)} USDC`} /><Metric label="Firm Virtual" value={`${formatToken(runtimeSnapshot.firm.virtualDepth, 6, 2)} USDC`} /><Metric label="Firm Pullable" value={`${formatToken(runtimeSnapshot.firm.pullableDepth, 6, 2)} USDC`} /><Metric label="Total Bond" value={`${formatToken(runtimeSnapshot.bond.total, 6, 2)} USDC`} /><Metric label="Available Bond" value={`${formatToken(runtimeSnapshot.bond.available, 6, 2)} USDC`} /><Metric label="Locked Bond" value={`${formatToken(runtimeSnapshot.bond.locked, 6, 2)} USDC`} /></div><dl className="runtime-addresses">{Object.entries(runtime.artifact.addresses).map(([label, address]) => <Fact key={label} label={label === "firmRouter" ? "Firm Router" : label[0]!.toUpperCase() + label.slice(1)}>{runtime.artifact.explorerUrl ? <ExplorerHashLink value={address} href={`${runtime.artifact.explorerUrl}/address/${address}`} /> : <HashLink value={address} />}</Fact>)}</dl></>}
+      <div className="runtime-history"><h3>Onchain commitment history</h3>{liveRecords.length === 0 ? <p>No Firm commitments were returned for this deployment range.</p> : liveRecords.map(({ record, receipt, lock }) => <article key={record.commitmentId} className="live-evidence-record"><div><StatusDot tone={record.commitment.status === "ACCEPTED" ? "neutral" : "good"}>{record.commitment.status}</StatusDot><HashLink value={record.commitmentId} /><small>Commitment Bond still locked: {formatToken(lock, 6, 2)} USDC</small></div>{receipt ? <ReceiptView receipt={receipt} /> : <dl className="technical-list"><Fact label="Acceptance transaction"><HashLink value={record.acceptanceTransactionHash} /></Fact><Fact label="Chain state">ACCEPTED</Fact><Fact label="Terminal receipt">Unavailable until settlement</Fact></dl>}</article>)}</div>
     </section>
 
-    {decoded && <ReceiptView receipt={decoded} />}
+    <section className="evidence-section glossary-section"><div className="evidence-section-head"><div><Eyebrow>Core terms</Eyebrow><h2>Read protocol state precisely.</h2></div></div><div className="glossary-grid"><Definition term="Virtual Depth">Aqua-authorized strategy balance: reusable accounting, not isolated custody.</Definition><Definition term="Pullable Depth">What real maker inventory and Aqua allowance can source now.</Definition><Definition term="Firm Depth">New exposure admissible using current executable capacity and available collateral.</Definition><Definition term="ACCEPTED">A Firm quote was accepted and its performance Bond is locked.</Definition><Definition term="FILLED_AQUA">The protected trade settled through Aqua at or above its signed minimum.</Definition><Definition term="FILLED_BOND">Eligible capacity disappeared after acceptance and the dedicated Bond path settled.</Definition><Definition term="EXPIRED">The unexecuted commitment was terminalized after its deadline.</Definition><Definition term="CAPACITY">The deterministic current output-capacity preflight before Aqua settlement.</Definition></div></section>
 
-    {runtime && <section className="evidence-section live-evidence"><div className="evidence-section-head"><div><Eyebrow>Chain inspection</Eyebrow><h2>Current runtime state, read back from the EVM.</h2></div><TruthTag value={runtime.artifact.chainId === 11155111 && liveRecords.some(({ receipt }) => receipt !== null) ? "SEPOLIA TESTNET · VERIFIED TRANSACTION" : "LIVE"} /></div>{liveRecords.length === 0 ? <p>No Firm commitments exist in this runtime yet. Execute a scenario in Trade, then return here.</p> : liveRecords.map(({ record, receipt, lock }) => <article key={record.commitmentId} className="live-evidence-record"><div><StatusDot tone={record.commitment.status === "ACCEPTED" ? "neutral" : "good"}>{record.commitment.status}</StatusDot><HashLink value={record.commitmentId} /><small>Bond currently locked: {lock.toString()} raw USDC units</small></div>{receipt ? <ReceiptView receipt={receipt} /> : <dl className="technical-list"><div><dt>Acceptance transaction</dt><dd><HashLink value={record.acceptanceTransactionHash} /></dd></div><div><dt>Chain state</dt><dd>ACCEPTED</dd></div><div><dt>Terminal receipt</dt><dd>— unavailable until settlement</dd></div></dl>}</article>)}</section>}
+    <section className="evidence-section"><div className="evidence-section-head"><div><Eyebrow>Canonical Base-fork scenarios</Eyebrow><h2>Two terminal paths. Same protected minimum.</h2></div><TruthTag value={baseForkEvidence.provenance} /></div><div className="path-evidence-grid five-scenarios"><Scenario index="01" title="Shared liquidity / Soft race" before="Two strategies advertise the same maker inventory." event="A Soft swap drains shared USDC backing." after={`Firm pullable capacity falls to ${baseForkEvidence.sharedDrain.effectiveCapacityAfterUsdc} USDC; a depleted Soft sibling reverts atomically.`} hash={baseForkEvidence.sharedDrain.swapHash} /><Scenario index="02" title="FILLED_AQUA" before="Commitment accepted with Aqua capacity and dedicated Bond." event="Capacity remains sufficient at execution." after={`${baseForkEvidence.aqua.outputUsdc} USDC arrives through SwapVM; Bond unlocks.`} hash={baseForkEvidence.aqua.executionHash} /><Scenario index="03" title="FILLED_BOND" before="Commitment accepted while Aqua-executable." event="A sibling drains protected capacity before execution." after={`${baseForkEvidence.bond.outputUsdc} USDC arrives from dedicated Bond; SwapVM is skipped.`} hash={baseForkEvidence.bond.executionHash} /><Scenario index="04" title="EXPIRED" before="Commitment accepted; premium and Bond lock are onchain." event="Deadline passes without principal execution." after={`State EXPIRED; principal ${baseForkEvidence.expired.principalOutputUsdc} USDC, commitment lock ${baseForkEvidence.expired.bondBeforeUsdc} → ${baseForkEvidence.expired.bondAfterUsdc} USDC.`} hash={baseForkEvidence.expired.terminalHash} /><Scenario index="05" title="Fail-closed unrelated error" before="ACCEPTED with sufficient capacity and a dedicated lock." event="Executor encounters an unexpected non-capacity revert." after={`Transaction status 0; commitment remains ${baseForkEvidence.unrelatedFailure.statusAfter}; lock remains ${baseForkEvidence.unrelatedFailure.bondAfterUsdc} USDC.`} hash={baseForkEvidence.unrelatedFailure.revertedHash} /></div></section>
 
-    <section className="evidence-section">
-      <div className="evidence-section-head"><div><Eyebrow>Fork execution</Eyebrow><h2>Two terminal paths. Same promised output.</h2></div><TruthTag value={baseForkEvidence.provenance} /></div>
-      <div className="path-evidence-grid five-scenarios">
-        <Scenario index="01" title="Shared liquidity / Soft race" before="Two strategies advertise the same maker inventory." event="A Soft swap drains the shared USDC backing." after={`Firm pullable capacity falls to ${baseForkEvidence.sharedDrain.effectiveCapacityAfterUsdc} USDC; a depleted Soft sibling reverts atomically.`} hash={baseForkEvidence.sharedDrain.swapHash} />
-        <Scenario index="02" title="FILLED_AQUA" before="Commitment accepted with Aqua capacity and dedicated Bond." event="Capacity remains sufficient at execution." after={`${baseForkEvidence.aqua.outputUsdc} USDC arrives through SwapVM; Bond unlocks.`} hash={baseForkEvidence.aqua.executionHash} />
-        <Scenario index="03" title="FILLED_BOND" before="Commitment accepted while Aqua-executable." event="A sibling drains protected capacity before execution." after={`${baseForkEvidence.bond.outputUsdc} USDC arrives from dedicated Bond; SwapVM is skipped.`} hash={baseForkEvidence.bond.executionHash} />
-        <Scenario index="04" title="EXPIRED" before="Commitment accepted; premium and Bond lock are onchain." event="Deadline passes without principal execution." after={`State EXPIRED; principal ${baseForkEvidence.expired.principalOutputUsdc} USDC, Bond ${baseForkEvidence.expired.bondBeforeUsdc} → ${baseForkEvidence.expired.bondAfterUsdc} USDC, premium finalizes to maker.`} hash={baseForkEvidence.expired.terminalHash} />
-        <Scenario index="05" title="Fail-closed unrelated error" before="ACCEPTED with sufficient capacity and a 200 USDC lock." event="The executor encounters an unexpected non-capacity revert." after={`Transaction status 0; commitment remains ${baseForkEvidence.unrelatedFailure.statusAfter}; Bond ${baseForkEvidence.unrelatedFailure.bondBeforeUsdc} → ${baseForkEvidence.unrelatedFailure.bondAfterUsdc} USDC.`} hash={baseForkEvidence.unrelatedFailure.revertedHash} />
-      </div>
-    </section>
-
-    <section className="evidence-section benchmark-section">
-      <div className="evidence-section-head"><div><Eyebrow>Synthetic benchmark</Eyebrow><h2>The stress case, with its assumptions attached.</h2></div><TruthTag value={benchmarkEvidence.provenance} /></div>
-      <div className="benchmark-banner"><div><span>episodes</span><strong>810,000</strong></div><div><span>configurations</span><strong>81</strong></div><div><span>seed</span><strong>{benchmarkEvidence.seed}</strong></div><p>Compound-Poisson sibling arrivals · WETH/USDC-scaled inventory · deterministic replay</p></div>
-      <div className="benchmark-table" role="table" aria-label="Selected adversarial benchmark result">
-        <div role="row" className="table-head"><span role="columnheader">System</span><span role="columnheader">Protected settlement</span><span role="columnheader">Capital reuse</span><span role="columnheader">Observed path</span></div>
-        <div role="row"><strong role="cell">Soft Aqua</strong><span role="cell">41.47%</span><span role="cell">{formatPercent(benchmarkEvidence.adversarial.softCapitalReuse, 2)}</span><span role="cell">5,853 capacity losses</span></div>
-        <div role="row"><strong role="cell">Hard reservation</strong><span role="cell">100%</span><span role="cell">{formatPercent(benchmarkEvidence.adversarial.hardCapitalReuse, 2)}</span><span role="cell">inventory locked</span></div>
-        <div role="row" className="highlight"><strong role="cell">FirmDepth</strong><span role="cell">100%</span><span role="cell">{formatPercent(benchmarkEvidence.adversarial.firmCapitalReuse, 2)}</span><span role="cell">4,147 Aqua · 5,853 Bond</span></div>
-      </div>
-      <p className="method-note"><Braces size={16} /> Highest modeled Soft availability-loss rate among configurations that admitted Firm. This is mechanism stress evidence, not a claimed real-network frequency or dollar-loss estimate.</p>
-    </section>
-
+    <section className="evidence-section benchmark-section"><div className="evidence-section-head"><div><Eyebrow>Synthetic benchmark</Eyebrow><h2>The stress case, with assumptions attached.</h2></div><TruthTag value={benchmarkEvidence.provenance} /></div><div className="benchmark-banner"><div><span>episodes</span><strong>810,000</strong></div><div><span>configurations</span><strong>81</strong></div><div><span>seed</span><strong>{benchmarkEvidence.seed}</strong></div><p>Compound-Poisson sibling arrivals · WETH/USDC-scaled inventory · deterministic replay</p></div><div className="benchmark-table" role="table" aria-label="Selected adversarial benchmark result"><div role="row" className="table-head"><span role="columnheader">System</span><span role="columnheader">Protected settlement</span><span role="columnheader">Capital reuse</span><span role="columnheader">Observed path</span></div><div role="row"><strong role="cell">Soft Aqua</strong><span role="cell">41.47%</span><span role="cell">{formatPercent(benchmarkEvidence.adversarial.softCapitalReuse, 2)}</span><span role="cell">5,853 capacity losses</span></div><div role="row"><strong role="cell">Hard reservation</strong><span role="cell">100%</span><span role="cell">{formatPercent(benchmarkEvidence.adversarial.hardCapitalReuse, 2)}</span><span role="cell">inventory locked</span></div><div role="row" className="highlight"><strong role="cell">FirmDepth</strong><span role="cell">100%</span><span role="cell">{formatPercent(benchmarkEvidence.adversarial.firmCapitalReuse, 2)}</span><span role="cell">4,147 Aqua · 5,853 Bond</span></div></div><p className="method-note"><Braces size={16} /> Synthetic mechanism stress evidence, not a claimed real-network frequency or dollar-loss estimate.</p></section>
     <section className="reproduce-strip"><div><Eyebrow>Reproduce it</Eyebrow><h2>One backend command.<br />No fabricated state.</h2></div><code>./scripts/demo_backend.sh <button aria-label="Copy command" onClick={() => void navigator.clipboard?.writeText("./scripts/demo_backend.sh")}><Copy size={15} /></button></code><a className="button button-outline" href="/maker">Inspect maker accounting <ArrowRight size={16} /></a></section>
   </div>;
 }
 
-function Scenario({ index, title, before, event, after, hash }: { index: string; title: string; before: string; event: string; after: string; hash: string }) {
-  return <article><span className="path-index">{index}</span><h3>{title}</h3><dl className="scenario-flow"><div><dt>Before</dt><dd>{before}</dd></div><div><dt>Event</dt><dd>{event}</dd></div><div><dt>After</dt><dd>{after}</dd></div></dl><HashLink value={hash} /></article>;
-}
+function Fact({ label, children }: { label: string; children: React.ReactNode }) { return <div><dt>{label}</dt><dd>{children}</dd></div>; }
+function Definition({ term, children }: { term: string; children: React.ReactNode }) { return <div className="term-definition"><strong>{term}</strong><p>{children}</p></div>; }
+function Stage({ number, label, active = false, children }: { number: string; label: string; active?: boolean; children: React.ReactNode }) { return <div className={active ? "active" : ""}><small>{number}</small><strong>{label}</strong><span>{children}</span></div>; }
+function Unavailable({ message, onRetry }: { message: string; onRetry: () => void }) { return <div className="runtime-unavailable"><CircleAlert size={18} /><p>{message}</p><button className="button button-outline button-small" type="button" onClick={onRetry}><RefreshCw size={15} />Retry live read</button></div>; }
+function Scenario({ index, title, before, event, after, hash }: { index: string; title: string; before: string; event: string; after: string; hash: string }) { return <article><span className="path-index">{index}</span><h3>{title}</h3><dl className="scenario-flow"><Fact label="Before">{before}</Fact><Fact label="Event">{event}</Fact><Fact label="After">{after}</Fact></dl><HashLink value={hash} /></article>; }

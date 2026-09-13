@@ -5,7 +5,7 @@ import { authenticateFirmDepthDeployment } from "@firmdepth/sdk/deployment";
 import { validateFirmQuoteEnvelope } from "@firmdepth/sdk/quote-provider";
 import { getLiquidityReality, quoteSwapExactIn, readMakerBond } from "@firmdepth/sdk/readers";
 import { getFirmExecutionReceipt } from "@firmdepth/sdk/receipt";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, formatUnits, http } from "viem";
 
 interface Manifest {
   chain: { id: number };
@@ -96,7 +96,7 @@ test.describe("read-only live Sepolia smoke", () => {
     expect(reconstructed.firmGuard).toMatchObject({ opcode: 33, executed: true });
   });
 
-  test("renders live Sepolia routes, depletion-safe Soft data, and disconnected-wallet UX", async ({ page }) => {
+  test("renders live Sepolia routes, depletion-safe Soft data, and disconnected-wallet UX", async ({ page, request }) => {
     const consoleErrors: string[] = [];
     page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
     await page.goto("/");
@@ -114,8 +114,11 @@ test.describe("read-only live Sepolia smoke", () => {
     await expect(page.locator(".truth-tag").getByText("SEPOLIA TESTNET · LIVE", { exact: true })).toBeVisible({ timeout: 30_000 });
     await page.goto("/maker");
     await expect(page.getByText("Observed on Sepolia")).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator(".maker-metrics .metric").filter({ hasText: "Available bond" })).toContainText(/18(?:\.00)? USDC/);
-    await expect(page.locator(".maker-metrics .metric").filter({ hasText: "Locked bond" })).toContainText(/0(?:\.00)? USDC/);
+    const manifest = readManifest();
+    const runtimePayload = await (await request.get("http://127.0.0.1:8080/runtime")).json() as { rpcUrl: string };
+    const liveBond = await readMakerBond(createPublicClient({ transport: http(runtimePayload.rpcUrl, { timeout: 20_000, retryCount: 2 }) }), manifest.addresses.bondVault, manifest.maker);
+    await expect(page.locator(".maker-metrics .metric").filter({ hasText: "BondVault available Bond" })).toContainText(`${formatUnits(liveBond.available, 6)} USDC`);
+    await expect(page.locator(".maker-metrics .metric").filter({ hasText: "BondVault locked Bond" })).toContainText(`${formatUnits(liveBond.locked, 6)} USDC`);
     await page.goto("/evidence");
     await expect(page.getByRole("heading", { name: /Don’t trust the status badge/ })).toBeVisible();
     await page.reload();
@@ -123,6 +126,10 @@ test.describe("read-only live Sepolia smoke", () => {
     await expect(liveEvidence.getByText("FILLED_AQUA", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
     await expect(liveEvidence.getByText("2.5 USDC", { exact: true }).first()).toBeVisible();
     await expect(liveEvidence.getByText("AQUA terminal path", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "A real wallet reached FILLED_AQUA." })).toBeVisible();
+    await expect(page.getByText("Base · block 51,123,118")).toBeVisible();
+    await page.goto("/docs");
+    await expect(page.getByRole("heading", { name: "Execution certainty, explained." })).toBeVisible();
     expect(consoleErrors).toEqual([]);
   });
 
