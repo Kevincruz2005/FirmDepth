@@ -18,6 +18,10 @@ cp -R "$REPO_ROOT/packages/quote-service/dist" "$REPO_ROOT/packages/quote-servic
 cp "$REPO_ROOT/packages/quote-service/package.json" "$REPO_ROOT/packages/quote-service/package-lock.json" "$STAGING_DIR/packages/quote-service/"
 cp -R "$REPO_ROOT/packages/sdk/dist" "$STAGING_DIR/packages/sdk/"
 cp "$REPO_ROOT/packages/sdk/package.json" "$STAGING_DIR/packages/sdk/"
+rm "$STAGING_DIR/packages/quote-service/node_modules/@firmdepth/sdk"
+mkdir -p "$STAGING_DIR/packages/quote-service/node_modules/@firmdepth/sdk"
+cp -R "$REPO_ROOT/packages/sdk/dist" "$STAGING_DIR/packages/quote-service/node_modules/@firmdepth/sdk/"
+cp "$REPO_ROOT/packages/sdk/package.json" "$STAGING_DIR/packages/quote-service/node_modules/@firmdepth/sdk/"
 cp "$REPO_ROOT/deployments/sepolia.json" "$STAGING_DIR/deployments/sepolia.json"
 if command -v bsdtar >/dev/null 2>&1; then
   (cd "$STAGING_DIR" && bsdtar -a -cf "$PACKAGE_PATH" .)
