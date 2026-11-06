@@ -7,6 +7,7 @@ import { WalletChooser } from "./WalletChooser";
 
 const routes = [
   ["/trade", "Trade"],
+  ["/settlement", "Settle"],
   ["/evidence", "Evidence"],
   ["/maker", "Maker"],
   ["/docs", "Docs"],

@@ -351,3 +351,12 @@ button { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.settlement-page { max-width: 1080px; margin: 4rem auto; padding: 0 24px; }
+.settlement-page section { border: 1px solid #d9ddd6; padding: 24px; margin: 24px 0; border-radius: 16px; }
+.settlement-page label { display: grid; gap: 8px; margin: 16px 0; }
+.settlement-page input { padding: 12px; border: 1px solid #bac2b8; border-radius: 8px; min-width: 0; width: 100%; }
+.settlement-page code,.settlement-message { overflow-wrap: anywhere; }
+.settlement-page button { margin: 8px; }
+.payout-row { display:grid; grid-template-columns: 2fr 1fr auto; gap: 12px; align-items:center; }
+@media(max-width:640px) { .payout-row { grid-template-columns: 1fr; } .settlement-page {margin:2rem auto;} }

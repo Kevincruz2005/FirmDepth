@@ -5,6 +5,7 @@ import { createPublicClient, getAddress, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createHandler } from "./app.js";
 import { loadManifest } from "./manifest.js";
+import { settlementQuote } from "./settlement.js";
 import { createFirmQuote } from "./quote-engine.js";
 
 const manifestPath = process.env.FIRMDEPTH_MANIFEST_PATH ?? fileURLToPath(new URL("../../../deployments/sepolia.json", import.meta.url));
@@ -16,7 +17,9 @@ const apiUrl = new URL(required("PUBLIC_API_URL")).toString().replace(/\/$/, "")
 const makerAccount = privateKeyToAccount(requiredHex("MAKER_PRIVATE_KEY"));
 if (getAddress(makerAccount.address) !== manifest.maker) throw new Error("MAKER_PRIVATE_KEY does not match the public manifest");
 const client = createPublicClient({ transport: http(rpcUrl, { retryCount: 2, timeout: 10_000 }) });
+const protectedAddress = process.env.FIRMDEPTH_SETTLEMENT_ADDRESS ? getAddress(process.env.FIRMDEPTH_SETTLEMENT_ADDRESS) : undefined;
 const runtime = {
+  ...(protectedAddress ? {settlement:{address:protectedAddress,quoteUrl:`${apiUrl}/quote/settlement`}} : {}),
   schemaVersion: "2",
   chainId: manifest.chain.id,
   networkName: manifest.chain.name,
@@ -42,6 +45,10 @@ const tokenAbi = parseAbi(["function symbol() view returns (string)", "function 
 const handler = createHandler({
   manifest,
   runtime,
+  ...(protectedAddress ? {settlementQuote: (body:unknown) => settlementQuote(client,body,{chainId:manifest.chain.id,settlement:protectedAddress,addresses:manifest.addresses},(taker,amountIn,pricingTtl)=>{
+    const strategy=manifest.strategies.find(s=>s.kind==="FIRM")!;
+    return createFirmQuote(client,makerAccount,manifest,{chainId:manifest.chain.id,registry:manifest.addresses.registry,strategyId:strategy.id,orderHash:strategy.orderHash,taker,amountIn:amountIn.toString(),pricingTtl});
+  })} : {}),
   corsOrigins,
   production: process.env.NODE_ENV === "production",
   async health() {

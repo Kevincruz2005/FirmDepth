@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { readPlan, authenticateSettlement } from "@firmdepth/sdk/settlement";
 import { buildFirmQuote } from "@firmdepth/sdk/quote";
 import { firmQuoteTypedData } from "@firmdepth/sdk/eip712";
 import { createPublicClient, createWalletClient, getAddress, http, keccak256, parseAbi, stringToHex } from "viem";
@@ -29,14 +30,24 @@ function runtimeArtifact() {
           }
         }
       });
-      server.middlewares.use("/runtime/firm-quote", async (request: any, response: any) => {
+      const quoteHandler = async (request: any, response: any) => {
         try {
           if (request.method !== "POST") return respondJson(response, 405, { error: "Method not allowed" });
           const artifact = JSON.parse(await readFile(runtimePath, "utf8"));
           if (artifact.schemaVersion !== "2" || artifact.environment?.kind !== "base-fork" || artifact.environment?.controlledEvidence !== true || artifact.forkBlock !== 51_123_118) {
             return respondJson(response, 403, { error: "Controlled quote adapter requires the canonical Base fork" });
           }
-          const body = JSON.parse(await readBody(request));
+          let body = JSON.parse(await readBody(request));
+          let protectedPlan: Awaited<ReturnType<typeof readPlan>> | undefined;
+          if (request.protectedSettlement) {
+            if (!artifact.settlement || body.chainId !== artifact.chainId || getAddress(body.settlement) !== getAddress(artifact.settlement.address)) throw new Error("Unknown settlement deployment");
+            const client = createPublicClient({transport:http(artifact.rpcUrl)});
+            await authenticateSettlement(client,artifact.settlement.address,artifact.addresses);
+            protectedPlan = await readPlan(client,artifact.settlement.address,body.planId);
+            if(protectedPlan.state!==2) throw new Error("Plan is not funded");
+            const strategy=artifact.strategies.find((v:any)=>v.kind==="FIRM");
+            body={...body,taker:artifact.settlement.address,amountIn:protectedPlan.amountIn.toString(),strategyId:strategy.id,orderHash:strategy.orderHash};
+          }
           const pricingTtl = Number(body.pricingTtl);
           if (![5, 30, 120, 300].includes(pricingTtl)) return respondJson(response, 400, { error: "Unsupported Firm horizon" });
           const amountIn = BigInt(body.amountIn);
@@ -68,12 +79,15 @@ function runtimeArtifact() {
             utilizationAfterWad, minPremiumOut: 1n,
             expiry: block.timestamp + BigInt(pricingTtl), nonce,
           }, block.timestamp);
+          if(protectedPlan && (quote.minAmountOut<protectedPlan.totalOut || quote.premiumAmount>protectedPlan.maxPremium || quote.expiry>protectedPlan.deadline)) throw new Error("Quote does not satisfy plan");
           const makerSignature = await walletClient.signTypedData({ account: maker, ...firmQuoteTypedData(registry, artifact.chainId, quote) });
           return respondJson(response, 200, { quote, makerSignature, quotedAtBlock: block.number });
         } catch (error) {
           return respondJson(response, 400, { error: error instanceof Error ? error.message : "Unable to create Firm quote" });
         }
-      });
+      };
+      server.middlewares.use("/runtime/firm-quote",quoteHandler);
+      server.middlewares.use("/runtime/settlement-quote",(request:any,response:any)=>{request.protectedSettlement=true;return quoteHandler(request,response);});
     },
   };
 }

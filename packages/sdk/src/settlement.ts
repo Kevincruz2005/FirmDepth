@@ -33,7 +33,7 @@ export async function executePayoutPlan(c:ContractClients,address:Address,id:Hex
 export async function refundPayoutPlan(c:ContractClients,address:Address,id:Hex) {
   const s=await c.publicClient.simulateContract({address,abi:settlementAbi,functionName:"refundPlan",args:[id],account:c.account});return c.walletClient.writeContract(s.request);
 }
-export async function getPayoutReceipt(client:PublicClient,address:Address,id:Hex,hash:Hex) {
+export async function getPayoutReceipt(client:PublicClient,address:Address,id:Hex,hash:Hex,deploymentBlock=0n) {
   const [plan,payouts,receipt,tokenOut]=await Promise.all([readPlan(client,address,id),readPayouts(client,address,id),client.getTransactionReceipt({hash}),client.readContract({address,abi:settlementAbi,functionName:"tokenOut"})]);
   if(receipt.status!=="success" || plan.state!==4) throw new Error("Plan is not successfully settled");
   const decoded=receipt.logs.filter(l=>getAddress(l.address)===getAddress(address)).flatMap(l=>{try{return [decodeEventLog({abi:settlementAbi,data:l.data,topics:l.topics})]}catch{return []}});
@@ -49,15 +49,23 @@ export async function getPayoutReceipt(client:PublicClient,address:Address,id:He
     const payment=payments[i]!;
     if(payment.eventName!=="RecipientPaid" || payment.args.index!==BigInt(i) || getAddress(payment.args.recipient)!==getAddress(payout.recipient) || payment.args.amount!==payout.amount) throw new Error("Allocation mismatch");
     const matches=transfers.filter(e=>getAddress(e.args.from)===getAddress(address) && getAddress(e.args.to)===getAddress(payout.recipient) && e.args.value===payout.amount);
-    if(matches.length!==1) throw new Error("Recipient transfer missing or duplicated");
+    const expectedCount = payouts.filter(p=>p.recipient.toLowerCase()===payout.recipient.toLowerCase() && p.amount===payout.amount).length + (plan.payer.toLowerCase()===payout.recipient.toLowerCase() && event.args.surplus===payout.amount ? 1 : 0);
+    if(matches.length!==expectedCount) throw new Error("Recipient transfer missing or duplicated");
   }
+  const outgoing=transfers.filter(e=>getAddress(e.args.from)===getAddress(address));
+  if(outgoing.length!==payouts.length+(event.args.surplus>0n?1:0))throw new Error("Unexpected output transfers");
+  if(event.args.surplus>0n && !outgoing.some(e=>getAddress(e.args.to)===getAddress(plan.payer)&&e.args.value===event.args.surplus))throw new Error("Surplus transfer mismatch");
+  const incoming=transfers.filter(e=>getAddress(e.args.to)===getAddress(address));
+  if(incoming.length!==1 || incoming[0]!.args.value!==event.args.proceeds)throw new Error("Gross output mismatch");
+  if(event.args.refund!==plan.maxPremium-plan.premiumPaid)throw new Error("Premium budget mismatch");
   const registry=await client.readContract({address,abi:settlementAbi,functionName:"registry"});
   const executor=await client.readContract({address,abi:settlementAbi,functionName:"executor"});
   const router=await client.readContract({address,abi:settlementAbi,functionName:"router"});
   const vault=await client.readContract({address:registry,abi:registryAbi,functionName:"vault"});
-  const accepted=await client.getContractEvents({address:registry,abi:registryAbi,eventName:"CommitmentAccepted",args:{commitmentId:plan.commitmentId},fromBlock:0n,toBlock:receipt.blockNumber});
+  const accepted=await client.getContractEvents({address:registry,abi:registryAbi,eventName:"CommitmentAccepted",args:{commitmentId:plan.commitmentId},fromBlock:deploymentBlock,toBlock:receipt.blockNumber});
   if(accepted.length!==1 || !accepted[0]!.transactionHash)throw new Error("Acceptance evidence missing");
   const core=await getFirmExecutionReceipt(client,{registry,executor,router,vault,commitmentId:plan.commitmentId,acceptanceTransactionHash:accepted[0]!.transactionHash,terminalTransactionHash:hash});
+  if((core.path==="AQUA"?2:core.path==="BOND"?3:4)!==event.args.status)throw new Error("Settlement path mismatch");
   if(core.taker.toLowerCase()!==address.toLowerCase() || core.amountIn!==plan.amountIn || core.premium!==plan.premiumPaid)throw new Error("Underlying commitment mismatch");
   if(event.args.proceeds!==plan.totalOut+event.args.surplus) throw new Error("Output does not reconcile");
   return {planId:id,commitmentId:plan.commitmentId,transactionHash:hash,blockNumber:receipt.blockNumber,payouts,proceeds:event.args.proceeds,surplus:event.args.surplus,refund:event.args.refund,status:event.args.status};

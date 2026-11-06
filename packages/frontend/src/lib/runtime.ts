@@ -1,4 +1,5 @@
 import type { DeploymentArtifact, FirmQuote, SwapVMOrder } from "@firmdepth/sdk/types";
+import { authenticateSettlement } from "@firmdepth/sdk/settlement";
 import { authenticateFirmDepthDeployment } from "@firmdepth/sdk/deployment";
 import { readAquaCapacity } from "@firmdepth/sdk/readers";
 import { erc20Abi, swapVmAbi } from "@firmdepth/sdk/requests";
@@ -33,6 +34,7 @@ export interface RuntimeStrategy {
 
 export interface FrontendRuntimeArtifact extends Omit<DeploymentArtifact, "schemaVersion"> {
   schemaVersion: "2";
+  settlement?: { address: Address; quoteUrl: string };
   rpcUrl: string;
   deploymentBlock: number;
   manifestRevision?: Hex;
@@ -105,6 +107,7 @@ export async function loadRuntimeArtifact(url = runtimeEndpoint()): Promise<Load
   if (authenticated.blockNumber < BigInt(artifact.deploymentBlock)) throw new Error("RPC is behind the declared deployment block");
   if (authenticated.maxQuoteTtl !== BigInt(artifact.pricingPolicy.maxQuoteTtl)) throw new Error("Registry max quote TTL mismatch");
   if (isPublic) await authenticatePublicRuntime(publicClient, artifact);
+  if (artifact.settlement) await authenticateSettlement(publicClient, artifact.settlement.address, artifact.addresses);
   return { artifact, publicClient };
 }
 
@@ -127,6 +130,7 @@ export function validateRuntimeArtifact(input: unknown): FrontendRuntimeArtifact
       }
     }
   }
+  if (input.settlement !== undefined && (!isRecord(input.settlement) || !isAddress(input.settlement.address) || typeof input.settlement.quoteUrl !== "string" || !(input.settlement.quoteUrl.startsWith("/runtime/") || validEndpoint(input.settlement.quoteUrl)))) throw new Error("Invalid settlement capability");
   if (!Array.isArray(input.strategies)) throw new Error("Runtime strategies are missing");
   for (const strategy of input.strategies) validateStrategy(strategy);
   if (!isRecord(input.environment) || !["base-fork", "deployment"].includes(String(input.environment.kind)) || typeof input.environment.label !== "string" || typeof input.environment.controlledEvidence !== "boolean") throw new Error("Invalid runtime environment metadata");
