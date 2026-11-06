@@ -126,6 +126,12 @@ export const debtRepaymentAbi = [
       {
         "indexed": false,
         "internalType": "uint256",
+        "name": "debtIndex",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
         "name": "usdcRefund",
         "type": "uint256"
       },
@@ -253,7 +259,7 @@ export const debtRepaymentAbi = [
   },
   {
     "inputs": [],
-    "name": "DEBT_ROUNDING_TOLERANCE",
+    "name": "RAY",
     "outputs": [
       {
         "internalType": "uint256",

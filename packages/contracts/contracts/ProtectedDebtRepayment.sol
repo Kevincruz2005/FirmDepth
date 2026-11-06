@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ISwapVM} from "@1inch/swap-vm/src/interfaces/ISwapVM.sol";
 import {ProtectedSettlement} from "./ProtectedSettlement.sol";
 import {FirmQuote} from "./types/FirmTypes.sol";
@@ -12,6 +13,7 @@ import {FirmQuote} from "./types/FirmTypes.sol";
 interface IAaveRepaymentPool {
     function ADDRESSES_PROVIDER() external view returns (address);
     function getConfiguration(address asset) external view returns (uint256);
+    function getReserveNormalizedVariableDebt(address asset) external view returns (uint256);
     function repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf) external returns (uint256);
 }
 interface IAaveRepaymentProvider {
@@ -53,7 +55,7 @@ contract ProtectedDebtRepayment is ReentrancyGuard {
     address public immutable aToken;
     uint256 public immutable authorizedChainId;
     uint256 public constant DEBT_MODE = 2;
-    uint256 public constant DEBT_ROUNDING_TOLERANCE = 1; // One USDC base unit, not one USDC.
+    uint256 public constant RAY = 1e27;
     mapping(bytes32 => RepaymentPlan) private _plans;
 
     error Unauthorized();
@@ -64,7 +66,7 @@ contract ProtectedDebtRepayment is ReentrancyGuard {
     error InvalidDebtReduction();
     event RepaymentCreated(bytes32 indexed planId, address indexed payer, address indexed borrower, uint256 nonce, uint256 maxRepay, uint256 minRepay, bytes32 authorizationHash);
     event RepaymentAccepted(bytes32 indexed planId, bytes32 indexed commitmentId, bytes32 commitmentAuthorizationHash);
-    event DebtRepaid(bytes32 indexed planId, bytes32 indexed commitmentId, address indexed borrower, uint256 actualRepaid, uint256 debtBefore, uint256 debtAfter, uint256 scaledDebtBefore, uint256 scaledDebtAfter, uint256 usdcRefund, uint256 wethRefund);
+    event DebtRepaid(bytes32 indexed planId, bytes32 indexed commitmentId, address indexed borrower, uint256 actualRepaid, uint256 debtBefore, uint256 debtAfter, uint256 scaledDebtBefore, uint256 scaledDebtAfter, uint256 debtIndex, uint256 usdcRefund, uint256 wethRefund);
     event RepaymentRefunded(bytes32 indexed planId, address indexed payer, uint256 amount);
 
     constructor(address settlement_, address pool_, address variableDebtToken_, uint256 chainId_) {
@@ -145,6 +147,8 @@ contract ProtectedDebtRepayment is ReentrancyGuard {
         uint256 proceeds = tokenOut.balanceOf(address(this)) - outputBefore;
         uint256 wethRefund = underlying.maxPremium - underlying.premiumPaid;
         if (proceeds < p.maxRepay || tokenIn.balanceOf(address(this)) != inputBefore + wethRefund) revert InexactTransfer();
+        uint256 debtIndex = pool.getReserveNormalizedVariableDebt(address(tokenOut));
+        if (debtIndex < RAY) revert InvalidDebtReduction();
         uint256 debtBefore = variableDebtToken.balanceOf(p.borrower);
         uint256 scaledBefore = variableDebtToken.scaledBalanceOf(p.borrower);
         uint256 amount = debtBefore < p.maxRepay ? debtBefore : p.maxRepay;
@@ -158,7 +162,11 @@ contract ProtectedDebtRepayment is ReentrancyGuard {
         if (repaid < p.minRepay || repaid > amount || debtAfter >= debtBefore || scaledAfter >= scaledBefore) revert InvalidDebtReduction();
         uint256 reduction = debtBefore - debtAfter;
         uint256 rounding = reduction > repaid ? reduction - repaid : repaid - reduction;
-        if (rounding > DEBT_ROUNDING_TOLERANCE) revert InvalidDebtReduction();
+        // Aave burns integer scaled units. Their underlying value grows with the
+        // index, so a fixed one-micro-USDC tolerance is not valid for every index.
+        uint256 scaledBurn = scaledBefore - scaledAfter;
+        if (scaledBurn < Math.mulDiv(repaid, RAY, debtIndex) || scaledBurn > Math.mulDiv(repaid, RAY, debtIndex, Math.Rounding.Ceil)
+            || rounding > Math.ceilDiv(debtIndex, RAY)) revert InvalidDebtReduction();
         if (tokenOut.balanceOf(address(this)) + repaid != outputBefore + proceeds || tokenOut.balanceOf(aToken) != reserveBefore + repaid) revert InexactTransfer();
         p.actualRepaid = repaid;
         p.debtBefore = debtBefore;
@@ -166,7 +174,7 @@ contract ProtectedDebtRepayment is ReentrancyGuard {
         _sendExact(tokenOut, p.payer, proceeds - repaid);
         _sendExact(tokenIn, p.payer, wethRefund);
         if (tokenOut.balanceOf(address(this)) != outputBefore || tokenIn.balanceOf(address(this)) != inputBefore) revert InexactTransfer();
-        emit DebtRepaid(id, p.commitmentId, p.borrower, repaid, debtBefore, debtAfter, scaledBefore, scaledAfter, proceeds - repaid, wethRefund);
+        emit DebtRepaid(id, p.commitmentId, p.borrower, repaid, debtBefore, debtAfter, scaledBefore, scaledAfter, debtIndex, proceeds - repaid, wethRefund);
     }
 
     function refundPlan(bytes32 id) external nonReentrant {

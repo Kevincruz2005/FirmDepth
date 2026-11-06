@@ -22,12 +22,15 @@ contract RepaymentTestDebt is ERC20 {
     address public immutable POOL;
     address public immutable UNDERLYING_ASSET_ADDRESS;
     bool public frozenScaled;
+    uint256 public index=1e27;
     constructor(address pool,address asset) ERC20("Unit variable debt","unitDebt") {POOL=pool;UNDERLYING_ASSET_ADDRESS=asset;}
     function decimals() public pure override returns(uint8){return 6;}
-    function mint(address user,uint256 amount) external {_mint(user,amount);}
-    function burn(address user,uint256 amount) external {require(msg.sender==POOL);_burn(user,amount);}
+    function mint(address user,uint256 amount) external {_mint(user,amount*1e27/index);}
+    function burn(address user,uint256 amount) external {require(msg.sender==POOL);_burn(user,amount*1e27/index);}
+    function setIndex(uint256 value) external {index=value;}
+    function balanceOf(address user) public view override returns(uint256){return (super.balanceOf(user)*index+1e27-1)/1e27;}
     function setFrozenScaled(bool value) external {frozenScaled=value;}
-    function scaledBalanceOf(address user) external view returns(uint256){return frozenScaled?1000e6:balanceOf(user);}
+    function scaledBalanceOf(address user) external view returns(uint256){return frozenScaled?1000e6:super.balanceOf(user);}
 }
 contract RepaymentTestPool {
     IERC20 public asset;
@@ -45,6 +48,7 @@ contract RepaymentTestPool {
     function getPoolDataProvider() external view returns(address){return address(this);}
     function getReserveTokensAddresses(address input) external view returns(address,address,address){return input==address(asset)&&!wrongReserve?(aToken,address(0),address(debt)):(address(0),address(0),address(0));}
     function getConfiguration(address) external view returns(uint256){return (uint256(6)<<48)|(uint256(1)<<56)|(paused?uint256(1)<<60:0);}
+    function getReserveNormalizedVariableDebt(address) external view returns(uint256){return debt.index();}
     function configure(uint8 m) external {mode=m;}
     function setPaused(bool value) external {paused=value;}
     function setWrongReserve(bool value) external {wrongReserve=value;}
@@ -144,6 +148,7 @@ contract ProtectedDebtRepaymentTest is Test {
     function testFalseRepaymentReturnRejected() public {(bytes32 id,bytes32 cid)=_accepted(1);pool.configure(5);vm.expectRevert(ProtectedDebtRepayment.InvalidDebtReduction.selector);_execute(id);_assertRollback(id,cid);}
     function testExcessDebtReductionBeyondRoundingRejected() public {(bytes32 id,bytes32 cid)=_accepted(1);pool.configure(7);vm.expectRevert(ProtectedDebtRepayment.InvalidDebtReduction.selector);_execute(id);_assertRollback(id,cid);}
     function testScaledDebtMustActuallyDecrease() public {(bytes32 id,bytes32 cid)=_accepted(1);debt.setFrozenScaled(true);vm.expectRevert(ProtectedDebtRepayment.InvalidDebtReduction.selector);_execute(id);_assertRollback(id,cid);}
+    function testIndexedRoundingVerifiesExactScaledBurn() public {debt.setIndex(3e27);(bytes32 id,)=_accepted(1);_execute(id);assertEq(debt.balanceOf(borrower),2500000002);assertEq(usdc.balanceOf(pool.aToken()),500e6);}
     function testRepaymentCallbackCannotReenter() public {(bytes32 id,bytes32 cid)=_accepted(1);pool.callback(address(repayment),abi.encodeCall(repayment.executePlan,(id,_order())));vm.expectRevert();_execute(id);_assertRollback(id,cid);}
     function testFundingCallbackCannotReenter() public {bytes32 id=_create(1,1);weth.setTransferFromCallback(address(repayment),abi.encodeCall(repayment.fundPlan,(id)));vm.expectRevert();vm.prank(payer);repayment.fundPlan(id);assertEq(settlement.totalEscrow(),0);assertEq(weth.balanceOf(payer),10 ether);}
     function testUnauthorizedFundAcceptExecuteAndRefundRejected() public {(bytes32 id,)=_accepted(1);vm.expectRevert(ProtectedDebtRepayment.Unauthorized.selector);repayment.fundPlan(id);FirmQuote memory q=_quote(2);vm.expectRevert(ProtectedDebtRepayment.Unauthorized.selector);repayment.acceptPlan(id,q,_order(),"");vm.expectRevert(ProtectedDebtRepayment.Unauthorized.selector);repayment.executePlan(id,_order());vm.expectRevert(ProtectedDebtRepayment.Unauthorized.selector);repayment.refundPlan(id);}

@@ -60,7 +60,11 @@ export async function getDebtRepaymentReceipt(client:PublicClient,address:Addres
  const e=event.args;
  if(e.commitmentId!==p.commitmentId||!same(e.borrower,p.borrower)||e.actualRepaid!==p.actualRepaid||e.debtBefore!==p.debtBefore||e.debtAfter!==p.debtAfter||e.actualRepaid<p.minRepay||e.actualRepaid>p.maxRepay||e.debtAfter>=e.debtBefore||e.scaledDebtAfter>=e.scaledDebtBefore)throw Error("Repayment debt evidence mismatch");
  const reduction=e.debtBefore-e.debtAfter;
- if((reduction>e.actualRepaid?reduction-e.actualRepaid:e.actualRepaid-reduction)>1n)throw Error("Debt reduction exceeds rounding tolerance");
+ if(e.debtIndex<10n**27n)throw Error("Invalid Aave debt index");
+ const scaledBurn=e.scaledDebtBefore-e.scaledDebtAfter;
+ const scaledFloor=e.actualRepaid*10n**27n/e.debtIndex;
+ const scaledCeil=(e.actualRepaid*10n**27n+e.debtIndex-1n)/e.debtIndex;
+ if(scaledBurn<scaledFloor||scaledBurn>scaledCeil||(reduction>e.actualRepaid?reduction-e.actualRepaid:e.actualRepaid-reduction)>(e.debtIndex+10n**27n-1n)/10n**27n)throw Error("Debt reduction does not match the normalized Aave index");
  const pool=await client.readContract({address,abi:debtRepaymentAbi,functionName:"pool"});
  const asset=await client.readContract({address,abi:debtRepaymentAbi,functionName:"tokenOut"});
  const input=await client.readContract({address,abi:debtRepaymentAbi,functionName:"tokenIn"});
@@ -79,5 +83,5 @@ export async function getDebtRepaymentReceipt(client:PublicClient,address:Addres
  if(wethOutgoing.length!==(e.wethRefund>0n?1:0)||(e.wethRefund>0n&&(!same(wethOutgoing[0]!.to,p.payer)||wethOutgoing[0]!.value!==e.wethRefund)))throw Error("Premium budget refund transfer mismatch");
  const approval=await client.readContract({address:asset,abi:erc20Abi,functionName:"allowance",args:[address,pool],blockNumber:receipt.blockNumber});
  if(approval!==0n)throw Error("Repayment Pool allowance was not cleared");
- return {planId:id,commitmentId:p.commitmentId,transactionHash:hash,blockNumber:receipt.blockNumber,payer:p.payer,borrower:p.borrower,path:core.status===2?"AQUA"as const:"BOND"as const,actualRepaid:e.actualRepaid,debtBefore:e.debtBefore,debtAfter:e.debtAfter,scaledDebtBefore:e.scaledDebtBefore,scaledDebtAfter:e.scaledDebtAfter,usdcRefund:e.usdcRefund,wethRefund:e.wethRefund,proceeds:core.proceeds};
+ return {planId:id,commitmentId:p.commitmentId,transactionHash:hash,blockNumber:receipt.blockNumber,payer:p.payer,borrower:p.borrower,path:core.status===2?"AQUA"as const:"BOND"as const,actualRepaid:e.actualRepaid,debtBefore:e.debtBefore,debtAfter:e.debtAfter,scaledDebtBefore:e.scaledDebtBefore,scaledDebtAfter:e.scaledDebtAfter,debtIndex:e.debtIndex,usdcRefund:e.usdcRefund,wethRefund:e.wethRefund,proceeds:core.proceeds};
 }
