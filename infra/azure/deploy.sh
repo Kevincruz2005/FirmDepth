@@ -39,8 +39,17 @@ for name, variable in [("maker-private-key", "MAKER_PRIVATE_KEY"), ("sepolia-rpc
     with os.fdopen(fd, "w") as output:
         output.write(os.environ[variable])
 PYSECRETS
-az keyvault secret set --vault-name "$AZURE_KEY_VAULT" --name maker-private-key --file "$SECRET_DIRECTORY/maker-private-key" --encoding utf-8 --output none
-az keyvault secret set --vault-name "$AZURE_KEY_VAULT" --name sepolia-rpc-url --file "$SECRET_DIRECTORY/sepolia-rpc-url" --encoding utf-8 --output none
+store_secret() {
+  local name="$1"
+  for attempt in $(seq 1 12); do
+    if az keyvault secret set --vault-name "$AZURE_KEY_VAULT" --name "$name" --file "$SECRET_DIRECTORY/$name" --encoding utf-8 --output none 2>"$SECRET_DIRECTORY/upload-error"; then return; fi
+    if [[ "$attempt" == 12 ]]; then cat "$SECRET_DIRECTORY/upload-error" >&2; return 1; fi
+    echo "Waiting for Key Vault role propagation ($attempt/12)" >&2
+    sleep 5
+  done
+}
+store_secret maker-private-key
+store_secret sepolia-rpc-url
 
 az extension add --name application-insights --upgrade --only-show-errors
 az monitor app-insights component create --app "$AZURE_APP_NAME" --location "$AZURE_LOCATION" --resource-group "$AZURE_RESOURCE_GROUP" --application-type web --output none
@@ -49,6 +58,9 @@ VAULT_URI="$(az keyvault show --name "$AZURE_KEY_VAULT" --query properties.vault
 MANIFEST_REVISION="$(node -p "JSON.parse(require('fs').readFileSync('$REPO_ROOT/deployments/sepolia.json','utf8')).manifestRevision")"
 az webapp config appsettings set --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --settings \
   NODE_ENV=production \
+  WEBSITES_CONTAINER_START_TIME_LIMIT=600 \
+  NODE_OPTIONS=--dns-result-order=ipv4first \
+  WEBSITE_DISABLE_MSI="${AZURE_DISABLE_LOCAL_MSI:-false}" \
   PUBLIC_BROWSER_RPC_URL="$PUBLIC_BROWSER_RPC_URL" \
   PUBLIC_API_URL="$PUBLIC_API_URL" \
   CORS_ORIGINS="$CORS_ORIGINS" \
@@ -59,7 +71,8 @@ az webapp config appsettings set --name "$AZURE_APP_NAME" --resource-group "$AZU
   SEPOLIA_RPC_URL="@Microsoft.KeyVault(SecretUri=${VAULT_URI}secrets/sepolia-rpc-url/)" \
   APPLICATIONINSIGHTS_CONNECTION_STRING="$APPINSIGHTS_CONNECTION" \
   --output none
-az webapp config set --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --startup-file "cd /home/site/wwwroot/packages/quote-service && node dist/server.js" --always-on true --output none
 
-az webapp deploy --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --src-path "$PACKAGE_PATH" --type zip --clean true --restart true --output none
+az webapp config appsettings delete --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --setting-names WEBSITE_RUN_FROM_PACKAGE WEBSITE_USE_ZIP WEBSITE_RUN_FROM_ZIP WEBSITE_WARMUP_PATH WEBSITE_WARMUP_STATUSES --output none
+az webapp deploy --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --src-path "$PACKAGE_PATH" --type zip --clean true --restart true --enable-kudu-warmup false --output none
+az webapp config set --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --startup-file "cd /home/site/wwwroot/packages/quote-service && node dist/server.js" --always-on true --output none
 echo "Quote service deployed to $PUBLIC_API_URL"

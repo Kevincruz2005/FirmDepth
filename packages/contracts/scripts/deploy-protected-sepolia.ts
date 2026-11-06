@@ -17,7 +17,7 @@ if(await ethers.provider.getBalance(await deployer.getAddress())===0n)throw Erro
 const output="../../deployments/protected-sepolia.json";
 try{
  const existing=JSON.parse(await readFile(output,"utf8"));
- await authenticateSettlement(client,existing.address,manifest.addresses);
+ await verifyWrapper(existing.address);
  console.log("Existing compatible wrapper verified:",existing.address);
  process.exit(0);
 }catch(error){
@@ -28,6 +28,13 @@ await wrapper.waitForDeployment();
 const receipt=await wrapper.deploymentTransaction()!.wait();
 if(!receipt||receipt.status!==1)throw Error("Wrapper deployment failed");
 const address=await wrapper.getAddress();
-await authenticateSettlement(client,address,manifest.addresses);
 await writeFile(output,JSON.stringify({schemaVersion:"1",chainId:11155111,environment:"public-sepolia",address,registry:manifest.addresses.registry,executor:manifest.addresses.executor,deployer:await deployer.getAddress(),transactionHash:receipt.hash,blockNumber:receipt.blockNumber,createdAt:new Date().toISOString()},null,2)+"\n");
+await verifyWrapper(address);
 console.log("Deployed and verified public Sepolia wrapper:",address,"transaction:",receipt.hash);
+
+async function verifyWrapper(address: `0x${string}`) {
+    for (let attempt = 0; attempt < 6; attempt++) {
+        try { await authenticateSettlement(client, address, manifest.addresses); return; }
+        catch (error) { if (attempt === 5) throw error; await new Promise(resolve => setTimeout(resolve, 3000)); }
+    }
+}

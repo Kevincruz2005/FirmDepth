@@ -1,0 +1,12 @@
+import {createRequire} from 'node:module';
+import {mkdir,copyFile,writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+const require=createRequire(new URL('../../packages/quote-service/package.json',import.meta.url));
+const {build}=require('esbuild');
+const target=resolve(process.argv[2]);
+await mkdir(resolve(target,'packages/quote-service/dist'),{recursive:true});
+await mkdir(resolve(target,'deployments'),{recursive:true});
+await build({entryPoints:[new URL('../../packages/quote-service/dist/server.js',import.meta.url).pathname],outfile:resolve(target,'packages/quote-service/dist/server.js'),bundle:true,platform:'node',format:'esm',target:'node22',sourcemap:false,minify:false,banner:{js:"import { createRequire as __bundleCreateRequire } from 'node:module'; const require = __bundleCreateRequire(import.meta.url);"}});
+await writeFile(resolve(target,'packages/quote-service/package.json'),JSON.stringify({name:'firmdepth-quote-service-deployment',private:true,type:'module',engines:{node:'>=22'}}));
+await copyFile(new URL('../../deployments/sepolia.json',import.meta.url),resolve(target,'deployments/sepolia.json'));
+console.log('Bundled server and public manifest prepared');

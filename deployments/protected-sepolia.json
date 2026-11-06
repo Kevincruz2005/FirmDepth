@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1",
+  "chainId": 11155111,
+  "environment": "public-sepolia",
+  "address": "0x4c7296156a385a6487aD7FF38C328EdCf6584c79",
+  "registry": "0xdC23826bDf63a6EA8FB987425b3caACCA8666a3b",
+  "executor": "0x2F699176336026101D87FF59e7179038Bb6820A9",
+  "deployer": "0xd93cf267f2e92340f0c314cad15821c3190929c6",
+  "transactionHash": "0x10a7add559e065ca92608d95387b8b01cb28e61572d3a0ce18bc9825d1017fca",
+  "blockNumber": 12077593,
+  "createdAt": "2026-11-06T15:58:57.412Z",
+  "verifiedPayout": {
+    "planId": "0x4bb0e5f177d366d55b7a41a272c5adee4adb03a00b928c269ff08dd31d1f0b93",
+    "commitmentId": "0x0d3b7ce2ac8ea290bcc1dd96d4e593b0af7a139136fd46d23526a019e342a0b3",
+    "acceptance": "0x77843974b9c2a2d352291cebc900442aedf7aa952ddedbb342b442a5feb08c07",
+    "execution": "0x93ae0e0778bdc5d87162867eb4de31ba9dec65fa7306c49cf6d206dd2ba6d3f3",
+    "path": "AQUA",
+    "payouts": [
+      {
+        "recipient": "0xD93CF267F2E92340f0c314cad15821c3190929c6",
+        "amount": "1500000"
+      },
+      {
+        "recipient": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
+        "amount": "1000000"
+      }
+    ],
+    "proceeds": "2500000",
+    "verifiedAt": "2026-11-06T16:03:08.470Z"
+  }
+}
