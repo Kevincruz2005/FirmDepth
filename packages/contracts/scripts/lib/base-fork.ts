@@ -93,7 +93,10 @@ export async function fundFromImpersonatedHolder(
   amount: bigint,
   blockNumber: number,
 ): Promise<{ holder: string; transactionHash: string }> {
-  const candidates = await findFundedTokenHolders(provider, token, amount, blockNumber);
+  const preferred = process.env.FIRMDEPTH_FORK_HOLDER;
+  const candidates = preferred
+    ? [{ address: ethers.getAddress(preferred), balance: BigInt(await token.balanceOf(preferred)) }]
+    : await findFundedTokenHolders(provider, token, amount, blockNumber);
   for (const candidate of candidates) {
     await provider.send("hardhat_impersonateAccount", [candidate.address]);
     await provider.send("hardhat_setBalance", [candidate.address, ethers.toQuantity(ethers.parseEther("2"))]);

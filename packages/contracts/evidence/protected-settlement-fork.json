@@ -1,0 +1,81 @@
+{
+  "provenance": "LOCAL BASE FORK — NOT PUBLIC TESTNET",
+  "chainId": 8453,
+  "forkBlock": 51123118,
+  "recordedAt": "2026-11-06T15:21:32.489Z",
+  "addresses": {
+    "aqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
+    "weth": "0x4200000000000000000000000000000000000006",
+    "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "bondVault": "0x7B723480b5cdEFF54DF13d34D2793469d143d3D2",
+    "registry": "0x8e4bdBaE3b51641bDE53660430677d3B15e8d85b",
+    "firmRouter": "0x21B76a2c03032e0Ab0cCA0e5b285e951Fdc0bf95",
+    "executor": "0x646690af0573E371f57c78e808a586fFbD41faFe",
+    "protectedSettlement": "0x194c41a44DC0f11d13a6855c18B153123E1277E7"
+  },
+  "scenarios": [
+    {
+      "planId": "0xdefd313c5d85f38a2225cda4c4e6a63401ab4ae399dbe988c520cfc6cc048319",
+      "commitmentId": "0xbf51eeb31db6d0cc816781c3c9c04adb26f2bb09d2ddf8c71c6efc067c24364b",
+      "path": "AQUA",
+      "create": "0x7b5ab0db00e2b30fc12dbf0b8b12e18c3b78ca9e227dde94795dd19e81aa8548",
+      "fund": "0x721706a93e8dd3be208c4c8ae00d84ed60063cf5f5671f3b61a4d3fd5006cb8b",
+      "accept": "0x552df77eab49bcd5dfdcae4b75730c321ef942c19583e06eb02d43506f35e16b",
+      "execute": "0x7390e817752784e06de1d8dc5d988addb1b9d071c32739dc2ad392a945810017",
+      "block": 51123216,
+      "payouts": [
+        {
+          "recipient": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+          "amount": "120000000",
+          "before": "240000000",
+          "after": "360000000"
+        },
+        {
+          "recipient": "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
+          "amount": "80000000",
+          "before": "160000000",
+          "after": "240000000"
+        }
+      ]
+    },
+    {
+      "planId": "0xb0cc60dfb5c28f37ce14ae792a32a141fb66d1f037750312cf039da4162bb32f",
+      "commitmentId": "0xf3cae6a55100e2ea81df6a2f8136e12b9958952c4d81cc190e493131d0279ddd",
+      "path": "BOND",
+      "create": "0x928f64adafa7ee6b53e0e47fee83c12e776b004ac3cae2e47e299cc3304ce593",
+      "fund": "0x5babe94b3c3286df551614354e363b4f55c66ef6af8bbc60e322d3b5cf4dd21e",
+      "accept": "0x416f40991f5bcae3d2767fc1806b2a8576a3ab54855e49ecce85d4adde8f91dc",
+      "execute": "0xceba953504e9ee74cc1fcebba34ef9158f00c00844da42d5109b804f0cfac4d9",
+      "block": 51123223,
+      "payouts": [
+        {
+          "recipient": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+          "amount": "120000000",
+          "before": "360000000",
+          "after": "480000000"
+        },
+        {
+          "recipient": "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
+          "amount": "80000000",
+          "before": "240000000",
+          "after": "320000000"
+        }
+      ]
+    }
+  ],
+  "safeFailure": {
+    "transactionHash": "0x7812a2e106bc779a3f8a1b9a1f99a83fadb6a558e0cc18513248752c74cda080",
+    "status": 0,
+    "faultInjection": "Local fork executor bytecode temporarily replaced with REVERT and restored",
+    "lockedBond": "240000000",
+    "principalPreserved": "101931938000000000"
+  },
+  "siblingDrain": {
+    "hash": "0x3c2162a4fe0390319890ab759c9f1fea308072ad4d8f952a3313c5b5d164ba34",
+    "makerBalance": "100000000"
+  },
+  "final": {
+    "vaultBalance": "800000000",
+    "vaultLiabilities": "800000000"
+  }
+}

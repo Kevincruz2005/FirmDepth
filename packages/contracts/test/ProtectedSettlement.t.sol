@@ -23,13 +23,23 @@ import { ProtectedSettlement } from "../contracts/ProtectedSettlement.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract PayoutToken is ERC20 {
     address public blocked;
+    uint8 public mode;
+    address public maliciousTarget;
+    bytes public maliciousCall;
+    function configure(uint8 m, address target, bytes calldata data) external { mode=m; maliciousTarget=target; maliciousCall=data; }
     constructor(string memory n, string memory s, uint8) ERC20(n,s) {}
     function mint(address to, uint256 n) external { _mint(to,n); }
     function decimals() public pure override returns (uint8) { return 6; }
     function blockRecipient(address r) external { blocked = r; }
     function transfer(address to, uint256 value) public override returns (bool) {
         require(to != blocked, "recipient blocked");
-        return super.transfer(to, value);
+        if (mode==1) return false;
+        if (mode==2) return true;
+        if (mode==3) { super.transfer(to,value-1); return true; }
+        if (mode==4 && to==address(0x111)) { (bool success,)=maliciousTarget.call(maliciousCall); require(success,"callback failed"); }
+        bool ok=super.transfer(to,value);
+        if(mode==5) { assembly ("memory-safe") { return(0,0) } }
+        return ok;
     }
 }
 contract ProtectedSettlementTest is Test {
@@ -204,6 +214,60 @@ contract ProtectedSettlementTest is Test {
         weth.setTransferFromCallback(address(settlement),abi.encodeCall(settlement.fundPlan,(id)));
         vm.expectRevert(); vm.prank(trader); settlement.fundPlan(id);
         assertEq(settlement.totalEscrow(),0);
+    }
+    function testQuoteMustNameContractTaker() public {
+        bytes32 id=_plan(1); FirmQuote memory q=_quote(1); bytes memory signature=_sign(q);
+        vm.expectRevert(ProtectedSettlement.InvalidQuote.selector); vm.prank(trader); settlement.acceptPlan(id,q,_order(),signature);
+    }
+    function testPremiumCapAndOutputFloor() public {
+        bytes32 id=_plan(1); FirmQuote memory q=_quote(1); q.taker=address(settlement); q.premiumAmount=PREMIUM*3;
+        bytes memory signature=_sign(q);
+        vm.expectRevert(ProtectedSettlement.InvalidQuote.selector); vm.prank(trader); settlement.acceptPlan(id,q,_order(),signature);
+        q.premiumAmount=PREMIUM; q.minAmountOut=MIN_OUT-1; signature=_sign(q);
+        vm.expectRevert(ProtectedSettlement.InvalidQuote.selector); vm.prank(trader); settlement.acceptPlan(id,q,_order(),signature);
+    }
+    function testCannotFundTwice() public {
+        bytes32 id=_plan(1); vm.expectRevert(ProtectedSettlement.InvalidState.selector); vm.prank(trader); settlement.fundPlan(id);
+    }
+    function testRefundRejectsNoOpInputToken() public {
+        bytes32 id=_plan(1); weth.setTransferSkips(true);
+        vm.expectRevert(ProtectedSettlement.InexactTransfer.selector); vm.prank(trader); settlement.refundPlan(id);
+        assertEq(settlement.getPlan(id).escrow,AMOUNT_IN+2*PREMIUM);
+    }
+    function testExactExpiryExecutionAllowed() public {
+        (bytes32 id,bytes32 cid)=_accepted(1); vm.warp(registry.getCommitment(cid).quote.expiry); _execute(id);
+        _assertPaid(id,cid,CommitmentStatus.FILLED_AQUA);
+    }
+    function testMaliciousOutputTokensRollback() public {
+        (bytes32 id,bytes32 cid)=_accepted(1);
+        for(uint8 mode=1;mode<=4;mode++) {
+            usdc.configure(mode,address(settlement),abi.encodeCall(settlement.executePlan,(id,_order())));
+            vm.expectRevert(); _execute(id);
+            assertEq(usdc.balanceOf(alice),0);
+            assertEq(usdc.balanceOf(bob),0);
+            assertEq(uint8(registry.getCommitment(cid).status),uint8(CommitmentStatus.ACCEPTED));
+            assertEq(vault.totalLocked(),MIN_OUT);
+        }
+    }
+    function testNoReturnOutputTokenPaysExactly() public {
+        (bytes32 id,bytes32 cid)=_accepted(1); usdc.configure(5,address(0),"");
+        _execute(id); _assertPaid(id,cid,CommitmentStatus.FILLED_AQUA);
+    }
+    function testSurplusReturnsToPayer() public {
+        ProtectedSettlement.Payout[] memory payouts=new ProtectedSettlement.Payout[](1);
+        payouts[0]=ProtectedSettlement.Payout(alice,500e6);
+        vm.prank(trader); bytes32 id=settlement.createPlan(1,AMOUNT_IN,PREMIUM*2,uint64(block.timestamp+120),payouts);
+        vm.prank(trader); settlement.fundPlan(id);
+        FirmQuote memory q=_quote(1);q.taker=address(settlement);bytes memory signature=_sign(q);
+        vm.prank(trader); settlement.acceptPlan(id,q,_order(),signature);_execute(id);
+        assertEq(usdc.balanceOf(trader),225e6);assertEq(usdc.balanceOf(alice),500e6);
+    }
+    function testDuplicateRecipientAndPlanRejected() public {
+        ProtectedSettlement.Payout[] memory payouts=new ProtectedSettlement.Payout[](2);
+        payouts[0]=ProtectedSettlement.Payout(alice,1);payouts[1]=ProtectedSettlement.Payout(alice,2);
+        vm.expectRevert(ProtectedSettlement.InvalidPlan.selector);vm.prank(trader);settlement.createPlan(1,1,0,uint64(block.timestamp+100),payouts);
+        _plan(1);payouts[1].recipient=bob;
+        vm.expectRevert(ProtectedSettlement.InvalidPlan.selector);vm.prank(trader);settlement.createPlan(1,1,0,uint64(block.timestamp+100),payouts);
     }
     function _quote(uint256 nonce) private view returns (FirmQuote memory) {
         return _quoteForOrder(nonce, _order());

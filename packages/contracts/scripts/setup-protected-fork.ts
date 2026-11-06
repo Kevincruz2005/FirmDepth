@@ -1,0 +1,11 @@
+import "./setup-frontend-fork.ts";
+import {readFile,writeFile} from "node:fs/promises";
+import {network} from "hardhat";
+const {ethers}=await network.create();
+const path="../frontend/.runtime/firmdepth.json";
+const artifact=JSON.parse(await readFile(path,"utf8"));
+const wrapper=await ethers.deployContract("ProtectedSettlement",[artifact.addresses.registry,artifact.addresses.executor]);
+await wrapper.waitForDeployment();
+artifact.settlement={address:await wrapper.getAddress(),quoteUrl:"/runtime/settlement-quote",deploymentTransactionHash:wrapper.deploymentTransaction()!.hash};
+await writeFile(path,JSON.stringify(artifact,null,2)+"\n");
+console.log("ProtectedSettlement",artifact.settlement.address);

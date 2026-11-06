@@ -273,3 +273,11 @@ Powered by Aqua — © Degensoft Ltd 2025<br>
 Powered by SwapVM — © Degensoft Ltd 2025
 
 FirmDepth's SwapVM-linked contracts and instructions use `LicenseRef-Degensoft-SwapVM-1.1`; the unmodified Aqua deployment wrapper uses `LicenseRef-Degensoft-Aqua-Source-1.1`. Full license texts are in [`LICENSES/`](LICENSES/).
+
+## Mumbai 2026: Protected Settlement
+
+Protected Settlement extends pre-existing FirmDepth commitments into atomic treasury payouts. The payer funds an immutable plan; the settlement contract becomes the signed taker. Both Aqua execution and covered bond fallback can fund exact recipient allocations. A failed payout reverts the entire settlement. Expiry returns unspent WETH to the payer while preserving v1 premium economics.
+
+See [architecture, assumptions and reproducible demonstration](docs/protected-settlement.md). Run `./scripts/demo_protected_settlement.sh` for the local Base-fork gates. The `/settlement` interface requires a generated settlement-enabled runtime. Existing public Sepolia deployment records are unchanged.
+
+The Mumbai baseline is `89c4a7910f054042872927a29e162538f6fa7b65`. The new wrapper, settlement SDK/service integration, payout UI and transaction demonstrations are continuity additions. Aqua/SwapVM and FirmDepth's original collateral guarantees predate Mumbai.
