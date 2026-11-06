@@ -17,7 +17,8 @@
     "./readers": "./dist/readers.js",
     "./requests": "./dist/requests.js",
     "./receipt": "./dist/receipt.js",
-    "./types": "./dist/types.js"
+    "./types": "./dist/types.js",
+    "./settlement": "./dist/settlement.js"
   },
   "types": "./dist/index.d.ts",
   "scripts": {

@@ -10,6 +10,7 @@ export interface AppDependencies {
   corsOrigins: ReadonlySet<string>;
   production: boolean;
   health(): Promise<Record<string, unknown>>;
+  settlementQuote?(request: unknown): Promise<FirmQuoteEnvelope>;
   quote(request: FirmQuoteRequestBody): Promise<FirmQuoteEnvelope>;
   log(event: Record<string, unknown>): void;
 }
@@ -40,6 +41,10 @@ export function createHandler(dependencies: AppDependencies) {
       const path = new URL(request.url ?? "/", "http://localhost").pathname;
       if (path === "/health" && request.method === "GET") return json(response, status = 200, { ...(await dependencies.health()), requestId });
       if (path === "/runtime" && request.method === "GET") return json(response, status = 200, dependencies.runtime);
+      if (path === "/quote/settlement" && dependencies.settlementQuote) {
+        if (request.method !== "POST") return json(response, status = 405, { error: "Method not allowed", requestId });
+        return json(response, status = 200, await dependencies.settlementQuote(JSON.parse(await readBody(request))));
+      }
       if (path === "/quote/firm") {
         if (request.method !== "POST") {
           response.setHeader("allow", "POST");
