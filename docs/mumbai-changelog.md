@@ -29,3 +29,13 @@ Repayment starts from the completed Protected Settlement baseline `2d823188e981e
 The new action uses Aave's existing repayment operation. FirmDepth supplies the pre-existing collateral-backed swap commitment, Protected Settlement supplies its pre-existing escrow and atomic payout lifecycle, and this addition binds and verifies a downstream repayment. See [architecture, limitations and reproduction](protected-debt-repayment.md).
 
 Final clean-fork verification passed 121 Solidity, 39 SDK, 12 quote-service, 33 frontend unit, 8 benchmark and 33 browser tests (25 original, 3 payouts, 5 repayment). The retained node contains verified Aqua and covered-bond repayments of 200 USDC each, a full close of the smaller remaining debt with 99.999923 USDC returned, expiry recovery and an actual reverted Pool repayment with atomic rollback. The deployment manifest records a separate fresh interactive 600-USDC position. Frontend builds pass; lint reports zero errors and one pre-existing payout effect warning. No private environment credentials or generated build/test output are included.
+
+## Separate Azure fork hosting
+
+- `755d222`: Added the isolated hosted-fork application, restricted RPC, operator authentication, immutable-plan quote integration, hosted labels and actual browser coverage. Frontend unit coverage increased to 35 cases; six gateway policy tests pass.
+- `d93e857`: Staged the package in private Azure Blob Storage for asynchronous Azure-to-Azure deployment, avoiding stalled client uploads.
+- `acb8565`: Preserved empty runtime evidence directories and added independent checks for actual Aave borrow transactions and a stable fork generation during receipt verification.
+
+The dedicated Azure site passed all three hosted browser scenarios and independently verified real Aave repayment through Aqua and covered bond, surplus, expiry and rollback. Azure evidence is recorded separately from local and Sepolia evidence. The original public Sepolia site/API remained healthy and unchanged.
+
+Documentation was reorganized into a shorter project README, a step-by-step local application walkthrough and a separate core architecture guide. Full hosting details and limitations are in [the Azure fork runbook](azure-debt-demo.md).

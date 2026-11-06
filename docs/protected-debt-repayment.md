@@ -77,6 +77,8 @@ Only the original repayment payer can fund, accept, execute or refund. The borro
 
 Repayment runs inside the same transaction as wrapper execution. A Pool revert, reserve mismatch, unexpected token behavior, incorrect debt reduction, repayment below the minimum, or later refund failure reverts the swap, downstream transfers, Aave debt changes, premium finalization and bond release. An unrelated Aave failure cannot select or consume FirmDepth's bond path.
 
+Rollback preserves scaled debt storage. The nominal interest-bearing balance can still increase as block time advances, including in a block containing a failed transaction; that interest is not a repayment or a partial settlement.
+
 Before acceptance, the payer can cancel and recover all funded WETH. After the signed commitment expires, the payer can recover unspent principal and unused premium budget. Accepted premium remains payable to the maker, exactly as in v1. Direct v1 expiry finalization remains supported. The refund path does not call Aave; reserve pause or configuration changes cannot prevent it. UI identity checks are deliberately separate from live Aave availability for this reason.
 
 The Pool and token proxies remain governed by their protocols. Reserve pause, token freezes, governance upgrades, changing debt, inadequate inventory at acceptance and signed deadlines can prevent execution. These dependencies are not covered by an unconditional repayment or liquidation-prevention promise. Only exact-transfer canonical WETH/USDC semantics are supported.
@@ -139,10 +141,12 @@ The clean-fork run passed these gates without changing or weakening existing tes
 | Solidity: original FirmDepth, Protected Settlement and repayment | 121 |
 | SDK | 39 |
 | Quote service | 12 |
-| Frontend unit tests | 33 |
+| Frontend unit tests | 35 |
 | Benchmark regressions | 8 |
 | Original browser regressions | 25 |
 | Existing payout browser scenarios | 3 |
 | Real Aave browser scenarios | 5 |
+| Hosted gateway security policy | 6 |
+| Azure-hosted browser scenarios | 3 |
 
 SDK, quote-service and frontend builds pass. Frontend lint has zero errors and one existing payout-effect dependency warning. Public Sepolia/Azure browser suites are separately gated and are not counted as local Aave evidence. Unit repayment tests deliberately use adversarial mocks; the fork demonstration and browser repayment scenarios use actual Aave and ERC-20 contracts.

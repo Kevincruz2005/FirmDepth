@@ -75,3 +75,19 @@ The fork chain is volatile. A process restart creates a new generation, redeploy
 This is a shared controlled demonstration, not a public production chain or a liquidation guarantee. Aave availability, token restrictions and changing debt can prevent execution. The fixed 2,000-USDC/WETH fixture quote is labelled test pricing. Transactions on this fork do not appear on public Base explorers. Base mainnet also uses chain 8453: the repayment UI checks adapter bytecode and a reference block hash before submitting.
 
 The dedicated B1 plan incurs charges while allocated. Deleting `firmdepth-debt-demo-rg` removes this isolated demonstration and its plan; it does not remove `firmdepth-mumbai-rg` or the public Sepolia deployment.
+
+## Verified deployment
+
+Application: **https://firmdepth-debt-3207de.azurewebsites.net/settlement**. Choose **Debt Repayment**. Its HTTPS RPC is `https://firmdepth-debt-3207de.azurewebsites.net/rpc`, chain 8453. The connected environment is an Azure-hosted fork, not public Base mainnet or Sepolia.
+
+Three browser checks passed against that deployed site: restricted public access, an actual 200-USDC Aqua repayment, and an actual 200-USDC covered-bond repayment following a sibling drain. The final proof separately verified a smaller remaining-debt close, 99.999952 USDC surplus, expiry, a mined refund failure reaching the Pool, rollback and successful retry. An unauthenticated visitor smoke check also verified the current adapter, real 600.000002-USDC debt display, evidence links and mobile layout.
+
+| Proof | Azure fork execution |
+|---|---|
+| Aqua repayment: 200 USDC | `0x0f34b7bf482fe4b60576fc6692a3c933f534ff50628f6b3f60fc68887455e0a0` |
+| Bond repayment: 200 USDC | `0x1215ec343d28d3d798f486b7a6f8ad5e25a95cac4fa0d24a634c7a8361f039ee` |
+| Reverted downstream refund | `0x09db62f03e5f56b7bc5262232dd56f77b967290de6ba6d14a641879aee31e63b` |
+
+Full balances, receipts, generation and proof/interactive addresses are in the [Azure manifest](../deployments/azure-protected-debt.json) and [transaction evidence](../packages/contracts/evidence/protected-debt-azure-fork.json). Those local-to-Azure hashes require the corresponding hosted fork; no public explorer confirmation is claimed.
+
+The initial archive omitted empty runtime output directories. All transaction scenarios completed, but saving their evidence failed. The directories were prepared through authenticated Kudu VFS, then the entire proof was rerun and independently verified before publication. The archive builder now explicitly preserves both `packages/contracts/evidence/` and `deployments/`; an extraction check confirms their presence while excluding private state and old receipt files. No contract or settlement guarantee was changed to resolve the hosting issue.

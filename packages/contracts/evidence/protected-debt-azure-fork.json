@@ -1,0 +1,230 @@
+{
+  "environment": "AZURE HOSTED BASE FORK — REAL AAVE CONTRACTS, NOT PUBLIC MAINNET OR SEPOLIA",
+  "chainId": 8453,
+  "forkBlock": 51123118,
+  "baseline": "2d823188e981ea44f97dd6421fe2c1638ea8d027",
+  "recordedAt": "2026-11-06T21:48:05.993Z",
+  "deployment": {
+    "adapterTransactionHash": "0x212f386ced820bd118f2f193b945be3d2aeccba0e50bfcceb02b24124ffe9e0d",
+    "adapterBlock": 51123268,
+    "settlementTransactionHash": "0x9f8de02162727e871f4c72268a9f13a8a2c61025f3e68cdb5a017e09089850d7",
+    "coreDeploymentBlock": 51123260
+  },
+  "addresses": {
+    "aqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
+    "weth": "0x4200000000000000000000000000000000000006",
+    "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "bondVault": "0xCf11dB6dA2416f94432c41953e982Bb8E46473bf",
+    "registry": "0x194c41a44DC0f11d13a6855c18B153123E1277E7",
+    "firmRouter": "0x5C7Eb41B8e042909815d7dEC7594977acB883d6E",
+    "executor": "0x278F1B61608508F339Cd818a112f414b10Bd9aA7",
+    "settlement": "0xD8fB7F6706dE0897831231389d3bB28C69CC4235",
+    "repayment": "0x742D02ED041Cf694Da8dEf6Fc5F6246b00114268",
+    "pool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "variableDebtToken": "0x59dca05b6c26dbd64b5381374aAaC5CD05644C28",
+    "aToken": "0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB"
+  },
+  "borrower": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  "supplyTransaction": "0xc6bd865c1d044ddc7e21121b99ffe3fd8719549f0e07b2295bf2bd8aed40576b",
+  "borrowTransaction": "0x29e0916dbb5bfd9b24900f5966ac1f7a9f21efc8d7459753e8f5ed4851584099",
+  "initialDebt": "600000001",
+  "scenarios": [
+    {
+      "label": "Aqua-backed variable debt repayment",
+      "id": "0x76d0b03d53f896f6fa62c6e705b1e592e05dd3eece724cc87483d92eee3b9db4",
+      "commitmentId": "0xca534863c509473a5fea0f1112a3ff63f34da073e1866c0516332615c3022527",
+      "create": "0xc82fef89ff6f7c6123715c972a2f5ad2dffa10e2ec139012e41d3633079a5744",
+      "fund": "0x2639d7f603fb3bd7eb5dee6cb2b3bb5a08582c1314ed10b4b4739dc8aaaaf433",
+      "accept": "0x646644eb59268a944b595adc44fae37ca03a84257dda7a9ee623fc4f04ee2c29",
+      "execute": "0x0f34b7bf482fe4b60576fc6692a3c933f534ff50628f6b3f60fc68887455e0a0",
+      "block": 51123273,
+      "planId": "0x76d0b03d53f896f6fa62c6e705b1e592e05dd3eece724cc87483d92eee3b9db4",
+      "transactionHash": "0x0f34b7bf482fe4b60576fc6692a3c933f534ff50628f6b3f60fc68887455e0a0",
+      "blockNumber": "51123273",
+      "payer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "borrower": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "path": "AQUA",
+      "actualRepaid": "200000000",
+      "debtBefore": "600000028",
+      "debtAfter": "400000028",
+      "scaledDebtBefore": "499139027",
+      "scaledDebtAfter": "332759359",
+      "debtIndex": "1202069954064428273931248911",
+      "usdcRefund": "0",
+      "wethRefund": "1931938000000000",
+      "proceeds": "200000000",
+      "before": {
+        "debt": "600000025",
+        "scaledDebt": "499139027",
+        "payerUsdc": "1404999732",
+        "aTokenUsdc": "20557245833271"
+      },
+      "after": {
+        "debt": "400000028",
+        "scaledDebt": "332759359",
+        "payerUsdc": "1404999732",
+        "aTokenUsdc": "20557445833271"
+      }
+    },
+    {
+      "label": "Bond-backed repayment after real sibling Aqua drain",
+      "id": "0x44addcc6ca738bf02083f254a75ff8f4791efde414339a4be2523bcd31f48966",
+      "commitmentId": "0x70d54078fb3af6571076abe5b04f52b614dbc46421717cf37bbc40ea56a720d6",
+      "create": "0xf1654ac0af433fa1ab3b147f8a9a0459f4a95ae080da6ab129b4058262b7cc96",
+      "fund": "0x384798fcf5c984b129c1fa3b767ad8d1b969c30264b063e9e4b60233eb4b5123",
+      "accept": "0xd54815527d3715ac8263e3a67c7d00c4c4f5a81e658f7113232cbab0bc662395",
+      "execute": "0x1215ec343d28d3d798f486b7a6f8ad5e25a95cac4fa0d24a634c7a8361f039ee",
+      "block": 51123280,
+      "planId": "0x44addcc6ca738bf02083f254a75ff8f4791efde414339a4be2523bcd31f48966",
+      "transactionHash": "0x1215ec343d28d3d798f486b7a6f8ad5e25a95cac4fa0d24a634c7a8361f039ee",
+      "blockNumber": "51123280",
+      "payer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "borrower": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "path": "BOND",
+      "actualRepaid": "200000000",
+      "debtBefore": "400000041",
+      "debtAfter": "200000042",
+      "scaledDebtBefore": "332759359",
+      "scaledDebtAfter": "166379697",
+      "debtIndex": "1202069994731837910073816418",
+      "usdcRefund": "0",
+      "wethRefund": "1931938000000000",
+      "proceeds": "200000000",
+      "before": {
+        "debt": "400000041",
+        "scaledDebt": "332759359",
+        "payerUsdc": "1404999732",
+        "aTokenUsdc": "20557445833271"
+      },
+      "after": {
+        "debt": "200000042",
+        "scaledDebt": "166379697",
+        "payerUsdc": "1404999732",
+        "aTokenUsdc": "20557645833271"
+      }
+    },
+    {
+      "label": "Debt below authorized cap with exact surplus refund",
+      "id": "0x87d870b72b2d9aafdcf84909e48d7367099817644b21b07ec5bbd72d689a26fd",
+      "commitmentId": "0x080deb37e1d80cf93d54c11bdea04c47e4ff785fcd9986c04489a7071b2df2c1",
+      "create": "0x80659b93b6f83afaef3d9b47a388448bfef9c038f4c9f06202bf777bebe91614",
+      "fund": "0x9187e4df96d672e2c9422b11b710b58ed6ef5b5690e747939d52b1cd56405d25",
+      "accept": "0xf0fe4d265efa2a6f9faad92abc99edda0410863b5219f7702da9529e7b40b17e",
+      "execute": "0x2063fe6d6bce0199cf6f82e672facfc490ac208ce96cd21f542a67ccd4d2db56",
+      "block": 51123285,
+      "planId": "0x87d870b72b2d9aafdcf84909e48d7367099817644b21b07ec5bbd72d689a26fd",
+      "transactionHash": "0x2063fe6d6bce0199cf6f82e672facfc490ac208ce96cd21f542a67ccd4d2db56",
+      "blockNumber": "51123285",
+      "payer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "borrower": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "path": "AQUA",
+      "actualRepaid": "200000048",
+      "debtBefore": "200000048",
+      "debtAfter": "0",
+      "scaledDebtBefore": "166379697",
+      "scaledDebtAfter": "0",
+      "debtIndex": "1202070031862906954465807346",
+      "usdcRefund": "99999952",
+      "wethRefund": "1876172000000000",
+      "proceeds": "300000000",
+      "before": {
+        "debt": "200000048",
+        "scaledDebt": "166379697",
+        "payerUsdc": "1004999732",
+        "aTokenUsdc": "20557645833271"
+      },
+      "after": {
+        "debt": "0",
+        "scaledDebt": "0",
+        "payerUsdc": "1104999684",
+        "aTokenUsdc": "20557845833319"
+      }
+    },
+    {
+      "label": "Retry after refund failure preserves one-time repayment",
+      "id": "0x1da8cf0c9fad28704c4cc98baa77d4949006bbe6acf81ead0508ce69e82a3757",
+      "commitmentId": "0x79808f65b334047052dbfedab465911ad6bf2e64036305b3b8061778a567a159",
+      "create": "0x8f52ea426e50c155662ab65f13dcb9549010d0d602ec9b98a89e3f9f182f1fb6",
+      "fund": "0xfcfc9b44d32b4897d379f3a4ada7f149b5c4393731f8d7b24d210275ad39c249",
+      "accept": "0x365573765ee845b317b616d13771e404c41c0cee413ef44329e448e79a387699",
+      "execute": "0x4c7a7cac5cc7b73c5ca8735cef68e58cb1be142573295dace493ac34918df867",
+      "block": 51123298,
+      "planId": "0x1da8cf0c9fad28704c4cc98baa77d4949006bbe6acf81ead0508ce69e82a3757",
+      "transactionHash": "0x4c7a7cac5cc7b73c5ca8735cef68e58cb1be142573295dace493ac34918df867",
+      "blockNumber": "51123298",
+      "payer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "borrower": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "path": "AQUA",
+      "actualRepaid": "50000000",
+      "debtBefore": "100000024",
+      "debtAfter": "50000025",
+      "scaledDebtBefore": "83189829",
+      "scaledDebtAfter": "41594925",
+      "debtIndex": "1202070312998009120009492255",
+      "usdcRefund": "50000000",
+      "wethRefund": "1967724500000000",
+      "proceeds": "100000000",
+      "before": {
+        "debt": "100000024",
+        "scaledDebt": "83189829",
+        "payerUsdc": "1204999684",
+        "aTokenUsdc": "20557745833319"
+      },
+      "after": {
+        "debt": "50000025",
+        "scaledDebt": "41594925",
+        "payerUsdc": "1254999684",
+        "aTokenUsdc": "20557795833319"
+      }
+    }
+  ],
+  "siblingDrain": {
+    "transactionHash": "0xaeef31f32394cb571d9a092a8b16f846a3628865b209544e5f992b1e478c8772",
+    "makerUsdcAfter": "100000000"
+  },
+  "inventoryRestored": {
+    "transactionHash": "0xb9e4dda5b123ee86201d925654d223e17a2210569d5fa372958c80f79c585a08",
+    "source": "Borrower's previously borrowed USDC; no token mint or storage modification"
+  },
+  "reborrow": "0x2943f0fc99ed2bbcd7be4014918bc9de6ade5fe4b8522fbf92b01095219f89ed",
+  "expiry": {
+    "id": "0xf32a9d97cbd672fa89d613ca48fa4622bc0daaf169de6a3dc49a90e283d90e36",
+    "commitmentId": "0xf25549247d2580bbfab958ea463767ae64ded16881e16b26ee59b0588d62422a",
+    "create": "0x0f1a17fcba3edff090e4a678155b1e196a85641f61dfadccf2c17f58e9f37ce4",
+    "fund": "0xd286f4ba7c42b2ecdb165e350030235fdaca930dba225c7f902bc3cca480b8ca",
+    "accept": "0xb0a13bd884644bbe23dd0b232e43385cde633a1e73c840e7daa403f82dd33371",
+    "refund": "0x4afd0e707c26d6635500d9dd2c8aac9584fd2bbd682570cec9b9753c1298a6b0",
+    "wethRefund": "51967724500000000",
+    "scaledDebtUnchanged": "83189829"
+  },
+  "safeFailure": {
+    "id": "0x1da8cf0c9fad28704c4cc98baa77d4949006bbe6acf81ead0508ce69e82a3757",
+    "commitmentId": "0x79808f65b334047052dbfedab465911ad6bf2e64036305b3b8061778a567a159",
+    "create": "0x8f52ea426e50c155662ab65f13dcb9549010d0d602ec9b98a89e3f9f182f1fb6",
+    "fund": "0xfcfc9b44d32b4897d379f3a4ada7f149b5c4393731f8d7b24d210275ad39c249",
+    "accept": "0x365573765ee845b317b616d13771e404c41c0cee413ef44329e448e79a387699",
+    "transactionHash": "0x09db62f03e5f56b7bc5262232dd56f77b967290de6ba6d14a641879aee31e63b",
+    "status": 0,
+    "faultInjection": "Local-fork impersonation of the real USDC blacklister blocks only the payer's surplus refund, after Pool.repay. Real Pool and token bytecode remain unchanged.",
+    "scaledDebt": "83189829",
+    "aTokenUsdc": "20557745833319",
+    "escrow": "51967724500000000",
+    "locked": "120000000"
+  },
+  "final": {
+    "debt": "50000025",
+    "scaledDebt": "41594925",
+    "payerUsdc": "1254999684",
+    "vaultBalance": "800000000",
+    "vaultLiabilities": "800000000",
+    "adapterUsdc": "0",
+    "adapterWeth": "0"
+  },
+  "hosting": {
+    "provider": "Azure App Service",
+    "origin": "https://firmdepth-debt-3207de.azurewebsites.net",
+    "generation": "efe43d6f-c882-4f49-804f-6a784d043776",
+    "sourceCommit": "755d2225356a3bfdb2a6a021314fa6043e842214",
+    "verifiedAt": "2026-11-06T21:50:33.094Z"
+  }
+}

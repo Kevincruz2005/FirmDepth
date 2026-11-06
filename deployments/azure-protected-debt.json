@@ -1,0 +1,145 @@
+{
+  "schemaVersion": "1",
+  "environment": "AZURE HOSTED BASE FORK \u2014 REAL AAVE CONTRACTS, NOT PUBLIC MAINNET OR SEPOLIA",
+  "chainId": 8453,
+  "forkBlock": 51123118,
+  "recordedAt": "2026-11-06T21:50:32.968Z",
+  "baseline": "2d823188e981ea44f97dd6421fe2c1638ea8d027",
+  "addresses": {
+    "aqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
+    "weth": "0x4200000000000000000000000000000000000006",
+    "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "bondVault": "0xCf11dB6dA2416f94432c41953e982Bb8E46473bf",
+    "registry": "0x194c41a44DC0f11d13a6855c18B153123E1277E7",
+    "firmRouter": "0x5C7Eb41B8e042909815d7dEC7594977acB883d6E",
+    "executor": "0x278F1B61608508F339Cd818a112f414b10Bd9aA7",
+    "settlement": "0xD8fB7F6706dE0897831231389d3bB28C69CC4235",
+    "repayment": "0x742D02ED041Cf694Da8dEf6Fc5F6246b00114268",
+    "pool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "variableDebtToken": "0x59dca05b6c26dbd64b5381374aAaC5CD05644C28",
+    "aToken": "0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB"
+  },
+  "codeHashes": {
+    "pool": "0xffcb26fbebbe09d9b0d8baef76a1fa218989be6c279b7acf9865d8fb6e0718ce",
+    "usdc": "0xa6705a10bb756b5dea144591118be77d7af0c3eee3bf2dfe2583dcb0364fefab",
+    "weth": "0x8a3a1f6a9f9dce633117adee5b458245835a8645a8c8726a26382a4622508b1c",
+    "variableDebt": "0x59d2fd2a4bad76f979bc2c1da50504e072f4b3bb64f5429302a384ad9c0706f2",
+    "aToken": "0x59d2fd2a4bad76f979bc2c1da50504e072f4b3bb64f5429302a384ad9c0706f2",
+    "aqua": "0x720bc02d220db318164dc3bade86eec1f3655bdc00fc1174de7d816a95c341f8",
+    "bondVault": "0x3ca2f4de49fe85df294d75d3d41e2bd5ecebb0bd1be491121ce696cebf72a76d",
+    "registry": "0x88460f4e4de82bd5fde13365fd4861b8ab1b5174c91cd67663ab2b956e957d67",
+    "firmRouter": "0xab26903347cfa06e6f0bfb940abe10c35d0d263686c909af2950d77ae8ef5a05",
+    "executor": "0xf94e75e88df245525cfe0f56da0ad0724a07735e4d6f8dd16fe3fed4541caef2",
+    "settlement": "0xe329c4f1dbb9ec76d6432229d70f1f0acaeff17b0d3e659dfe3a1a8d2b85f500",
+    "repayment": "0x0a198f97324fbe229881caa07933d7379c2cc16586b38353981307ded9e68dfa",
+    "variableDebtToken": "0x59d2fd2a4bad76f979bc2c1da50504e072f4b3bb64f5429302a384ad9c0706f2"
+  },
+  "deployment": {
+    "adapterTransactionHash": "0x212f386ced820bd118f2f193b945be3d2aeccba0e50bfcceb02b24124ffe9e0d",
+    "adapterBlock": 51123268,
+    "settlementTransactionHash": "0x9f8de02162727e871f4c72268a9f13a8a2c61025f3e68cdb5a017e09089850d7",
+    "coreDeploymentBlock": 51123260
+  },
+  "borrower": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  "borrowTransaction": "0x29e0916dbb5bfd9b24900f5966ac1f7a9f21efc8d7459753e8f5ed4851584099",
+  "evidence": "packages/contracts/evidence/protected-debt-azure-fork.json",
+  "transactions": [
+    {
+      "path": "AQUA",
+      "planId": "0x76d0b03d53f896f6fa62c6e705b1e592e05dd3eece724cc87483d92eee3b9db4",
+      "acceptance": "0x646644eb59268a944b595adc44fae37ca03a84257dda7a9ee623fc4f04ee2c29",
+      "execution": "0x0f34b7bf482fe4b60576fc6692a3c933f534ff50628f6b3f60fc68887455e0a0",
+      "actualRepaid": "200000000",
+      "debtBefore": "600000028",
+      "debtAfter": "400000028"
+    },
+    {
+      "path": "BOND",
+      "planId": "0x44addcc6ca738bf02083f254a75ff8f4791efde414339a4be2523bcd31f48966",
+      "acceptance": "0xd54815527d3715ac8263e3a67c7d00c4c4f5a81e658f7113232cbab0bc662395",
+      "execution": "0x1215ec343d28d3d798f486b7a6f8ad5e25a95cac4fa0d24a634c7a8361f039ee",
+      "actualRepaid": "200000000",
+      "debtBefore": "400000041",
+      "debtAfter": "200000042"
+    },
+    {
+      "path": "AQUA",
+      "planId": "0x87d870b72b2d9aafdcf84909e48d7367099817644b21b07ec5bbd72d689a26fd",
+      "acceptance": "0xf0fe4d265efa2a6f9faad92abc99edda0410863b5219f7702da9529e7b40b17e",
+      "execution": "0x2063fe6d6bce0199cf6f82e672facfc490ac208ce96cd21f542a67ccd4d2db56",
+      "actualRepaid": "200000048",
+      "debtBefore": "200000048",
+      "debtAfter": "0"
+    },
+    {
+      "path": "AQUA",
+      "planId": "0x1da8cf0c9fad28704c4cc98baa77d4949006bbe6acf81ead0508ce69e82a3757",
+      "acceptance": "0x365573765ee845b317b616d13771e404c41c0cee413ef44329e448e79a387699",
+      "execution": "0x4c7a7cac5cc7b73c5ca8735cef68e58cb1be142573295dace493ac34918df867",
+      "actualRepaid": "50000000",
+      "debtBefore": "100000024",
+      "debtAfter": "50000025"
+    }
+  ],
+  "safeFailure": "0x09db62f03e5f56b7bc5262232dd56f77b967290de6ba6d14a641879aee31e63b",
+  "interactive": {
+    "repayment": "0x691b25E1347ae3D42fe19619Fc80a4630146661b",
+    "settlement": "0x385b7fAa3e8F3a7D7265911E58817E39ceC90884",
+    "borrower": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "initialDebt": "600000001",
+    "observedDebt": "600000002",
+    "observedBlock": 51123320,
+    "deploymentTransactionHash": "0x860627d3ef7aa895d0483f30bb0752cd6a37d98efc5c798b58c37556f94d9ca8",
+    "borrowTransactionHash": "0xfd1754f32d310532edcd913a53f0758314a5d6ad93068f38344ae3b8680538bd",
+    "frontendUrl": "https://firmdepth-debt-3207de.azurewebsites.net/settlement",
+    "rpcUrl": "https://firmdepth-debt-3207de.azurewebsites.net/rpc"
+  },
+  "verified": {
+    "realAavePool": true,
+    "realReserveTokens": true,
+    "aquaRepayment": true,
+    "bondRepayment": true,
+    "expiryRefund": true,
+    "atomicAaveRollback": true,
+    "scaledDebtAndTokenTransfers": true
+  },
+  "hosting": {
+    "provider": "Azure App Service",
+    "origin": "https://firmdepth-debt-3207de.azurewebsites.net",
+    "generation": "efe43d6f-c882-4f49-804f-6a784d043776",
+    "sourceCommit": "755d2225356a3bfdb2a6a021314fa6043e842214",
+    "verifiedAt": "2026-11-06T21:50:33.094Z"
+  },
+  "publicVerification": {
+    "verifiedAt": "2026-11-06T21:50:47.728Z",
+    "generation": "efe43d6f-c882-4f49-804f-6a784d043776",
+    "actualBorrowTransactions": true,
+    "repaymentReceipts": true,
+    "historicalRollback": true,
+    "expiryRefund": true,
+    "codeHashes": true,
+    "operatorAccessRestricted": true
+  },
+  "azureDeployment": {
+    "resourceGroup": "firmdepth-debt-demo-rg",
+    "appName": "firmdepth-debt-3207de",
+    "plan": "firmdepth-debt-demo-plan",
+    "sku": "B1",
+    "location": "centralindia",
+    "packageStorage": "firmdepthdebt3207de",
+    "kuduDeploymentId": "ab38c1f5-9e96-4b31-8ffe-3d5849356dc2",
+    "packageSha256": "28086b02bba7a52861b726451066e4f85b32be28e3552c6855f0cdeedd1171cf",
+    "runtimeDirectoryPreparation": [
+      "packages/contracts/evidence/",
+      "deployments/"
+    ]
+  },
+  "browserVerification": {
+    "suite": "hosted-debt.spec.ts",
+    "passed": 3,
+    "baseUrl": "https://firmdepth-debt-3207de.azurewebsites.net",
+    "completedAt": "2026-11-06T21:41:12.048065+00:00",
+    "publicVisitorSmoke": true,
+    "mobileLayout": true
+  }
+}
