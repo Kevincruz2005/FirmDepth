@@ -1,0 +1,12 @@
+import {readFile,writeFile} from "node:fs/promises";
+import {network} from "hardhat";
+import {verifyAaveBase} from "./lib/aave-base.ts";
+import {BASE_FORK_BLOCK} from "./lib/base-fork.ts";
+const {ethers}=await network.create();
+const metadata=await ethers.provider.send("hardhat_metadata",[]);
+if(metadata.forkedNetwork?.forkBlockNumber!==BASE_FORK_BLOCK)throw Error("Use the canonical pinned local Base fork");
+const result=await verifyAaveBase(ethers.provider);
+const sepolia=JSON.parse(await readFile("../../deployments/sepolia.json","utf8"));
+const evidence={environment:"LOCAL BASE FORK — NOT PUBLIC MAINNET OR SEPOLIA",forkBlock:BASE_FORK_BLOCK,checkedAt:new Date().toISOString(),...result,sepolia:{supported:false,chainId:sepolia.chain.id,firmDepthAsset:sepolia.addresses.usdc,reason:"Existing Sepolia demo USDC is not the authenticated Base Aave USDC reserve. No cross-chain or substituted-token repayment is supported."},sources:["https://github.com/aave-dao/aave-address-book/blob/main/src/AaveV3Base.sol","https://aave.com/docs/aave-v3/smart-contracts/pool"]};
+await writeFile("../../deployments/aave-base-compatibility.json",JSON.stringify(evidence,null,2)+"\n");
+console.log("Verified real Aave Base Pool, native USDC reserve, variable-debt token and exact FirmDepth asset compatibility.");

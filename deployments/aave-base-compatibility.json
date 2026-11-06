@@ -1,0 +1,30 @@
+{
+  "environment": "LOCAL BASE FORK — NOT PUBLIC MAINNET OR SEPOLIA",
+  "forkBlock": 51123118,
+  "checkedAt": "2026-11-06T18:30:59.972Z",
+  "chainId": 8453,
+  "pool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+  "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "variableDebt": "0x59dca05b6c26dbd64b5381374aAaC5CD05644C28",
+  "aToken": "0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB",
+  "addressesProvider": "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D",
+  "dataProvider": "0x0F43731EB8d45A581f4a36DD74F5f358bc90C73A",
+  "configuration": "7237005577332262213973186568752004119305653224248996801175139707821393190220",
+  "codeHashes": {
+    "pool": "0xffcb26fbebbe09d9b0d8baef76a1fa218989be6c279b7acf9865d8fb6e0718ce",
+    "usdc": "0xa6705a10bb756b5dea144591118be77d7af0c3eee3bf2dfe2583dcb0364fefab",
+    "weth": "0x8a3a1f6a9f9dce633117adee5b458245835a8645a8c8726a26382a4622508b1c",
+    "variableDebt": "0x59d2fd2a4bad76f979bc2c1da50504e072f4b3bb64f5429302a384ad9c0706f2",
+    "aToken": "0x59d2fd2a4bad76f979bc2c1da50504e072f4b3bb64f5429302a384ad9c0706f2"
+  },
+  "sepolia": {
+    "supported": false,
+    "chainId": 11155111,
+    "firmDepthAsset": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    "reason": "Existing Sepolia demo USDC is not the authenticated Base Aave USDC reserve. No cross-chain or substituted-token repayment is supported."
+  },
+  "sources": [
+    "https://github.com/aave-dao/aave-address-book/blob/main/src/AaveV3Base.sol",
+    "https://aave.com/docs/aave-v3/smart-contracts/pool"
+  ]
+}
