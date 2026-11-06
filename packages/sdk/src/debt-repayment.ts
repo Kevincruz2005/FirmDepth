@@ -21,6 +21,10 @@ export async function authenticateDebtRepayment(client:PublicClient,address:Addr
  const mode=await client.readContract({address,abi:debtRepaymentAbi,functionName:"DEBT_MODE"});
  if(chain!==8453n||mode!==2n)throw Error("Debt adapter authorization domain mismatch");
  await authenticateSettlement(client,expected.settlement,expected);
+}
+// Availability is separate from identity: a paused/upgraded Aave reserve must
+// never hide unrelated payout functionality or prevent owner expiry refunds.
+export async function inspectAaveRepaymentReserve(client:PublicClient,address:Address){
  const pool=aaveBaseMarket.pool,asset=aaveBaseMarket.asset,debt=aaveBaseMarket.variableDebtToken;
  const provider=await client.readContract({address:pool,abi:aavePoolAbi,functionName:"ADDRESSES_PROVIDER"});
  const configuredProvider=await client.readContract({address,abi:debtRepaymentAbi,functionName:"addressesProvider"});
@@ -31,7 +35,8 @@ export async function authenticateDebtRepayment(client:PublicClient,address:Addr
  const debtPool=await client.readContract({address:debt,abi:aaveDebtAbi,functionName:"POOL"});
  const underlying=await client.readContract({address:debt,abi:aaveDebtAbi,functionName:"UNDERLYING_ASSET_ADDRESS"});
  const config=await client.readContract({address:pool,abi:aavePoolAbi,functionName:"getConfiguration",args:[asset]});
- if(!same(provider,configuredProvider)||!same(dataProvider,configuredDataProvider)||!same(registeredPool,pool)||!same(aToken,aaveBaseMarket.aToken)||!same(variableDebt,debt)||!same(debtPool,pool)||!same(underlying,asset)||((config>>56n)&1n)!==1n||((config>>60n)&1n)!==0n||((config>>48n)&255n)!==6n)throw Error("Aave reserve configuration mismatch");
+ if(!same(provider,configuredProvider)||!same(dataProvider,configuredDataProvider)||!same(registeredPool,pool)||!same(aToken,aaveBaseMarket.aToken)||!same(variableDebt,debt)||!same(debtPool,pool)||!same(underlying,asset)||((config>>48n)&255n)!==6n)throw Error("Aave reserve configuration mismatch");
+ return {active:((config>>56n)&1n)===1n,paused:((config>>60n)&1n)===1n};
 }
 export async function readDebtPlan(client:PublicClient,address:Address,id:Hex){const[repayment,underlying]=await client.readContract({address,abi:debtRepaymentAbi,functionName:"getRepaymentPlan",args:[id]});return {repayment,underlying};}
 export async function readBorrowerDebt(client:PublicClient,borrower:Address){

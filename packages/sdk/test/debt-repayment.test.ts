@@ -13,6 +13,12 @@ test("debt adapter cannot impersonate another settlement deployment",async()=>{
  const client={getChainId:async()=>8453,getBytecode:async()=>"0x1234",readContract:async()=>other};
  await assert.rejects(authenticateDebtRepayment(client as never,address,expected),/settlement mismatch/);
 });
+test("owner refund identity checks do not depend on Aave reserve availability",async()=>{
+ const adapterValues:Record<string,string|bigint>={settlement:address,pool:aaveBaseMarket.pool,tokenOut:aaveBaseMarket.asset,tokenIn:aaveBaseMarket.weth,variableDebtToken:aaveBaseMarket.variableDebtToken,aToken:aaveBaseMarket.aToken,authorizedChainId:8453n,DEBT_MODE:2n};
+ const wrapperValues:Record<string,string>={registry:address,executor:address,tokenIn:aaveBaseMarket.weth,tokenOut:aaveBaseMarket.asset,router:address};
+ const client={getChainId:async()=>8453,getBytecode:async()=>"0x1234",readContract:async(request:{address:string;functionName:string})=>{if(request.address===other)return adapterValues[request.functionName];if(request.address===address)return wrapperValues[request.functionName];throw Error("Aave reserve unavailable");}};
+ await authenticateDebtRepayment(client as never,other,expected);
+});
 test("borrower debt observations pin nominal and scaled balances to the same block",async()=>{
  const seen:bigint[]=[];
  const client={getBlock:async()=>({number:12n}),readContract:async(request:{address:string;blockNumber:bigint;functionName:string;args:readonly string[]})=>{assert.equal(request.address,aaveBaseMarket.variableDebtToken);assert.equal(request.args[0],other);seen.push(request.blockNumber);return request.functionName==="balanceOf"?500n:450n;}};
