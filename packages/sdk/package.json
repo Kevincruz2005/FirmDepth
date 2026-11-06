@@ -18,7 +18,8 @@
     "./requests": "./dist/requests.js",
     "./receipt": "./dist/receipt.js",
     "./types": "./dist/types.js",
-    "./settlement": "./dist/settlement.js"
+    "./settlement": "./dist/settlement.js",
+    "./debt-repayment": "./dist/debt-repayment.js"
   },
   "types": "./dist/index.d.ts",
   "scripts": {

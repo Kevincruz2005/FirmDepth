@@ -14,3 +14,4 @@ export * from "./requests.js";
 export * from "./swapvm.js";
 export * from "./types.js";
 export * from "./settlement.js";
+export * from "./debt-repayment.js";
