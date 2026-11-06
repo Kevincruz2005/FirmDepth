@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { parseUnits, formatUnits, isAddress, type Hex, type Address } from "viem";
 import { useRuntime, useWallet } from "../hooks/useRuntime";
 import { deserializeOrder, deserializeQuoteEnvelope } from "../lib/runtime";
@@ -6,7 +6,12 @@ import { approveToken } from "@firmdepth/sdk/actions";
 import { validateFirmQuoteEnvelope, type FirmQuoteEnvelope } from "@firmdepth/sdk/quote-provider";
 import { createPayoutPlan, fundPayoutPlan, acceptPayoutPlan, executePayoutPlan, refundPayoutPlan, readPlan, readPayouts, getPayoutReceipt, settlementAbi, planStates, authenticateSettlement } from "@firmdepth/sdk/settlement";
 
-export function Settlement() {
+const DebtRepayment=lazy(()=>import("./DebtRepayment").then(module=>({default:module.DebtRepayment})));
+export function Settlement(){
+  const [mode,setMode]=useState<"payout"|"debt">("payout");
+  return <><div className="settlement-modes" role="group" aria-label="Settlement mode"><button className={`button ${mode==="payout"?"button-dark":"button-outline"}`} aria-pressed={mode==="payout"} onClick={()=>setMode("payout")}>Payout</button><button className={`button ${mode==="debt"?"button-dark":"button-outline"}`} aria-pressed={mode==="debt"} onClick={()=>setMode("debt")}>Debt Repayment</button></div>{mode==="payout"?<PayoutSettlement/>:<Suspense fallback={<p role="status">Loading debt repayment…</p>}><DebtRepayment/></Suspense>}</>;
+}
+function PayoutSettlement() {
   const {runtime}=useRuntime(); const wallet=useWallet();
   const [rows,setRows]=useState([{recipient:"",amount:"120"},{recipient:"",amount:"80"}]);
   const [input,setInput]=useState("0.1"); const [budget,setBudget]=useState("0.002");

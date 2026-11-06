@@ -10,12 +10,15 @@ await import("./setup-protected-fork.ts");
 const runtimePath="../frontend/.runtime/firmdepth.json";
 const runtime=JSON.parse(await readFile(runtimePath,"utf8"));
 const compatibility=await verifyAaveBase(ethers.provider,runtime.addresses.usdc);
-const [,,borrower]=await ethers.getSigners();
+const [,maker,borrower]=await ethers.getSigners();
 const borrowerAddress=await borrower.getAddress();
 const weth=new ethers.Contract(runtime.addresses.weth,["function approve(address,uint256) returns(bool)"],borrower);
 const pool=new ethers.Contract(BASE_AAVE_POOL,AAVE_POOL_ABI,borrower);
 const debt=new ethers.Contract(BASE_AAVE_USDC_DEBT,AAVE_DEBT_ABI,ethers.provider);
-const usdc=new ethers.Contract(runtime.addresses.usdc,["function balanceOf(address) view returns(uint256)","function approve(address,uint256) returns(bool)"],borrower);
+const usdc=new ethers.Contract(runtime.addresses.usdc,["function balanceOf(address) view returns(uint256)","function approve(address,uint256) returns(bool)","function transfer(address,uint256) returns(bool)"],borrower);
+// A previous fixture's debt includes interest, while borrowing credits principal
+// only. Fund that interest with a real maker transfer, never a storage edit.
+const interestFunding=await(await usdc.connect(maker).transfer(borrowerAddress,1_000_000n)).wait();
 await (await weth.approve(BASE_AAVE_POOL,ethers.parseEther("1"))).wait();
 const supplied=await (await pool.supply(runtime.addresses.weth,ethers.parseEther("1"),borrowerAddress,0)).wait();
 // Repeated browser fixtures close earlier test debt through real Pool.repay.
@@ -38,6 +41,6 @@ if(balance<600_000_000n)throw Error("Actual Aave variable debt was not created")
 const adapter=await ethers.deployContract("ProtectedDebtRepayment",[runtime.settlement.address,BASE_AAVE_POOL,BASE_AAVE_USDC_DEBT,8453]);
 await adapter.waitForDeployment();
 const deployed=await adapter.deploymentTransaction()!.wait();
-runtime.debtRepayment={address:await adapter.getAddress(),pool:BASE_AAVE_POOL,asset:runtime.addresses.usdc,variableDebtToken:BASE_AAVE_USDC_DEBT,aToken:compatibility.aToken,debtMode:2,deploymentBlock:deployed!.blockNumber,deploymentTransactionHash:deployed!.hash,borrower:borrowerAddress,supplyTransactionHash:supplied.hash,borrowTransactionHash:borrowReceipt.hash,initialDebt:balance.toString(),...(cleanupRepaymentTransactionHash?{cleanupRepaymentTransactionHash}:{})};
+runtime.debtRepayment={address:await adapter.getAddress(),pool:BASE_AAVE_POOL,asset:runtime.addresses.usdc,variableDebtToken:BASE_AAVE_USDC_DEBT,aToken:compatibility.aToken,debtMode:2,deploymentBlock:deployed!.blockNumber,deploymentTransactionHash:deployed!.hash,borrower:borrowerAddress,supplyTransactionHash:supplied.hash,interestFundingTransactionHash:interestFunding.hash,borrowTransactionHash:borrowReceipt.hash,initialDebt:balance.toString(),...(cleanupRepaymentTransactionHash?{cleanupRepaymentTransactionHash}:{})};
 await writeFile(runtimePath,JSON.stringify(runtime,null,2)+"\n");
 console.log("Real Aave debt position created:",borrowReceipt.hash,"debt:",balance.toString(),"repayment adapter:",runtime.debtRepayment.address);

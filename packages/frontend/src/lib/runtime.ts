@@ -8,6 +8,7 @@ import { createPublicClient, defineChain, getAddress, http, isAddress, isHash, i
 import { baseForkEvidence } from "../data/evidence";
 import sepoliaManifest from "../../../../deployments/sepolia.json";
 import protectedSepoliaManifest from "../../../../deployments/protected-sepolia.json";
+import {authenticateDebtRepayment,aaveBaseMarket} from "@firmdepth/sdk/debt-repayment";
 
 export interface SerializedFirmQuote extends Omit<FirmQuote, "amountIn" | "referenceAmountOut" | "minAmountOut" | "requiredBond" | "premiumAmount" | "sigmaWad" | "annualCapitalRateWad" | "utilizationAfterWad" | "minPremiumOut" | "expiry" | "nonce"> {
   amountIn: string;
@@ -36,6 +37,7 @@ export interface RuntimeStrategy {
 export interface FrontendRuntimeArtifact extends Omit<DeploymentArtifact, "schemaVersion"> {
   schemaVersion: "2";
   settlement?: { address: Address; quoteUrl: string; deploymentBlock?: number };
+  debtRepayment?: {address:Address;pool:Address;asset:Address;variableDebtToken:Address;aToken:Address;debtMode:2;deploymentBlock:number};
   rpcUrl: string;
   deploymentBlock: number;
   manifestRevision?: Hex;
@@ -115,6 +117,7 @@ export async function loadRuntimeArtifact(url = runtimeEndpoint()): Promise<Load
   if (authenticated.maxQuoteTtl !== BigInt(artifact.pricingPolicy.maxQuoteTtl)) throw new Error("Registry max quote TTL mismatch");
   if (isPublic) await authenticatePublicRuntime(publicClient, artifact);
   if (artifact.settlement) await authenticateSettlement(publicClient, artifact.settlement.address, artifact.addresses);
+  if (artifact.debtRepayment) await authenticateDebtRepayment(publicClient,artifact.debtRepayment.address,{settlement:artifact.settlement!.address,...artifact.addresses});
   return { artifact, publicClient };
 }
 
@@ -141,6 +144,11 @@ export function validateRuntimeArtifact(input: unknown): FrontendRuntimeArtifact
   if (!Array.isArray(input.strategies)) throw new Error("Runtime strategies are missing");
   for (const strategy of input.strategies) validateStrategy(strategy);
   if (!isRecord(input.environment) || !["base-fork", "deployment"].includes(String(input.environment.kind)) || typeof input.environment.label !== "string" || typeof input.environment.controlledEvidence !== "boolean") throw new Error("Invalid runtime environment metadata");
+  if(input.debtRepayment!==undefined){
+    const d=input.debtRepayment;
+    if(!isRecord(d)||!["address","pool","asset","variableDebtToken","aToken"].every(key=>isAddress(d[key] as string))||!input.settlement||input.chainId!==8453||input.environment.kind!=="base-fork"||d.debtMode!==2||!Number.isSafeInteger(d.deploymentBlock)||Number(d.deploymentBlock)<Number(input.deploymentBlock))throw new Error("Invalid debt repayment deployment");
+    if(getAddress(d.pool as Address)!==getAddress(aaveBaseMarket.pool)||getAddress(d.asset as Address)!==getAddress(aaveBaseMarket.asset)||getAddress(d.variableDebtToken as Address)!==getAddress(aaveBaseMarket.variableDebtToken)||getAddress(d.aToken as Address)!==getAddress(aaveBaseMarket.aToken)||getAddress(input.addresses.usdc as Address)!==getAddress(aaveBaseMarket.asset))throw new Error("Debt repayment reserve is not allowlisted");
+  }
   if (input.environment.kind === "base-fork" && (input.chainId !== baseForkEvidence.chainId || input.forkBlock !== baseForkEvidence.forkBlock)) throw new Error("Controlled Base fork must use the canonical pin");
   if (!isRecord(input.quoteProvider) || typeof input.quoteProvider.url !== "string" || !validEndpoint(input.quoteProvider.url)) throw new Error("Invalid Firm quote provider URL");
   if (!Array.isArray(input.quoteProvider.horizons) || input.quoteProvider.horizons.join(",") !== "5,30,120") throw new Error("Firm quote horizons must be 5, 30, and 120 seconds");

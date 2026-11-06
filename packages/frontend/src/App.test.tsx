@@ -7,6 +7,12 @@ beforeEach(() => {
 });
 
 describe("FirmDepth application", () => {
+  it("keeps debt repayment unavailable when no authenticated adapter is configured",async()=>{
+    window.history.pushState({},"","/settlement");render(<App/>);
+    fireEvent.click(await screen.findByRole("button",{name:"Debt Repayment"}));
+    expect(await screen.findByText(/This deployment has no authenticated repayment adapter/)).toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"Create repayment plan"})).not.toBeInTheDocument();
+  });
   it("renders the product-led landing narrative with explicit provenance", async () => {
     render(<App />);
     expect(await screen.findByRole("heading", { name: /the quote is soft/i })).toBeInTheDocument();

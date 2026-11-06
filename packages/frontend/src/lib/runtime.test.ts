@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { quoteSecondsRemaining, runtimeEndpoint, validatePublicRuntimeMatch, validateRuntimeArtifact } from "./runtime";
+import {aaveBaseMarket} from "@firmdepth/sdk/debt-repayment";
 
 const valid = {
   schemaVersion: "2",
@@ -27,6 +28,12 @@ const valid = {
 };
 
 describe("runtime artifact validation", () => {
+  it("admits the allowlisted local debt adapter but rejects substituted reserve metadata",()=>{
+    const artifact={...structuredClone(valid),settlement:{address:valid.addresses.executor,quoteUrl:"/runtime/settlement-quote"},debtRepayment:{address:valid.addresses.executor,pool:aaveBaseMarket.pool,asset:aaveBaseMarket.asset,variableDebtToken:aaveBaseMarket.variableDebtToken,aToken:aaveBaseMarket.aToken,debtMode:2,deploymentBlock:51123121}};
+    expect(validateRuntimeArtifact(artifact).debtRepayment?.pool).toBe(aaveBaseMarket.pool);
+    expect(()=>validateRuntimeArtifact({...artifact,debtRepayment:{...artifact.debtRepayment,asset:valid.addresses.weth}})).toThrow(/not allowlisted/);
+    expect(()=>validateRuntimeArtifact({...artifact,chainId:11155111})).toThrow(/debt repayment deployment/);
+  });
   it("accepts a matching pinned Base-fork artifact", () => {
     expect(validateRuntimeArtifact(structuredClone(valid)).chainId).toBe(8453);
   });

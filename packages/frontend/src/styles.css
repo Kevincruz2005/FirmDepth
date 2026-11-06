@@ -353,6 +353,8 @@ button { color: inherit; }
 }
 
 .settlement-page { max-width: 1080px; margin: 4rem auto; padding: 0 24px; }
+.settlement-modes { display:flex;flex-wrap:wrap;gap:12px;max-width:1080px;margin:32px auto 0;padding:0 24px; }
+.debt-repayment-page .truth-tag { max-width:100%;white-space:normal; }
 .settlement-page section { border: 1px solid #d9ddd6; padding: 24px; margin: 24px 0; border-radius: 16px; }
 .settlement-page label { display: grid; gap: 8px; margin: 16px 0; }
 .settlement-page input { padding: 12px; border: 1px solid #bac2b8; border-radius: 8px; min-width: 0; width: 100%; }
