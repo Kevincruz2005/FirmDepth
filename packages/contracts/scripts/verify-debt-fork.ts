@@ -56,5 +56,24 @@ if(finalDebt!==BigInt(evidence.final.debt)||await debt.scaledBalanceOf(evidence.
 if(await usdc.balanceOf(evidence.borrower,{blockTag:finalBlock})!==BigInt(evidence.final.payerUsdc)||await vault.liabilities({blockTag:finalBlock})!==BigInt(evidence.final.vaultLiabilities))throw Error("Final token or vault balance mismatch");
 const codeHashes:Record<string,string>={...compatibility.codeHashes};
 for(const[name,address]of Object.entries(a) as [string,string][]){const code=await ethers.provider.getCode(address);if(code==="0x")throw Error("Missing deployment code: "+name);codeHashes[name]=ethers.keccak256(code);}
-await writeFile("../../deployments/protected-debt-base-fork.json",JSON.stringify({schemaVersion:"1",environment:evidence.environment,chainId:8453,forkBlock:51123118,recordedAt:new Date().toISOString(),baseline:evidence.baseline,addresses:a,codeHashes,deployment:evidence.deployment,borrower:evidence.borrower,borrowTransaction:evidence.borrowTransaction,evidence:"packages/contracts/evidence/protected-debt-base-fork.json",transactions:evidence.scenarios.map((s:any)=>({path:s.path,planId:s.planId,acceptance:s.accept,execution:s.transactionHash,actualRepaid:s.actualRepaid,debtBefore:s.debtBefore,debtAfter:s.debtAfter})),safeFailure:failed.hash,verified:{realAavePool:true,realReserveTokens:true,aquaRepayment:true,bondRepayment:true,expiryRefund:true,atomicAaveRollback:true,scaledDebtAndTokenTransfers:true}},null,2)+"\n");
+// Keep the completed historical demonstration distinct from an optional fresh
+// interactive fixture on the same retained node. Both must have real receipts.
+const runtime=JSON.parse(await readFile("../frontend/.runtime/firmdepth.json","utf8"));
+let interactive:Record<string,unknown>|undefined;
+if(runtime.debtRepayment?.address.toLowerCase()!==a.repayment.toLowerCase()){
+ const d=runtime.debtRepayment;
+ if(!d)throw Error("Interactive runtime has no repayment adapter");
+ await authenticateDebtRepayment(client,d.address,{...runtime.addresses,settlement:runtime.settlement.address,...d});
+ const deployed=await receipt(d.deploymentTransactionHash);
+ if(deployed.contractAddress?.toLowerCase()!==d.address.toLowerCase())throw Error("Interactive deployment receipt mismatch");
+ const borrowed=await receipt(d.borrowTransactionHash);
+ const transaction=await ethers.provider.getTransaction(d.borrowTransactionHash);
+ const call=new ethers.Interface(AAVE_POOL_ABI).parseTransaction(transaction!);
+ if(borrowed.to?.toLowerCase()!==a.pool.toLowerCase()||call?.name!=="borrow"||call.args[0].toLowerCase()!==a.usdc.toLowerCase()||call.args[1]!==600_000_000n||call.args[2]!==2n||call.args[4].toLowerCase()!==d.borrower.toLowerCase())throw Error("Interactive position lacks an actual supported Aave borrow");
+ const block=await ethers.provider.getBlockNumber();
+ const currentDebt=await debt.balanceOf(d.borrower,{blockTag:block});
+ if(currentDebt<600_000_000n)throw Error("Interactive borrower has no fresh 600 USDC debt position");
+ interactive={repayment:d.address,settlement:runtime.settlement.address,borrower:d.borrower,initialDebt:d.initialDebt,observedDebt:currentDebt.toString(),observedBlock:block,deploymentTransactionHash:d.deploymentTransactionHash,borrowTransactionHash:d.borrowTransactionHash,frontendUrl:"http://127.0.0.1:4173/settlement",rpcUrl:"http://127.0.0.1:8545"};
+}
+await writeFile("../../deployments/protected-debt-base-fork.json",JSON.stringify({schemaVersion:"1",environment:evidence.environment,chainId:8453,forkBlock:51123118,recordedAt:new Date().toISOString(),baseline:evidence.baseline,addresses:a,codeHashes,deployment:evidence.deployment,borrower:evidence.borrower,borrowTransaction:evidence.borrowTransaction,evidence:"packages/contracts/evidence/protected-debt-base-fork.json",transactions:evidence.scenarios.map((s:any)=>({path:s.path,planId:s.planId,acceptance:s.accept,execution:s.transactionHash,actualRepaid:s.actualRepaid,debtBefore:s.debtBefore,debtAfter:s.debtAfter})),safeFailure:failed.hash,...(interactive?{interactive}:{}),verified:{realAavePool:true,realReserveTokens:true,aquaRepayment:true,bondRepayment:true,expiryRefund:true,atomicAaveRollback:true,scaledDebtAndTokenTransfers:true}},null,2)+"\n");
 console.log("Independently verified actual Aave borrowing, Aqua/bond repayments, scaled debt reductions, ERC-20 receipts, expiry and Pool.repay rollback trace.");

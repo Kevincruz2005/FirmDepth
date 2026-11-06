@@ -46,6 +46,18 @@ export default defineConfig({
     tests: "./test",
   },
   networks: {
+    debtFork: {
+      type: "edr-simulated",
+      chainType: "op",
+      chainId: 8453,
+      // Match the existing CLI local node's wall-clock start, while keeping
+      // private archive URLs out of command arguments. Leave baseFork unchanged.
+      initialDate: new Date().toISOString(),
+      forking: {
+        url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
+        blockNumber: baseForkBlock,
+      },
+    },
     localBase: {
       type: "http",
       chainType: "op",
