@@ -1,0 +1,38 @@
+{
+  "environment": "public-sepolia",
+  "chainId": 11155111,
+  "api": "https://firmdepth-api-3207de.azurewebsites.net",
+  "settlement": "0x4c7296156a385a6487aD7FF38C328EdCf6584c79",
+  "payer": "0xD93CF267F2E92340f0c314cad15821c3190929c6",
+  "transactions": {
+    "approve": "0x4a426dd97294d2f3f02fd3b9fc825621699c6664ef1f6d56aa463df980037ac6",
+    "create": "0x596c61e9de534dc997f9ebba99a517e1c513677aeb7ebb498bc824dd63b277d6",
+    "fund": "0x1b1b08d3aa5f4cc903bb1e64953e59a47f711f5852318090316b3adabc058985",
+    "accept": "0x113820e30c8f2de1ef31fa3a0ef868282586d4fd879f38422624ea800e5fb8c5",
+    "execute": "0xa8096213cdedd078b4ae011a152469e116107e193870e5c843e52887b4bc7490",
+    "reseed": "0xc051aa2c4d5b502a519ab8cd8e289d96df23adcce77b854238897fe2f8a526eb"
+  },
+  "planId": "0x4d560b52e2f1160f80ede661ba3b3d67d9240a640d0414a2a2cf8151d1d48ea2",
+  "commitmentId": "0x0df157cb0615ff768468ad71c93be55ede94412e1c8c82f691c40b0e7711abdf",
+  "transactionHash": "0xa8096213cdedd078b4ae011a152469e116107e193870e5c843e52887b4bc7490",
+  "blockNumber": "12078034",
+  "payouts": [
+    {
+      "recipient": "0xD93CF267F2E92340f0c314cad15821c3190929c6",
+      "amount": "120000",
+      "balanceAfter": "1874545"
+    },
+    {
+      "recipient": "0xb575871b4237B3e8EC17c89d5A1F37F03B8137AD",
+      "amount": "80000",
+      "balanceAfter": "66625455"
+    }
+  ],
+  "proceeds": "454545",
+  "surplus": "254545",
+  "refund": "19779999779999",
+  "status": 2,
+  "path": "AQUA",
+  "note": "Recipients are payer and maker. Maker net balance also includes the swap output debit; SDK verifies exact wrapper-to-recipient transfers.",
+  "verifiedAt": "2026-11-06T17:32:16.733Z"
+}

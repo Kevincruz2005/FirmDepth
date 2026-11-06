@@ -62,7 +62,9 @@ export async function getPayoutReceipt(client:PublicClient,address:Address,id:He
   const executor=await client.readContract({address,abi:settlementAbi,functionName:"executor"});
   const router=await client.readContract({address,abi:settlementAbi,functionName:"router"});
   const vault=await client.readContract({address:registry,abi:registryAbi,functionName:"vault"});
-  const accepted=await client.getContractEvents({address:registry,abi:registryAbi,eventName:"CommitmentAccepted",args:{commitmentId:plan.commitmentId},fromBlock:deploymentBlock,toBlock:receipt.blockNumber});
+  const commitment=await client.readContract({address:registry,abi:registryAbi,functionName:"getCommitment",args:[plan.commitmentId]});
+  if(commitment.acceptedBlock<deploymentBlock || commitment.acceptedBlock>receipt.blockNumber || commitment.acceptedBlock===0n)throw new Error("Acceptance block outside settlement history");
+  const accepted=await client.getContractEvents({address:registry,abi:registryAbi,eventName:"CommitmentAccepted",args:{commitmentId:plan.commitmentId},fromBlock:commitment.acceptedBlock,toBlock:commitment.acceptedBlock});
   if(accepted.length!==1 || !accepted[0]!.transactionHash)throw new Error("Acceptance evidence missing");
   const core=await getFirmExecutionReceipt(client,{registry,executor,router,vault,commitmentId:plan.commitmentId,acceptanceTransactionHash:accepted[0]!.transactionHash,terminalTransactionHash:hash});
   if((core.path==="AQUA"?2:core.path==="BOND"?3:4)!==event.args.status)throw new Error("Settlement path mismatch");
