@@ -1,0 +1,21 @@
+import {readFile,writeFile} from "node:fs/promises";
+import {network} from "hardhat";
+// Official Aave address book, checked independently against the public chain.
+const AAVE_SEPOLIA_POOL="0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951";
+const AAVE_SEPOLIA_USDC="0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8";
+const {ethers}=await network.create();
+if((await ethers.provider.getNetwork()).chainId!==11155111n)throw Error("Sepolia compatibility probe requires Sepolia");
+const manifest=JSON.parse(await readFile("../../deployments/sepolia.json","utf8"));
+const pool=new ethers.Contract(AAVE_SEPOLIA_POOL,["function ADDRESSES_PROVIDER() view returns(address)","function getConfiguration(address) view returns(uint256)"],ethers.provider);
+if(await ethers.provider.getCode(AAVE_SEPOLIA_POOL)==="0x")throw Error("Official Aave Sepolia Pool has no code");
+const provider=new ethers.Contract(await pool.ADDRESSES_PROVIDER(),["function getPool() view returns(address)","function getPoolDataProvider() view returns(address)"],ethers.provider);
+if(ethers.getAddress(await provider.getPool())!==ethers.getAddress(AAVE_SEPOLIA_POOL))throw Error("Aave Sepolia registered Pool mismatch");
+const data=new ethers.Contract(await provider.getPoolDataProvider(),["function getReserveTokensAddresses(address) view returns(address,address,address)"],ethers.provider);
+const firmAsset=manifest.addresses.usdc;
+const firmReserve=await data.getReserveTokensAddresses(firmAsset);
+const supportedReserve=await data.getReserveTokensAddresses(AAVE_SEPOLIA_USDC);
+const configuration=await pool.getConfiguration(firmAsset);
+const compatible=firmReserve[0]!==ethers.ZeroAddress&&firmReserve[2]!==ethers.ZeroAddress&&((configuration>>56n)&1n)===1n;
+const evidence={environment:"PUBLIC SEPOLIA — READ-ONLY COMPATIBILITY CHECK",chainId:11155111,checkedAt:new Date().toISOString(),block:await ethers.provider.getBlockNumber(),pool:AAVE_SEPOLIA_POOL,firmDepthUsdc:firmAsset,firmDepthAssetAToken:firmReserve[0],firmDepthAssetVariableDebtToken:firmReserve[2],firmDepthAssetReserveConfiguration:configuration.toString(),aaveUsdc:AAVE_SEPOLIA_USDC,aaveUsdcAToken:supportedReserve[0],aaveUsdcVariableDebtToken:supportedReserve[2],compatible,adapterDeployed:false,reason:compatible?"Reserve compatibility exists, but this extension deploys only the verified Base-fork adapter.":"FirmDepth's existing Sepolia USDC is not an active variable-debt reserve in the official Aave Sepolia Pool. Assets are not substituted.",source:"https://github.com/aave-dao/aave-address-book/blob/main/src/AaveV3Sepolia.sol"};
+await writeFile("../../deployments/aave-sepolia-compatibility.json",JSON.stringify(evidence,null,2)+"\n");
+console.log("Read-only Aave Sepolia compatibility verified; existing FirmDepth asset supported:",compatible);
