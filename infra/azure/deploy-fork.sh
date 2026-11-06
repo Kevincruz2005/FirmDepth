@@ -33,7 +33,7 @@ az webapp create --name "$FORK_AZURE_APP_NAME" --resource-group "$FORK_AZURE_RES
 FORK_HOST="$(az webapp show --name "$FORK_AZURE_APP_NAME" --resource-group "$FORK_AZURE_RESOURCE_GROUP" --query defaultHostName --output tsv)"
 export FORK_PUBLIC_ORIGIN="https://$FORK_HOST"
 settings_file="$(mktemp /tmp/firmdepth-fork-settings.XXXXXX)"
-trap 'rm -f "$settings_file"' EXIT
+trap 'python3 -c "from pathlib import Path; import sys; Path(sys.argv[1]).unlink(missing_ok=True)" "$settings_file"' EXIT
 python3 - "$settings_file" <<'PY'
 import json,os,sys
 settings={'NODE_ENV':'production','NODE_OPTIONS':'--dns-result-order=ipv4first','FORK_OPERATOR_TOKEN':os.environ['FORK_OPERATOR_TOKEN'],'FORK_PUBLIC_ORIGIN':os.environ['FORK_PUBLIC_ORIGIN'],'FORK_SOURCE_COMMIT':os.environ['FORK_SOURCE_COMMIT'],'BASE_RPC_URL':os.environ.get('BASE_RPC_URL') or 'https://mainnet.base.org','FORK_LOG_DIR':'/home/LogFiles/firmdepth-fork','WEBSITES_CONTAINER_START_TIME_LIMIT':'600','WEBSITE_DISABLE_MSI':'true','SCM_DO_BUILD_DURING_DEPLOYMENT':'false','ENABLE_ORYX_BUILD':'false'}
@@ -42,5 +42,6 @@ PY
 az webapp update --name "$FORK_AZURE_APP_NAME" --resource-group "$FORK_AZURE_RESOURCE_GROUP" --https-only true --output none
 az webapp config appsettings set --name "$FORK_AZURE_APP_NAME" --resource-group "$FORK_AZURE_RESOURCE_GROUP" --settings "@$settings_file" --output none
 az webapp config set --name "$FORK_AZURE_APP_NAME" --resource-group "$FORK_AZURE_RESOURCE_GROUP" --startup-file 'cd /home/site/wwwroot && node infra/azure/fork/server.mjs' --always-on true --ftps-state Disabled --min-tls-version 1.2 --output none
-az webapp deploy --name "$FORK_AZURE_APP_NAME" --resource-group "$FORK_AZURE_RESOURCE_GROUP" --src-path .azure-package/hosted-debt.zip --type zip --clean true --restart true --enable-kudu-warmup false --output none
+FORK_AZURE_RESOURCE_GROUP="$FORK_AZURE_RESOURCE_GROUP" FORK_AZURE_LOCATION="$FORK_AZURE_LOCATION" python3 infra/azure/upload-fork.py .azure-package/hosted-debt.zip "$FORK_PUBLIC_ORIGIN"
+az webapp restart --name "$FORK_AZURE_APP_NAME" --resource-group "$FORK_AZURE_RESOURCE_GROUP" --output none
 echo "Hosted fork uploaded to $FORK_PUBLIC_ORIGIN. Require /health ready, then run the authenticated proof and verify the resulting receipts."

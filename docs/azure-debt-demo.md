@@ -31,7 +31,9 @@ From the repository root, authenticate Azure CLI and run:
 ./infra/azure/deploy-fork.sh
 ```
 
-Optional `FORK_AZURE_*` names are in `.env.example`. The script refuses the existing production resource group/app name. `BASE_RPC_URL` may provide a reliable archive endpoint; otherwise the same public Base endpoint used by the local demonstration is selected. Only the new resource group, plan and app are provisioned. No production maker or Sepolia deployer key is required.
+Optional `FORK_AZURE_*` names are in `.env.example`. The script refuses the existing production resource group/app name. `BASE_RPC_URL` may provide a reliable archive endpoint; otherwise the same public Base endpoint used by the local demonstration is selected. Only the new resource group, plan, app and private package-storage account are provisioned. No production maker or Sepolia deployer key is required.
+
+The uploader stages the package in a private StorageV2 account in the isolated demo resource group, then uses [Kudu's package-URL deployment](https://github.com/projectkudu/kudu/wiki/Deploying-from-a-zip-file-or-url) to download it within Azure. Direct client-to-Kudu transfers stalled before delivering the package. The read-only package SAS expires after two hours; it stays in process memory and private deployment infrastructure, never public evidence or Git. Azure access/account keys are also held in process memory. Upload and deployment status are journaled under ignored `.azure-package/`; an unconfirmed upload must be inspected before retrying. Package acceptance and deployment status still require separate application health and actual repayment checks.
 
 Wait for `/health` to report `phase: ready`, then trigger the fixed proof operation using a local environment variable, never a token pasted into source or a command argument:
 

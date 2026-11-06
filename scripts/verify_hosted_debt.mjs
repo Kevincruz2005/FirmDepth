@@ -4,12 +4,13 @@ import {authenticateDebtRepayment,getDebtRepaymentReceipt} from '../packages/sdk
 const require=createRequire(new URL('../packages/contracts/package.json',import.meta.url));
 const {createPublicClient,http,parseAbi,keccak256}=require('viem');
 const origin=new URL(process.env.FORK_DEMO_URL||'http://127.0.0.1:8086').origin;
+if(process.env.RECORD_HOSTED_EVIDENCE==='1'&&(!process.env.FORK_DEMO_URL||!origin.startsWith('https://')||!new URL(origin).hostname.endsWith('.azurewebsites.net')))throw Error('Recording Azure evidence requires an explicit HTTPS Azure App Service URL');
 async function get(path){const response=await fetch(origin+path);if(!response.ok)throw Error(`Hosted check failed: ${path} HTTP ${response.status}`);return response.json();}
 const health=await get('/health');
 const manifest=await get('/demo/deployment');
 const evidence=await get('/demo/evidence');
 const runtime=await get('/runtime/firmdepth.json');
-if(health.phase!=='ready'||!health.proofReady||health.chainId!==8453||health.forkBlock!==51123118||manifest.hosting.generation!==health.generation||evidence.hosting.generation!==health.generation||runtime.environment.hosting!=='azure'||runtime.rpcUrl!==origin+'/rpc')throw Error('Hosted fork generation or environment mismatch');
+if(health.phase!=='ready'||!health.proofReady||health.chainId!==8453||health.forkBlock!==51123118||manifest.hosting.generation!==health.generation||evidence.hosting.generation!==health.generation||manifest.hosting.origin!==origin||runtime.environment.hosting!=='azure'||runtime.rpcUrl!==origin+'/rpc')throw Error('Hosted fork generation or environment mismatch');
 const client=createPublicClient({transport:http(origin+'/rpc',{retryCount:2,timeout:20000})});
 await authenticateDebtRepayment(client,evidence.addresses.repayment,{settlement:evidence.addresses.settlement,...evidence.addresses});
 await authenticateDebtRepayment(client,manifest.interactive.repayment,{settlement:runtime.settlement.address,...runtime.addresses});
@@ -38,4 +39,4 @@ if(process.env.RECORD_HOSTED_EVIDENCE==='1'){
  await writeFile(new URL('../deployments/azure-protected-debt.json',import.meta.url),JSON.stringify(manifest,null,2)+'\n');
  await writeFile(new URL('../packages/contracts/evidence/protected-debt-azure-fork.json',import.meta.url),JSON.stringify(evidence,null,2)+'\n');
 }
-console.log('Hosted fork verified through HTTPS/public RPC: real Aave receipts, both paths, historical rollback, expiry, current frontend deployment and restricted operator access.');
+console.log('Hosted endpoint verified through public RPC: real Aave receipts, both paths, historical rollback, expiry, current frontend deployment and restricted operator access.');
