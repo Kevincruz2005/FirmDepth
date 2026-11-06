@@ -36,7 +36,8 @@
     "@nomicfoundation/hardhat-verify": "3.1.0",
     "ethers": "^6.15.0",
     "forge-std": "github:foundry-rs/forge-std#v1.11.0",
-    "hardhat": "^3.11.0"
+    "hardhat": "^3.11.0",
+    "viem": "^2.57.16"
   },
   "overrides": {
     "@1inch/solidity-utils": "6.9.10"
