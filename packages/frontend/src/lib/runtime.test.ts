@@ -28,6 +28,15 @@ const valid = {
 };
 
 describe("runtime artifact validation", () => {
+  it("limits Azure hosting metadata to explicit controlled forks",()=>{
+    const artifact={...structuredClone(valid),environment:{...valid.environment,hosting:"azure"}};
+    expect(validateRuntimeArtifact(artifact).environment.hosting).toBe("azure");
+    expect(()=>validateRuntimeArtifact({...artifact,environment:{...artifact.environment,kind:"deployment"}})).toThrow(/hosted fork/);
+    expect(()=>validateRuntimeArtifact({...artifact,environment:{...artifact.environment,controlledEvidence:false}})).toThrow(/hosted fork/);
+  });
+  it("rejects malformed hosted demonstration borrower addresses",()=>{
+    expect(()=>validateRuntimeArtifact({...structuredClone(valid),debtRepayment:{borrower:"invalid"}})).toThrow(/demonstration borrower/);
+  });
   it("admits the allowlisted local debt adapter but rejects substituted reserve metadata",()=>{
     const artifact={...structuredClone(valid),settlement:{address:valid.addresses.executor,quoteUrl:"/runtime/settlement-quote"},debtRepayment:{address:valid.addresses.executor,pool:aaveBaseMarket.pool,asset:aaveBaseMarket.asset,variableDebtToken:aaveBaseMarket.variableDebtToken,aToken:aaveBaseMarket.aToken,debtMode:2,deploymentBlock:51123121}};
     expect(validateRuntimeArtifact(artifact).debtRepayment?.pool).toBe(aaveBaseMarket.pool);

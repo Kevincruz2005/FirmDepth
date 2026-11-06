@@ -18,7 +18,7 @@ export function DebtRepayment(){
  const [quote,setQuote]=useState<FirmQuoteEnvelope|null>(null);const [receipt,setReceipt]=useState<Awaited<ReturnType<typeof getDebtRepaymentReceipt>>|null>(null);
  const [busy,setBusy]=useState(false);const [message,setMessage]=useState("");
  const owned=plan?.repayment.payer.toLowerCase()===wallet.account?.toLowerCase();
- useEffect(()=>{if(wallet.account)setBorrower(current=>current||wallet.account!);},[wallet.account]);
+ useEffect(()=>{const initial=wallet.account||config?.borrower;if(initial)setBorrower(current=>current||initial);},[wallet.account,config?.borrower]);
  useEffect(()=>{
   let active=true;setDebt(null);
   if(!runtime||!config||!isAddress(borrower))return;
@@ -80,7 +80,8 @@ export function DebtRepayment(){
  const disabled=busy||!wallet.account||wallet.chainId!==runtime?.artifact.chainId;
  return <div className="settlement-page debt-repayment-page"><p className="eyebrow">Mumbai Continuity · Protected debt repayment</p><h1>One commitment.<br/>Verified debt repaid.</h1><p>Use WETH to fund an atomic Aave V3 USDC repayment through Aqua or FirmDepth’s covered bond settlement.</p>
  {!config||!wrapper?<p role="status">Debt repayment requires the verified Aave V3 native-USDC reserve on the local Base fork. This deployment has no authenticated repayment adapter.</p>:<>
-  <p className="truth-tag">LIVE LOCAL FORK · real Aave contracts · not public mainnet</p>
+  <p className="truth-tag">{runtime?.artifact.environment.hosting==="azure"?"LIVE AZURE FORK":"LIVE LOCAL FORK"} · real Aave contracts · not public mainnet</p>
+  {runtime?.artifact.environment.hosting==="azure"&&<p>This shared demonstration resets when its fork process restarts. <a href="/demo/evidence" target="_blank" rel="noreferrer">Verified hosted transaction evidence</a> · <a href="/demo/deployment" target="_blank" rel="noreferrer">Deployment addresses</a></p>}
   <p>Signed taker: <code>{wrapper.address}</code></p><p>Repayment adapter: <code>{config.address}</code></p><p>Aave Pool: <code>{config.pool}</code> · Variable debt mode 2</p>
   <p>Only the authorized payer can fund, accept, execute or refund this immutable plan. Debt and reserve availability are checked at execution. This action does not guarantee protection from liquidation.</p>
   {(!plan||plan.underlying.state>=4)&&<section><h2>Create immutable debt repayment</h2><label>Borrower address<input value={borrower} onChange={e=>setBorrower(e.target.value)}/></label>

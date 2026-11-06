@@ -37,7 +37,7 @@ export interface RuntimeStrategy {
 export interface FrontendRuntimeArtifact extends Omit<DeploymentArtifact, "schemaVersion"> {
   schemaVersion: "2";
   settlement?: { address: Address; quoteUrl: string; deploymentBlock?: number };
-  debtRepayment?: {address:Address;pool:Address;asset:Address;variableDebtToken:Address;aToken:Address;debtMode:2;deploymentBlock:number};
+  debtRepayment?: {address:Address;pool:Address;asset:Address;variableDebtToken:Address;aToken:Address;debtMode:2;deploymentBlock:number;borrower?:Address};
   rpcUrl: string;
   deploymentBlock: number;
   manifestRevision?: Hex;
@@ -45,7 +45,7 @@ export interface FrontendRuntimeArtifact extends Omit<DeploymentArtifact, "schem
   explorerUrl?: string;
   maker?: Address;
   tokenMetadata?: { weth: { symbol: string; decimals: number }; usdc: { symbol: string; decimals: number } };
-  environment: { kind: "base-fork" | "deployment"; label: string; controlledEvidence: boolean };
+  environment: { kind: "base-fork" | "deployment"; label: string; controlledEvidence: boolean; hosting?: "azure" };
   quoteProvider: { url: string; horizons: readonly [5, 30, 120] };
   strategies: RuntimeStrategy[];
 }
@@ -144,8 +144,10 @@ export function validateRuntimeArtifact(input: unknown): FrontendRuntimeArtifact
   if (!Array.isArray(input.strategies)) throw new Error("Runtime strategies are missing");
   for (const strategy of input.strategies) validateStrategy(strategy);
   if (!isRecord(input.environment) || !["base-fork", "deployment"].includes(String(input.environment.kind)) || typeof input.environment.label !== "string" || typeof input.environment.controlledEvidence !== "boolean") throw new Error("Invalid runtime environment metadata");
+  if(input.environment.hosting!==undefined&&(input.environment.hosting!=="azure"||input.environment.kind!=="base-fork"||input.environment.controlledEvidence!==true))throw new Error("Invalid hosted fork metadata");
   if(input.debtRepayment!==undefined){
     const d=input.debtRepayment;
+    if(isRecord(d)&&d.borrower!==undefined&&!isAddress(d.borrower as string))throw new Error("Invalid demonstration borrower");
     if(!isRecord(d)||!["address","pool","asset","variableDebtToken","aToken"].every(key=>isAddress(d[key] as string))||!input.settlement||input.chainId!==8453||input.environment.kind!=="base-fork"||d.debtMode!==2||!Number.isSafeInteger(d.deploymentBlock)||Number(d.deploymentBlock)<Number(input.deploymentBlock))throw new Error("Invalid debt repayment deployment");
     if(getAddress(d.pool as Address)!==getAddress(aaveBaseMarket.pool)||getAddress(d.asset as Address)!==getAddress(aaveBaseMarket.asset)||getAddress(d.variableDebtToken as Address)!==getAddress(aaveBaseMarket.variableDebtToken)||getAddress(d.aToken as Address)!==getAddress(aaveBaseMarket.aToken)||getAddress(input.addresses.usdc as Address)!==getAddress(aaveBaseMarket.asset))throw new Error("Debt repayment reserve is not allowlisted");
   }

@@ -1,0 +1,13 @@
+{
+  "name": "firmdepth-hosted-fork",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node infra/azure/fork/server.mjs", "test": "node --test infra/azure/fork/policy.test.mjs" },
+  "dependencies": {
+    "@nomicfoundation/hardhat-ethers": "4.0.15",
+    "ethers": "6.15.0",
+    "hardhat": "3.16.0",
+    "viem": "2.57.16"
+  }
+}
