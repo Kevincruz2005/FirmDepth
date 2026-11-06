@@ -12,6 +12,10 @@ files=['package.json','package-lock.json','deployment-source.json',
        'packages/sdk/package.json','infra/azure/fork/server.mjs',
        'infra/azure/fork/policy.mjs','infra/azure/fork/quote.mjs']
 with ZipFile(destination,'w',ZIP_DEFLATED,compresslevel=6) as archive:
+    # These are written by the demo/verifier after deployment. ZIP archives do
+    # not preserve empty directories unless they are explicitly included.
+    for directory in ['packages/contracts/evidence/','deployments/']:
+        archive.writestr(directory,b'')
     for file in files:
         archive.write(stage/file,file)
     for tree in trees:
