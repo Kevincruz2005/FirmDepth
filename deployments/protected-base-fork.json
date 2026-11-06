@@ -5,7 +5,7 @@
   "chainId": 8453,
   "forkBlock": 51123118,
   "baseline": "89c4a7910f054042872927a29e162538f6fa7b65",
-  "recordedAt": "2026-11-06T15:21:32.489Z",
+  "recordedAt": "2026-11-06T17:43:14.210Z",
   "addresses": {
     "aqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
     "weth": "0x4200000000000000000000000000000000000006",
@@ -21,12 +21,12 @@
   "transactions": [
     {
       "path": "AQUA",
-      "acceptance": "0x552df77eab49bcd5dfdcae4b75730c321ef942c19583e06eb02d43506f35e16b",
+      "acceptance": "0x74a6b885b0712319220c60677dc2228230bcdf6ae8c6e7c1fd130b6332da9a23",
       "execution": "0x7390e817752784e06de1d8dc5d988addb1b9d071c32739dc2ad392a945810017"
     },
     {
       "path": "BOND",
-      "acceptance": "0x416f40991f5bcae3d2767fc1806b2a8576a3ab54855e49ecce85d4adde8f91dc",
+      "acceptance": "0xd371e4ac701e96646489bbc8240555acd316d5fbbb302102a899037b9eec6354",
       "execution": "0xceba953504e9ee74cc1fcebba34ef9158f00c00844da42d5109b804f0cfac4d9"
     }
   ],

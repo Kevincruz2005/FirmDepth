@@ -98,7 +98,7 @@ The fork demo discovers a real USDC holder from historical Base logs and uses re
 | [`receipt.ts`](packages/sdk/src/receipt.ts) | Reconciles terminal chain state with strict acceptance, execution, SwapVM, bond, and ERC-20 receipt evidence. |
 | [`base-fork-demo.json`](packages/contracts/evidence/base-fork-demo.json) | Records the canonical Base fork transactions, gas, terminal states, and reconciled balances. |
 
-## Verified implementation
+## Pre-Mumbai baseline verification
 
 - Solidity: 61/61 tests pass, including two vault/accounting invariants at 1,024 fuzz runs each.
 - SDK: 28/28 tests pass after a clean build.
@@ -171,7 +171,7 @@ The SDK production dependency audit is clean. The contract workspace inherits ad
 
 ## Public Sepolia demo runbook
 
-The checked-in [`deployments/sepolia.json`](deployments/sepolia.json) is the only public deployment manifest. Its `ready` status, addresses, strategy hashes, and transaction lists are backed by real Sepolia receipts. Every command reads explicit shell variables and no package auto-loads `.env`.
+The checked-in [`deployments/sepolia.json`](deployments/sepolia.json) is the canonical v1 public deployment manifest. Its `ready` status, addresses, strategy hashes, and transaction lists are backed by real Sepolia receipts. The Mumbai wrapper is recorded separately in [`deployments/protected-sepolia.json`](deployments/protected-sepolia.json). Every command reads explicit shell variables and no package auto-loads `.env`.
 
 First validate the configured compatible Aqua, canonical WETH, Circle USDC, maker funding, bytecode, metadata, zero-transfer behavior, and `rawBalances`, then generate parameters and deploy:
 
@@ -245,7 +245,7 @@ npm --prefix packages/quote-service start
 
 Set `VITE_FIRMDEPTH_API_URL` to that API origin before building the frontend. When it is set, production loads only `GET /runtime` and compares it with the build-bundled Sepolia manifest before enabling live behavior. Without it, the ignored local Base-fork runtime remains available for the canonical regression suite.
 
-The Azure scripts in [`infra/azure/`](infra/azure/) create a Linux B1 App Service, system identity, RBAC-enabled purge-protected Key Vault, Key Vault references, HTTPS-only service, and Application Insights settings. Run `az login` yourself, export the names in `.env.example`, then run `infra/azure/deploy.sh`. It checks `az webapp list-runtimes --os linux` before selecting Node. After Vercel preview and production URLs exist, set exact comma-separated origins and run `infra/azure/update-cors.sh`; production CORS must never be `*`.
+The Azure scripts in [`infra/azure/`](infra/azure/) create a Linux B1 App Service, system identity, RBAC-enabled purge-protected Key Vault, Key Vault references, HTTPS-only service, and Application Insights settings. Run `az login` yourself, export the names in `.env.example`, then run `infra/azure/deploy.sh`. It checks `az webapp list-runtimes --os linux` before selecting Node. Use `infra/azure/deploy-frontend.sh` for Azure static website hosting; it configures the exact public frontend origin. Other exact origins can be set through `infra/azure/update-cors.sh`; production CORS must never be `*`.
 
 Deploy Vercel from the repository root so its configuration builds both SDK and frontend. Set only `VITE_FIRMDEPTH_API_URL` in the frontend environment. Validate a preview manually before promoting that same revision to production.
 
@@ -278,6 +278,8 @@ FirmDepth's SwapVM-linked contracts and instructions use `LicenseRef-Degensoft-S
 
 Protected Settlement extends pre-existing FirmDepth commitments into atomic treasury payouts. The payer funds an immutable plan; the settlement contract becomes the signed taker. Both Aqua execution and covered bond fallback can fund exact recipient allocations. A failed payout reverts the entire settlement. Expiry returns unspent WETH to the payer while preserving v1 premium economics.
 
-See [architecture, assumptions and reproducible demonstration](docs/protected-settlement.md). Run `./scripts/demo_protected_settlement.sh` for the local Base-fork gates. The `/settlement` interface requires a generated settlement-enabled runtime. Existing public Sepolia deployment records are unchanged.
+See [architecture, assumptions and reproducible demonstration](docs/protected-settlement.md). Run `./scripts/demo_protected_settlement.sh` for the local Base-fork gates. The `/settlement` interface uses either the generated local-fork runtime or the authenticated public Azure API. Existing public Sepolia core deployment records are unchanged.
+
+The [live Azure application](https://firmdepthpkg3207de.z29.web.core.windows.net/settlement) uses the [deployed API](https://firmdepth-api-3207de.azurewebsites.net/health) and public Sepolia wrapper `0x4c7296156a385a6487aD7FF38C328EdCf6584c79`. An Azure-issued quote funded exact 0.12/0.08 USDC payouts in [this real Sepolia execution](https://sepolia.etherscan.io/tx/0xa8096213cdedd078b4ae011a152469e116107e193870e5c843e52887b4bc7490). The sibling-drain bond demonstration remains explicitly local-fork evidence. Follow the [deployment and public-demo runbook](docs/azure-deployment.md) for reproduction, credentials, browser checks and cold-start assumptions.
 
 The Mumbai baseline is `89c4a7910f054042872927a29e162538f6fa7b65`. The new wrapper, settlement SDK/service integration, payout UI and transaction demonstrations are continuity additions. Aqua/SwapVM and FirmDepth's original collateral guarantees predate Mumbai.

@@ -2,7 +2,7 @@
   "provenance": "LOCAL BASE FORK — NOT PUBLIC TESTNET",
   "chainId": 8453,
   "forkBlock": 51123118,
-  "recordedAt": "2026-11-06T15:21:32.489Z",
+  "recordedAt": "2026-11-06T17:43:14.210Z",
   "addresses": {
     "aqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
     "weth": "0x4200000000000000000000000000000000000006",
@@ -16,11 +16,11 @@
   "scenarios": [
     {
       "planId": "0xdefd313c5d85f38a2225cda4c4e6a63401ab4ae399dbe988c520cfc6cc048319",
-      "commitmentId": "0xbf51eeb31db6d0cc816781c3c9c04adb26f2bb09d2ddf8c71c6efc067c24364b",
+      "commitmentId": "0x9ecf2efee8570f461c8ec27b0a47ccef93106859f0d6768ef1c65e6b810f6ea3",
       "path": "AQUA",
-      "create": "0x7b5ab0db00e2b30fc12dbf0b8b12e18c3b78ca9e227dde94795dd19e81aa8548",
+      "create": "0x6d1f1541d7cc8af4975a92b5a6e709804202e4c174d817c5de06ad876362247d",
       "fund": "0x721706a93e8dd3be208c4c8ae00d84ed60063cf5f5671f3b61a4d3fd5006cb8b",
-      "accept": "0x552df77eab49bcd5dfdcae4b75730c321ef942c19583e06eb02d43506f35e16b",
+      "accept": "0x74a6b885b0712319220c60677dc2228230bcdf6ae8c6e7c1fd130b6332da9a23",
       "execute": "0x7390e817752784e06de1d8dc5d988addb1b9d071c32739dc2ad392a945810017",
       "block": 51123216,
       "payouts": [
@@ -40,11 +40,11 @@
     },
     {
       "planId": "0xb0cc60dfb5c28f37ce14ae792a32a141fb66d1f037750312cf039da4162bb32f",
-      "commitmentId": "0xf3cae6a55100e2ea81df6a2f8136e12b9958952c4d81cc190e493131d0279ddd",
+      "commitmentId": "0xd865822475c7866ea4ed7f38fc92b54affaf3fad864380fd3f92df47e1ff5ea4",
       "path": "BOND",
-      "create": "0x928f64adafa7ee6b53e0e47fee83c12e776b004ac3cae2e47e299cc3304ce593",
+      "create": "0xd0eb32b3aaee252fc232fc391d5bd21a1a1b3d0a305c2c8b05e421fb10411cee",
       "fund": "0x5babe94b3c3286df551614354e363b4f55c66ef6af8bbc60e322d3b5cf4dd21e",
-      "accept": "0x416f40991f5bcae3d2767fc1806b2a8576a3ab54855e49ecce85d4adde8f91dc",
+      "accept": "0xd371e4ac701e96646489bbc8240555acd316d5fbbb302102a899037b9eec6354",
       "execute": "0xceba953504e9ee74cc1fcebba34ef9158f00c00844da42d5109b804f0cfac4d9",
       "block": 51123223,
       "payouts": [

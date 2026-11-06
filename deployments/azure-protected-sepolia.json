@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1",
+  "environment": "azure-public-sepolia",
+  "chainId": 11155111,
+  "recordedAt": "2026-11-06T17:55:21.313732+00:00",
+  "api": {
+    "url": "https://firmdepth-api-3207de.azurewebsites.net",
+    "resourceGroup": "firmdepth-mumbai-rg",
+    "appName": "firmdepth-api-3207de",
+    "plan": "firmdepth-mumbai-plan",
+    "sku": "B1",
+    "location": "Central India",
+    "health": "ok",
+    "deploymentAuthenticated": true,
+    "sourceCommit": "75364af",
+    "disableLocalMsiEndpoint": true,
+    "keyVaultReferences": "Resolved"
+  },
+  "frontend": {
+    "url": "https://firmdepthpkg3207de.z29.web.core.windows.net",
+    "storageAccount": "firmdepthpkg3207de",
+    "sourceCommit": "fb4abf6",
+    "httpStatus": 200
+  },
+  "settlement": "0x4c7296156a385a6487aD7FF38C328EdCf6584c79",
+  "publicBrowserRpc": "https://ethereum-sepolia-rpc.publicnode.com",
+  "payoutEvidence": "packages/contracts/evidence/protected-settlement-sepolia.json",
+  "publicPayoutExecution": "0xa8096213cdedd078b4ae011a152469e116107e193870e5c843e52887b4bc7490",
+  "localForkEvidence": "packages/contracts/evidence/protected-settlement-fork.json",
+  "limitations": [
+    "Full original public Sepolia browser regression is blocked by unavailable September receipts on the default browser RPC and rate limits on the archival candidate. Do not report all public regression gates as passed.",
+    "Public bond fallback and sibling drain are not claimed; they are verified local Base-fork demonstrations.",
+    "The App Service local MSI token endpoint is disabled; assigned identity and resolved platform Key Vault references remain enabled."
+  ]
+}
