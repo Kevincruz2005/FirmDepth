@@ -4,6 +4,104 @@ This guide explains how to run FirmDepth locally, what each action does, and how
 
 The application uses actual Aqua, SwapVM, Aave and ERC-20 contracts on a **local Base fork**. The archive RPC supplies the starting state. Your transactions stay on the local node.
 
+Read the [complete product journey](#the-complete-product-journey) first, then jump to [local setup](#1-start-the-application), [the core trade workflow](#the-core-workflow-maker--trade--evidence), [payouts](#4-pay-two-recipients-through-aqua), [Aave repayment](#5-repay-aave-debt-through-aqua), or [bond fallback](#6-demonstrate-covered-bond-settlement).
+
+## The complete product journey
+
+FirmDepth's core product is a **protected WETH-to-USDC trade**. The maker signs a minimum output, the trader accepts it, and separate bond collateral backs the accepted obligation. Protected payouts and Aave repayment use that same engine to put the USDC proceeds to work immediately.
+
+There are three roles:
+
+| Role | What they contribute | Where they act |
+|---|---|---|
+| Maker | Aqua trading inventory, USDC bond collateral and signed quotes. | Configured strategy/signing service; **Maker** page manages its bond. |
+| Trader / payer | WETH principal and the accepted premium; chooses the intended outcome. | **Trade** for wallet receipt, or **Settle** for payouts/repayment. |
+| Verifier / judge | Checks what actually happened against contract state and transfers. | **Evidence**, settlement receipts and environment-specific evidence files. |
+
+The current application uses one configured maker. The Maker page does not onboard arbitrary wallets or create new Aqua strategies. Setup scripts initialize inventory/strategies; the quote service supplies signatures. A connected payer cannot manage the maker's collateral.
+
+### How all six pages connect
+
+| Page | Its job | What you do | Connection to the rest |
+|---|---|---|---|
+| **Home** `/` | Explain the product's reason to exist. | Understand reusable inventory, Soft versus Firm and the three depth measurements. | Leads to Trade and Evidence. It does not move funds. |
+| **Maker** `/maker` | Show and manage the capital backing Firm commitments. | Inspect inventory, available/locked bond, utilization, outcomes and premiums. The configured maker can Deposit or Withdraw available bond. | Acceptance in Trade or Settle locks this bond; execution or expiry changes the same balances and history. |
+| **Trade** `/trade` | Execute the original core product. | Choose Soft or Firm, inspect depth and quote, then trade. Firm acceptance and execution are separate steps. | Uses the configured maker's strategy/signature and bond. Sends USDC to the trader. Its commitment can be checked in Evidence. |
+| **Settle** `/settlement` | Use protected proceeds for an authorized downstream purpose. | Create/fund a payout or debt plan, inspect a quote, accept and execute atomically. | Calls the same FirmDepth core as Trade, with the settlement wrapper as taker. Pays recipients or Aave instead of requiring a later manual transfer. |
+| **Evidence** `/evidence` | Verify core execution and explain its provenance. | Read current inventory/bond/history, inspect recorded public/fork proof, or decode a core receipt using its three hashes. | Reads the same registry, router and vault. Detailed recipient and Aave verification remains in the Settle receipt view and associated evidence files. |
+| **Docs** `/docs` | Explain mechanics and operating rules. | Read lifecycle, depth definitions, premiums, bond behavior, security boundaries and existing deployment details. | Helps interpret every other page; it does not authorize or execute transactions. Repository guides cover the newer payout/Aave flows in more detail. |
+
+```mermaid
+flowchart TD
+    H[Home: understand the problem] --> T[Trade: Soft or Firm]
+    H --> D[Docs: learn the rules]
+    M[Maker: manage backing collateral] --> T
+    M --> S[Settle: protected payout or repayment]
+    T --> W[USDC to trader wallet]
+    S --> P[USDC to recipients or Aave]
+    T --> E[Evidence: core commitment and transfers]
+    S --> E
+    S --> R[Settle receipt: verify the downstream action]
+    D --> T
+    D --> S
+```
+
+All pages share the authenticated runtime: network, RPC, deployed contracts, configured strategies and connected wallet. Their financial connection is the onchain commitment and its collateral lock. Navigation does not itself move tokens or create a commitment. Reopen/refresh a page to inspect the resulting chain state.
+
+### Four ways to use the execution engine
+
+| Entry point | Protection | Where the WETH principal stays before execution | USDC destination |
+|---|---|---|---|
+| Trade → Soft | No Firm premium or dedicated bond lock. | Trader wallet. | Trader wallet. |
+| Trade → Firm | Maker-signed commitment with a dedicated bond lock after acceptance. | Trader wallet; acceptance escrows the premium separately. | Trader wallet. |
+| Settle → Payout | The same Firm protection plus immutable recipient allocations. | Funded plan escrow. | Predetermined recipients; surplus to payer. |
+| Settle → Debt Repayment | The same Firm protection plus a fixed, verified Aave action. | Funded plan escrow through the repayment adapter/wrapper. | Aave reserve; permitted surplus to payer. |
+
+**Choose Trade or Settle according to the desired result.** You do not first execute Trade and then send those proceeds into a settlement plan. Settle funds its own WETH commitment so the swap and downstream action can succeed or revert together.
+
+For a direct Firm trade, the signed taker is the connected trader wallet. For both Settle modes, it is Protected Settlement. The repayment adapter and original payer have distinct roles; connecting a wallet does not replace the signed taker or configured maker.
+
+### The core workflow: Maker → Trade → Evidence
+
+1. **Inspect Maker.** Confirm the configured maker has Aqua inventory and available USDC bond. Only connect that maker wallet when managing its collateral. Deposit first approves USDC, then deposits it. Withdraw can use only available collateral, never an accepted commitment's lock.
+2. **Open Trade and connect the funded trader.** Enter the WETH amount. The Depth reality panel separates Virtual depth, Pullable depth and quote-scoped Firm depth. Large advertised inventory does not automatically mean an executable or collateral-backed quote.
+3. **Try Soft on a fresh fixture.** Select Soft, inspect its current SwapVM quote and choose **Execute Soft swap**. Approve WETH if requested. This is a direct Aqua execution attempt with no protected commitment or premium.
+4. **Use a fresh fixture to try Firm.** Select Firm and choose a 120-second horizon for a manual demonstration. Fork mode requests its signed quote automatically; the public deployment also exposes **Request fresh Firm quote**. Check the output minimum, premium, expiry and eligibility.
+5. **Select Accept Firm quote.** Confirm any necessary approvals and acceptance. The app refreshes the quote after approval when needed. Acceptance creates the commitment, escrows its premium and locks the maker's bond; it does not yet execute the principal swap.
+6. **Use the Latest Firm commitment card.** Check its commitment ID, lock and expiry, then select **Execute**. It receives USDC through Aqua when capacity remains sufficient or through the covered bond path after an eligible capacity loss. If the deadline has passed, **Settle expiry** finalizes expiry instead. For this direct trade, unspent principal remains in the trader wallet.
+7. **Inspect Maker again.** Available and locked collateral reflect the same commitment. The dashboard's outcomes and premium history show terminal events. These are chain reads, not a separate accounting system.
+8. **Open Evidence.** Inspect current commitment history or supply the commitment ID, acceptance transaction hash and terminal transaction hash to **Decode from chain**. The SDK verifies the core result and token/bond movements.
+
+Soft swaps have no Firm commitment ID. Their execution confirmation and swap receipt are different from the Firm commitment decoder; their effect on shared inventory is still visible in live depth reads.
+
+Local fixture example: suppose the vault starts with 1,000 USDC and a quote promises 200 USDC with a 240-USDC collateral requirement.
+
+| Point in the journey | Available bond | Locked bond | Total maker bond |
+|---|---:|---:|---:|
+| Before acceptance | 1,000 | 0 | 1,000 |
+| After acceptance | 760 | 240 | 1,000 |
+| After Aqua execution | 1,000 | 0 | 1,000 |
+| After covered bond execution instead | 800 | 0 | 800 |
+| After expiry instead | 1,000 | 0 | 1,000 |
+
+The last three rows are alternative outcomes. Bond execution pays 200 USDC and releases the remaining 40 USDC of the lock. Aqua execution and expiry release the entire lock. The accepted premium is finalized once under the original rules.
+
+### How the extensions fit
+
+After understanding the direct Firm trade, use **Settle** for an application outcome. The payer fixes the destination first, funds escrow, then accepts a maker quote signed for Protected Settlement. Execution uses the same Aqua/bond decision and completes recipient payments or Aave repayment in that transaction. A downstream failure reverts the complete execution.
+
+An accepted Settle commitment affects the same Maker bond metrics and underlying registry history. Its detailed proof is shown on the settlement page: recipient allocations for payouts, or actual Pool repayment and debt reduction for Aave. Evidence's core decoder alone is not a complete Aave debt-repayment verifier.
+
+### What the current UI does not connect automatically
+
+- Maker onboarding, creation of new Aqua strategies and multi-maker quote selection are not available in the current UI.
+- Trade does not turn a completed wallet swap into an atomic payout or repayment afterward. Choose Settle before creating that commitment.
+- Home/Docs still contain Sepolia-first wording from the original product. Check the authenticated runtime/environment before transacting; a page title does not change the connected chain.
+- Evidence combines historical public proof, pinned fork proof and current-runtime reads. A fresh fixture may have no current commitments even though earlier recorded demonstrations exist. Use matching environment and contract addresses when decoding.
+- The UI does not yet present one unified guided journey or one combined receipt view for every downstream action. The contracts, shared runtime and receipts provide the connection described above.
+
+The step-by-step sections below cover the actual local setup and downstream flows.
+
 ## 1. Start the application
 
 From the repository root, with Node 24 LTS, npm, Chrome, Bash and `curl` installed:

@@ -22,7 +22,22 @@ FirmDepth keeps the trading inventory reusable and locks separate USDC collatera
 | **Protected Settlement** | Immutable payer-owned payout plans, isolated WETH funding, exact recipient allocations, atomic transfers, surplus and expiry refunds. |
 | **Protected Debt Repayment** | A fixed Aave V3 repayment action around Protected Settlement, with an authorized borrower, repayment limits, bounded approval and verified debt reduction. |
 
-The maker signs **Protected Settlement as taker**. The connected wallet remains the payer; the debt adapter records that payer separately from the underlying contract-owned payout plan.
+For Settle plans, the maker signs **Protected Settlement as taker**. The connected wallet remains the payer; the debt adapter records that payer separately from the underlying contract-owned payout plan. For a direct Firm trade, the signed taker is the trader's wallet.
+
+## Application workflow
+
+The original product journey is **Maker → Trade → Evidence**. The maker backs quotes; the trader accepts and executes a protected trade; the receipt proves its outcome. **Settle** uses that same engine for a downstream purpose chosen before execution.
+
+| Page | Contribution |
+|---|---|
+| **Home** | Explain reusable liquidity, Soft/Firm execution and the three depth measurements. |
+| **Maker** | Inspect inventory and bond backing; the configured maker manages available collateral. |
+| **Trade** | Execute Soft swaps or accept and execute Firm commitments, receiving USDC in the trader wallet. |
+| **Settle** | Fund a separate WETH plan that atomically pays recipients or repays Aave through the same Firm core. |
+| **Evidence** | Verify core commitments, transfers, bond movement and recorded proof. Downstream details are verified in Settle's receipts. |
+| **Docs** | Explain the lifecycle, economics, security assumptions and deployment context. |
+
+The pages share the authenticated runtime, wallet and onchain state. Trade and Settle are alternative entry points: a completed Trade swap is not automatically converted into an atomic payout or repayment. The current UI has one configured maker and separate core/downstream receipt views. See the [full page-by-page workflow](docs/local-user-flow.md#the-complete-product-journey) for the connections and current limitations.
 
 ## How settlement works
 
