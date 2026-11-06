@@ -15,19 +15,22 @@ export function Settlement() {
   const [quote,setQuote]=useState<FirmQuoteEnvelope|null>(null); const [message,setMessage]=useState(""); const [busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState<Awaited<ReturnType<typeof getPayoutReceipt>>|null>(null);
   const config=runtime?.artifact.settlement; const strategy=runtime?.artifact.strategies.find(s=>s.kind==="FIRM");
+  const publicSepolia=runtime?.artifact.chainId===11155111&&runtime.artifact.environment.kind==="deployment";
+  const settlementBlock=config?.deploymentBlock??runtime?.artifact.deploymentBlock??0;
+  useEffect(()=>{if(publicSepolia){setInput("0.0001");setBudget("0.00002");setRows([{recipient:"",amount:"0.12"},{recipient:"",amount:"0.08"}]);}},[publicSepolia]);
   const owned=plan?.payer.toLowerCase()===wallet.account?.toLowerCase();
   async function refresh(target=id) {
     if(!runtime||!config||!target)return;
     const [p,a]=await Promise.all([readPlan(runtime.publicClient,config.address,target),readPayouts(runtime.publicClient,config.address,target)]);
     setPlan(p);setAllocations(a);
     if(p.state===4){
-      const logs=await runtime.publicClient.getContractEvents({address:config.address,abi:settlementAbi,eventName:"PlanSettled",args:{planId:target},fromBlock:BigInt(runtime.artifact.deploymentBlock)});
-      const hash=logs.at(-1)?.transactionHash;if(hash)setReceipt(await getPayoutReceipt(runtime.publicClient,config.address,target,hash,BigInt(runtime.artifact.deploymentBlock)));
+      const logs=await runtime.publicClient.getContractEvents({address:config.address,abi:settlementAbi,eventName:"PlanSettled",args:{planId:target},fromBlock:BigInt(settlementBlock)});
+      const hash=logs.at(-1)?.transactionHash;if(hash)setReceipt(await getPayoutReceipt(runtime.publicClient,config.address,target,hash,BigInt(settlementBlock)));
     }
   }
   useEffect(()=>{setPlan(null);setId(null);setReceipt(null);setQuote(null);if(!runtime||!config||!wallet.account)return;
     let active=true;
-    void runtime.publicClient.getContractEvents({address:config.address,abi:settlementAbi,eventName:"PlanCreated",args:{payer:wallet.account},fromBlock:BigInt(runtime.artifact.deploymentBlock)}).then(async logs=>{const last=logs.at(-1)?.args.planId;if(active&&last){setId(last);await refresh(last);}}).catch(e=>setMessage(String(e)));
+    void runtime.publicClient.getContractEvents({address:config.address,abi:settlementAbi,eventName:"PlanCreated",args:{payer:wallet.account},fromBlock:BigInt(settlementBlock)}).then(async logs=>{const last=logs.at(-1)?.args.planId;if(active&&last){setId(last);await refresh(last);}}).catch(e=>setMessage(String(e)));
     return()=>{active=false};
   },[runtime,config,wallet.account]);
   async function run(action:string) {
@@ -61,7 +64,8 @@ export function Settlement() {
   const disabled=busy||!wallet.account||wallet.chainId!==runtime?.artifact.chainId;
   return <div className="settlement-page"><p className="eyebrow">Mumbai Continuity · Protected settlement</p><h1>One commitment.<br/>Every recipient paid.</h1><p>Fund a fixed payout plan with WETH. Accepted FirmDepth collateral protects the USDC settlement when shared Aqua capacity disappears.</p>
     {!config?<p role="status">Protected settlement is unavailable on this deployment. Start the protected local fork to create a plan.</p>:<>
-      <p className="truth-tag">{runtime?.artifact.environment.kind==="base-fork"?"LIVE LOCAL FORK · not public testnet":"LIVE"}</p>
+      <p className="truth-tag">{runtime?.artifact.environment.kind==="base-fork"?"LIVE LOCAL FORK · not public testnet":"SEPOLIA TESTNET · LIVE"}</p>
+      {publicSepolia&&<p>Public testnet defaults use scaled 0.12 / 0.08 USDC payouts. Use the local Base fork for the 120 / 80 USDC sibling-drain demonstration.</p>}
       <p>Signed taker: <code>{config.address}</code></p><p>Payer: <code>{wallet.account??"Connect your treasury wallet"}</code></p>
       {(!plan||plan.state>=4)?<section><h2>Create immutable payouts</h2><p>The payer receives surplus and refunds. The plan deadline is one hour; accepted quotes last 120 seconds. Accepted premiums are retained by the maker, including on expiry.</p>
         <label>WETH principal<input value={input} onChange={e=>setInput(e.target.value)}/></label><label>Maximum WETH premium<input value={budget} onChange={e=>setBudget(e.target.value)}/></label>

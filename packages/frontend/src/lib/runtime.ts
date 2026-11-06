@@ -7,6 +7,7 @@ import type { FirmQuoteEnvelope } from "@firmdepth/sdk/quote-provider";
 import { createPublicClient, defineChain, getAddress, http, isAddress, isHash, isHex, type Address, type Hex, type PublicClient } from "viem";
 import { baseForkEvidence } from "../data/evidence";
 import sepoliaManifest from "../../../../deployments/sepolia.json";
+import protectedSepoliaManifest from "../../../../deployments/protected-sepolia.json";
 
 export interface SerializedFirmQuote extends Omit<FirmQuote, "amountIn" | "referenceAmountOut" | "minAmountOut" | "requiredBond" | "premiumAmount" | "sigmaWad" | "annualCapitalRateWad" | "utilizationAfterWad" | "minPremiumOut" | "expiry" | "nonce"> {
   amountIn: string;
@@ -34,7 +35,7 @@ export interface RuntimeStrategy {
 
 export interface FrontendRuntimeArtifact extends Omit<DeploymentArtifact, "schemaVersion"> {
   schemaVersion: "2";
-  settlement?: { address: Address; quoteUrl: string };
+  settlement?: { address: Address; quoteUrl: string; deploymentBlock?: number };
   rpcUrl: string;
   deploymentBlock: number;
   manifestRevision?: Hex;
@@ -93,7 +94,13 @@ export async function loadRuntimeArtifact(url = runtimeEndpoint()): Promise<Load
   if (!response.headers.get("content-type")?.includes("application/json")) return null;
   const artifact = validateRuntimeArtifact(await response.json());
   const isPublic = url !== "/runtime/firmdepth.json";
-  if (isPublic) validatePublicRuntimeMatch(artifact, sepoliaManifest);
+  if (isPublic) {
+    validatePublicRuntimeMatch(artifact, sepoliaManifest);
+    if (artifact.settlement) {
+      if (getAddress(artifact.settlement.address) !== getAddress(protectedSepoliaManifest.address)) throw new Error("Public settlement differs from the bundled deployment");
+      artifact.settlement.deploymentBlock = protectedSepoliaManifest.blockNumber;
+    }
+  }
   const chain = defineChain({
     id: artifact.chainId,
     name: artifact.networkName,
