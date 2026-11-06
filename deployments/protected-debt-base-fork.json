@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "1",
+  "environment": "LOCAL BASE FORK — REAL AAVE CONTRACTS, NOT PUBLIC MAINNET OR SEPOLIA",
+  "chainId": 8453,
+  "forkBlock": 51123118,
+  "recordedAt": "2026-11-06T19:11:03.977Z",
+  "baseline": "2d823188e981ea44f97dd6421fe2c1638ea8d027",
+  "addresses": {
+    "aqua": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
+    "weth": "0x4200000000000000000000000000000000000006",
+    "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "bondVault": "0x742b49cF43083584cb53467b119146Ef361b571f",
+    "registry": "0xe3B1E81bB4ae2a723CF4fF23b7E66C71CC6A2330",
+    "firmRouter": "0x787C53FA27340DAA779F3a1B8CDbf7936B14B68e",
+    "executor": "0x2563B90A1192bDbE848A13bA4Ce0C112857fE4Ba",
+    "settlement": "0x38cab7b5415b6de0de683F95fE786Fe8A3ad0908",
+    "repayment": "0xE3D7478B07Df817aAf16fF9CfBE9A384AB86d330",
+    "pool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    "variableDebtToken": "0x59dca05b6c26dbd64b5381374aAaC5CD05644C28",
+    "aToken": "0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB"
+  },
+  "codeHashes": {
+    "pool": "0xffcb26fbebbe09d9b0d8baef76a1fa218989be6c279b7acf9865d8fb6e0718ce",
+    "usdc": "0xa6705a10bb756b5dea144591118be77d7af0c3eee3bf2dfe2583dcb0364fefab",
+    "weth": "0x8a3a1f6a9f9dce633117adee5b458245835a8645a8c8726a26382a4622508b1c",
+    "variableDebt": "0x59d2fd2a4bad76f979bc2c1da50504e072f4b3bb64f5429302a384ad9c0706f2",
+    "aToken": "0x59d2fd2a4bad76f979bc2c1da50504e072f4b3bb64f5429302a384ad9c0706f2",
+    "aqua": "0x720bc02d220db318164dc3bade86eec1f3655bdc00fc1174de7d816a95c341f8",
+    "bondVault": "0x3ca2f4de49fe85df294d75d3d41e2bd5ecebb0bd1be491121ce696cebf72a76d",
+    "registry": "0x40a3d7333c7f31ea5071b2893d14435ed8d0436a32102df9b0eb16c8604e57d4",
+    "firmRouter": "0xdb46fa116ad437df8cd0d8b9d8341586a963f113254b375e7a34d18860cee83d",
+    "executor": "0x7160efc713759422d24703ae84512dcc0d03b2990a3e50563455544ad13b9be4",
+    "settlement": "0x43c0b167b0c0c87b4bc7b274fc57c327720f38db60ab880b6f976af1ddc6375d",
+    "repayment": "0x42b5a1ad6757ebbacba226c5cea21608d2a83df91b4bb4e8b4f2af7ed8c78a3c",
+    "variableDebtToken": "0x59d2fd2a4bad76f979bc2c1da50504e072f4b3bb64f5429302a384ad9c0706f2"
+  },
+  "deployment": {
+    "adapterTransactionHash": "0x43b2887161a3600229f926b87fb061dfe21118bafd193e260dbaf599e8a79e56",
+    "adapterBlock": 51123167,
+    "settlementTransactionHash": "0x6d9a28a127a5ab3eb4a4a9f220bcebde104bcbf08a61d2dee44e8d42a8513c3d",
+    "coreDeploymentBlock": 51123160
+  },
+  "borrower": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  "borrowTransaction": "0x345658cd367242b9461d0e8a123c3c4d1827782557677d045154d62be2abe3fe",
+  "evidence": "packages/contracts/evidence/protected-debt-base-fork.json",
+  "transactions": [
+    {
+      "path": "AQUA",
+      "planId": "0xe7900ce9599db25ed019f3f759d6154bc664ee6e9cdd960ea5cb3993dc17cdb5",
+      "acceptance": "0x59897c5d3b088e1d8e1739a6948198eb04b14093960d891b290e555f8e48af0a",
+      "execution": "0xb35271d49cd33daf71f0ba5515ab275463b9235e0bdd0c681cc9b1bf8419be87",
+      "actualRepaid": "200000000",
+      "debtBefore": "600000024",
+      "debtAfter": "400000024"
+    },
+    {
+      "path": "BOND",
+      "planId": "0x88bd1b979872e7202ec9970a5a7c8503f450b909b6ae87a3df853b1f68793b7f",
+      "acceptance": "0x7cd987bdc79266876d2316c70e30d70c2a87fa1728c659303db3751ffa032ed7",
+      "execution": "0x937d4531e8775d068edc05e3602abb0e21fc300451055235d105e15f4d77b7cc",
+      "actualRepaid": "200000000",
+      "debtBefore": "400000038",
+      "debtAfter": "200000039"
+    },
+    {
+      "path": "AQUA",
+      "planId": "0x39ddd490ee2ea1ce52d5a94cfec5b641fdc483fdaee7924f04cce948e9c724c2",
+      "acceptance": "0xa402a34dca3b0a12e24995b410b21f14070c0c68b6eb7837edd6590a585e0ee3",
+      "execution": "0xc7ee744572102e54ceabb6ab0ecd0e955dc4850963949c021d229a15ebf57820",
+      "actualRepaid": "200000047",
+      "debtBefore": "200000047",
+      "debtAfter": "0"
+    },
+    {
+      "path": "AQUA",
+      "planId": "0xc6bf641d9bd2adf0966c10ab029e8b1a2fb111efb0d5a00b37780d775b9cad7a",
+      "acceptance": "0xd1c351527b417ea8d4a3cc89227a7752f8a215f794f8e4960f69a3fca490f8bb",
+      "execution": "0xafd4ee64084ca0d259e098803c95fb2b517be3c2280ce3d7e34992df3141452b",
+      "actualRepaid": "50000000",
+      "debtBefore": "100000026",
+      "debtAfter": "50000027"
+    }
+  ],
+  "safeFailure": "0xb2661f6559c2d1cf9dd07382ffde959388d14eda38b2101efd2d4a2a3e6c71e5",
+  "verified": {
+    "realAavePool": true,
+    "realReserveTokens": true,
+    "aquaRepayment": true,
+    "bondRepayment": true,
+    "expiryRefund": true,
+    "atomicAaveRollback": true,
+    "scaledDebtAndTokenTransfers": true
+  }
+}
