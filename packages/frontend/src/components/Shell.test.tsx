@@ -11,6 +11,7 @@ vi.mock("../hooks/useRuntime", () => ({ useRuntime: () => state.runtime, useWall
 
 describe("global wallet header", () => {
   beforeEach(() => {
+    Object.assign(state.runtime.runtime.artifact, { chainId: 11155111, networkName: "Sepolia", environment: { label: "Sepolia" } });
     state.wallet.account = null; state.wallet.chainId = null; state.wallet.error = null; state.wallet.providers = []; state.wallet.discoverySettled = true; state.wallet.chooserOpen = false; state.wallet.selectedProviderId = null;
     state.wallet.openWalletChooser.mockReset(); state.wallet.closeWalletChooser.mockReset(); state.wallet.connectProvider.mockReset(); state.wallet.disconnect.mockReset();
   });
@@ -55,5 +56,17 @@ describe("global wallet header", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Wallet connection cancelled.");
     expect(screen.getByRole("link", { name: /Install MetaMask/ })).toHaveAttribute("href", "https://metamask.io/download/");
     expect(screen.getByRole("link", { name: /Install Rabby/ })).toHaveAttribute("href", "https://rabby.io/");
+  });
+
+  it("explains the fork network and exposes its exact manual RPC settings", () => {
+    Object.assign(state.runtime.runtime.artifact, { chainId: 8453, rpcUrl: "https://fork.example/rpc", environment: { kind: "base-fork", hosting: "azure", label: "Azure Base Fork" } });
+    state.wallet.chooserOpen = true;
+    state.wallet.error = "Select the fork RPC.";
+    render(<Shell route="/settlement"><p>Settle</p></Shell>);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getAllByText("FirmDepth Azure Fork")).toHaveLength(2);
+    expect(within(dialog).getByText(/Base mainnet uses the same chain ID/)).toBeVisible();
+    expect(within(dialog).getByText("https://fork.example/rpc")).toBeVisible();
+    expect(dialog.querySelector("details")).toHaveAttribute("open");
   });
 });

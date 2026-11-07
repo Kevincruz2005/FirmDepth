@@ -54,6 +54,59 @@ describe("selected injected wallet lifecycle", () => {
     await screen.findByText("Wallet connection cancelled.");
     expect(screen.queryByText(/Internal provider rejection detail/)).not.toBeInTheDocument();
   });
+
+  function useForkRuntime() {
+    const runtime = mocks.loadRuntimeArtifact.getMockImplementation()!();
+    return Promise.resolve(runtime).then((value) => {
+      value.artifact = { ...value.artifact, chainId: 8453, networkName: "FirmDepth Azure Fork", environment: { kind: "base-fork", hosting: "azure" }, addresses: {...value.artifact.addresses, firmRouter:firstAccount} };
+      value.publicClient = { ...value.publicClient, chain: {...sepolia,id:8453}, getBytecode: vi.fn(async()=>"0x6001"), getBlock:vi.fn(async()=>({number:100n,hash:`0x${"ab".repeat(32)}`})) };
+      mocks.loadRuntimeArtifact.mockResolvedValue(value);
+    });
+  }
+
+  it("connects a Sepolia wallet to the verified fork through network setup", async () => {
+    await useForkRuntime();
+    const metamask = fakeEventProvider();
+    renderWallet();
+    await screen.findByText("runtime-ready");
+    announce("metamask-id", "MetaMask", "io.metamask", metamask.provider);
+    fireEvent.click(await screen.findByRole("button", {name:"Connect MetaMask"}));
+    await screen.findByText("signer-ready");
+    expect(metamask.requestedMethods()).toContain("wallet_addEthereumChain");
+    expect(metamask.requestedMethods()).toContain("wallet_switchEthereumChain");
+    expect(screen.getByTestId("account")).toHaveTextContent(firstAccount);
+  });
+
+  it("blocks a wallet on public Base even after a successful chain switch", async () => {
+    await useForkRuntime();
+    const metamask = fakeEventProvider();
+    metamask.setCode("0x");
+    renderWallet();
+    await screen.findByText("runtime-ready");
+    announce("metamask-id", "MetaMask", "io.metamask", metamask.provider);
+    fireEvent.click(await screen.findByRole("button", {name:"Connect MetaMask"}));
+    await screen.findByText(/RPC does not match/);
+    expect(screen.getByTestId("signer")).toHaveTextContent("no-signer");
+    expect(metamask.requestedMethods()).not.toContain("eth_requestAccounts");
+  });
+
+  it("rechecks fork identity after chain and account events", async () => {
+    await useForkRuntime();
+    const metamask = fakeEventProvider();
+    renderWallet();
+    await screen.findByText("runtime-ready");
+    announce("metamask-id", "MetaMask", "io.metamask", metamask.provider);
+    fireEvent.click(await screen.findByRole("button", {name:"Connect MetaMask"}));
+    await screen.findByText("signer-ready");
+    metamask.setCode("0x");
+    act(() => metamask.emitChain("0x2105"));
+    await screen.findByText(/RPC does not match/);
+    expect(screen.getByTestId("signer")).toHaveTextContent("no-signer");
+    act(() => metamask.emitAccounts(secondAccount));
+    await screen.findByText(/RPC does not match/);
+    expect(screen.getByTestId("signer")).toHaveTextContent("no-signer");
+  });
+
 });
 
 function renderWallet() {
@@ -66,6 +119,8 @@ function Harness() {
   return <div>
     <span>{runtime.runtime ? "runtime-ready" : "runtime-loading"}</span>
     <span>{wallet.providers.map(({ name }) => name).join(",")}</span>
+    <span data-testid="signer">{wallet.walletClient ? "signer-ready" : "no-signer"}</span>
+    <button onClick={wallet.disconnect}>Disconnect</button>
     <span data-testid="account">{wallet.account ?? "no-account"}</span>
     <span>chain-{wallet.chainId ?? "none"}</span>
     <span>{wallet.error}</span>
@@ -81,9 +136,13 @@ function fakeEventProvider(rejectConnection = false) {
   let account = firstAccount;
   let authorized = false;
   let chain = "0xaa36a7";
+  let code = "0x6001";
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
-  const request = vi.fn(async ({ method }: { method: string }) => {
+  const request = vi.fn(async ({ method, params }: { method: string; params?: unknown[] | object }) => {
     if (method === "eth_chainId") return chain;
+    if (method === "wallet_switchEthereumChain") { chain = (params as Array<{chainId:string}>)[0]!.chainId; return null; }
+    if (method === "eth_getCode") return code;
+    if (method === "eth_getBlockByNumber") return {hash:`0x${"ab".repeat(32)}`};
     if (method === "eth_accounts") return authorized ? [account] : [];
     if (method === "eth_requestAccounts") {
       if (rejectConnection) throw Object.assign(new Error("Internal provider rejection detail"), { code: 4001 });
@@ -99,6 +158,7 @@ function fakeEventProvider(rejectConnection = false) {
   };
   return {
     provider,
+    setCode(value: string) { code = value; },
     requestedMethods: () => request.mock.calls.map(([value]) => value.method),
     emitAccounts(value: string) { account = value; for (const listener of listeners.get("accountsChanged") ?? []) listener([value]); },
     emitChain(value: string) { chain = value; for (const listener of listeners.get("chainChanged") ?? []) listener(value); },

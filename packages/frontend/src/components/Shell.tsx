@@ -4,6 +4,7 @@ import { useRuntime, useWallet } from "../hooks/useRuntime";
 import { shortHex } from "../lib/format";
 import { StatusDot } from "./Primitives";
 import { WalletChooser } from "./WalletChooser";
+import { walletNetworkDetails } from "../lib/wallet-network";
 
 const routes = [
   ["/trade", "Trade"],
@@ -48,13 +49,13 @@ export function Shell({ route, children }: { route: string; children: ReactNode 
           {accountOpen && <div id="account-menu" className="account-menu">
             <span>Connected account</span><code>{wallet.account}</code>
             {loading ? <StatusDot>Runtime check</StatusDot> : runtime && wallet.chainId === runtime.artifact.chainId ? <StatusDot tone="live">{runtime.artifact.environment.label}</StatusDot> : error ? <StatusDot tone="bad">Runtime mismatch</StatusDot> : <StatusDot tone="bad">Wrong network</StatusDot>}
-            {wallet.chainId !== runtime?.artifact.chainId && wallet.selectedProviderId && <button type="button" onClick={() => void wallet.connectProvider(wallet.selectedProviderId!)}>Switch to Sepolia</button>}
+            {wallet.chainId !== runtime?.artifact.chainId && wallet.selectedProviderId && <button type="button" onClick={wallet.openWalletChooser}>Switch to {runtime ? walletNetworkDetails(runtime).name : "app network"}</button>}
             <button type="button" onClick={wallet.disconnect}>Disconnect</button>
           </div>}
         </div>}
       </div>
     </header>
-    <WalletChooser open={wallet.chooserOpen} providers={wallet.providers} discoverySettled={wallet.discoverySettled} connecting={wallet.connecting} error={wallet.error} onSelect={(providerId) => void wallet.connectProvider(providerId)} onClose={closeWalletChooser} />
+    <WalletChooser open={wallet.chooserOpen} providers={wallet.providers} discoverySettled={wallet.discoverySettled} connecting={wallet.connecting} error={wallet.error} network={runtime ? walletNetworkDetails(runtime) : undefined} onSelect={(providerId) => void wallet.connectProvider(providerId)} onClose={closeWalletChooser} />
     <main id="main-content" tabIndex={-1}>{children}</main>
     <footer className="site-footer">
       <div><a className="wordmark" href="/"><span>F</span>FirmDepth</a><p>Bond-backed execution certainty for reusable Aqua liquidity.</p></div>

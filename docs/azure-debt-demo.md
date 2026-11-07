@@ -80,6 +80,14 @@ The dedicated B1 plan incurs charges while allocated. Deleting `firmdepth-debt-d
 
 Application: **https://firmdepth-debt-3207de.azurewebsites.net/settlement**. Choose **Debt Repayment**. Its HTTPS RPC is `https://firmdepth-debt-3207de.azurewebsites.net/rpc`, chain 8453. The connected environment is an Azure-hosted fork, not public Base mainnet or Sepolia.
 
+### Connecting a browser wallet
+
+Click **Connect wallet**, choose MetaMask or your other detected wallet, and approve adding **FirmDepth Azure Fork** and switching networks. The app supplies `https://firmdepth-debt-3207de.azurewebsites.net/rpc` with chain ID **8453** and currency **ETH**. This is the isolated demonstration, using fork balances.
+
+If your wallet already has Base saved and keeps its mainnet RPC selected, open the wallet's network settings and add/select the FirmDepth RPC above. The connection dialog also shows these settings. Chain ID alone is insufficient: the app checks the deployed router bytecode and a reference block hash before enabling its wallet client, including after account or network changes. A matching chain ID with a different RPC remains blocked.
+
+For public Sepolia trading and payouts, use [the Sepolia application](https://firmdepthpkg3207de.z29.web.core.windows.net/settlement) and chain **11155111** instead.
+
 Three browser checks passed against that deployed site: restricted public access, an actual 200-USDC Aqua repayment, and an actual 200-USDC covered-bond repayment following a sibling drain. The final proof separately verified a smaller remaining-debt close, 99.999952 USDC surplus, expiry, a mined refund failure reaching the Pool, rollback and successful retry. An unauthenticated visitor smoke check also verified the current adapter, real 600.000002-USDC debt display, evidence links and mobile layout.
 
 | Proof | Azure fork execution |

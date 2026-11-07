@@ -4,6 +4,8 @@ import { createWalletClient, custom, getAddress, type Address, type WalletClient
 import { loadRuntimeArtifact, type LoadedRuntime } from "../lib/runtime";
 import { readErrorMessage } from "../lib/trade-errors";
 import { mergeInjectedWallet, requestInjectedWallets, subscribeInjectedWallets, walletConnectionError, type InjectedWalletProvider, type InjectedWalletSummary } from "../lib/injected-wallets";
+import { assertWalletNetwork, switchToRuntimeNetwork, WalletNetworkError } from "../lib/wallet-network";
+export { switchToSepolia } from "../lib/wallet-network";
 
 interface RuntimeState {
   runtime: LoadedRuntime | null;
@@ -79,19 +81,36 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [chooserOpen, setChooserOpen] = useState(false);
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
   const selectedProviderIdRef = useRef<string | null>(null);
+  const accountCheckRef = useRef(0);
+  const invalidateAccountChecks = useCallback(() => { accountCheckRef.current += 1; }, []);
 
   const selectProvider = useCallback((providerId: string | null) => {
     selectedProviderIdRef.current = providerId;
     setSelectedProviderId(providerId);
   }, []);
 
-  const installAccount = useCallback((provider: EthereumProvider, value: string | undefined) => {
+  const installAccount = useCallback(async (provider: EthereumProvider, value: string | undefined) => {
+    const check = ++accountCheckRef.current;
+    setWalletClient(null);
     if (runtime === null || value === undefined) {
-      setAccount(null); setWalletClient(null); setEthBalance(null); setWethBalance(null); return;
+      setAccount(null); setEthBalance(null); setWethBalance(null); return false;
     }
-    const nextAccount = getAddress(value);
-    setAccount(nextAccount);
-    setWalletClient(createWalletClient({ account: nextAccount, chain: runtime.publicClient.chain, transport: custom(provider as any) }));
+    try {
+      const verifiedChainId = await assertWalletNetwork(provider, runtime);
+      if (check !== accountCheckRef.current) return false;
+      const nextAccount = getAddress(value);
+      setChainId(verifiedChainId);
+      setAccount(nextAccount);
+      setError(null);
+      setWalletClient(createWalletClient({ account: nextAccount, chain: runtime.publicClient.chain, transport: custom(provider as any) }));
+      return true;
+    } catch (cause) {
+      if (check === accountCheckRef.current) {
+        setAccount(null); setEthBalance(null); setWethBalance(null);
+        setError(cause instanceof WalletNetworkError ? cause.message : walletConnectionError(cause));
+      }
+      return false;
+    }
   }, [runtime]);
 
   useEffect(() => subscribeInjectedWallets(
@@ -113,24 +132,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setConnecting(true);
     setError(null);
     try {
-      let chainIdHex = await selected.provider.request({ method: "eth_chainId" });
-      let walletChainId = Number(BigInt(String(chainIdHex)));
-      if (walletChainId !== runtime.artifact.chainId && runtime.artifact.chainId === 11155111) {
-        await switchToSepolia(selected.provider, runtime.artifact.rpcUrl, runtime.artifact.explorerUrl);
-        chainIdHex = await selected.provider.request({ method: "eth_chainId" });
-        walletChainId = Number(BigInt(String(chainIdHex)));
+      try {
+        await assertWalletNetwork(selected.provider, runtime);
+      } catch (cause) {
+        if (!(cause instanceof WalletNetworkError)) throw cause;
+        await switchToRuntimeNetwork(selected.provider, runtime);
       }
+      const walletChainId = await assertWalletNetwork(selected.provider, runtime);
       setChainId(walletChainId);
-      if (walletChainId !== runtime.artifact.chainId) throw new Error(`Wallet is on chain ${walletChainId}; expected ${runtime.artifact.chainId}`);
       const accounts = await selected.provider.request({ method: "eth_requestAccounts" }) as string[];
       if (accounts[0] === undefined) throw new Error("Wallet returned no account");
+      if (!await installAccount(selected.provider, accounts[0])) return;
       setDisconnected(false);
       selectProvider(selected.id);
-      installAccount(selected.provider, accounts[0]);
       setChooserOpen(false);
       setEpoch((value) => value + 1);
     } catch (cause) {
-      const message = cause instanceof Error && /Wallet is on chain .* expected/.test(cause.message) ? cause.message : walletConnectionError(cause);
+      const message = cause instanceof WalletNetworkError ? cause.message : walletConnectionError(cause);
       setError(message);
     } finally {
       setConnecting(false);
@@ -145,15 +163,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const accountsChanged = (...args: unknown[]) => {
       if (disconnected) { setAccount(null); setWalletClient(null); setEpoch((value) => value + 1); return; }
       const accounts = Array.isArray(args[0]) ? args[0] as string[] : [];
-      setError(null); installAccount(provider, accounts[0]); setEpoch((value) => value + 1);
+      setError(null); void installAccount(provider, accounts[0]); setEpoch((value) => value + 1);
     };
     const chainChanged = (...args: unknown[]) => {
       const chainId = Number(BigInt(String(args[0])));
+      ++accountCheckRef.current;
       setChainId(chainId);
+      setWalletClient(null);
       if (disconnected) { setAccount(null); setWalletClient(null); setEpoch((value) => value + 1); return; }
       if (runtime === null || chainId !== runtime.artifact.chainId) {
         setWalletClient(null);
-        setError(runtime === null ? "Runtime is unavailable." : `Wallet is on chain ${chainId}; expected ${runtime.artifact.chainId}`);
+        setError(runtime === null ? "Runtime is unavailable." : `Select ${runtime.artifact.networkName} (chain ${runtime.artifact.chainId}) in your wallet, then reconnect.`);
       } else {
         setError(null);
         void provider.request({ method: "eth_accounts" }).then((values) => installAccount(provider, (values as string[])[0])).catch(() => installAccount(provider, undefined));
@@ -166,7 +186,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       provider.removeListener?.("accountsChanged", accountsChanged);
       provider.removeListener?.("chainChanged", chainChanged);
     };
-  }, [disconnected, installAccount, runtime, selectedProvider]);
+  }, [disconnected, installAccount, invalidateAccountChecks, runtime, selectedProvider]);
 
   useEffect(() => {
     let current = true;
@@ -179,12 +199,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (!current) return;
         const chainId = Number(BigInt(String(chain)));
         setChainId(chainId);
-        if (chainId !== runtime.artifact.chainId) setError(`Wallet is on chain ${chainId}; expected ${runtime.artifact.chainId}`);
+        if (chainId !== runtime.artifact.chainId) setError(`Select ${runtime.artifact.networkName} (chain ${runtime.artifact.chainId}) in your wallet, then reconnect.`);
         else installAccount(selectedProvider.provider, (values as string[])[0]);
       }).catch(() => undefined);
     }
-    return () => { current = false; };
-  }, [disconnected, installAccount, runtime, selectedProvider]);
+    return () => { current = false; invalidateAccountChecks(); };
+  }, [disconnected, installAccount, invalidateAccountChecks, runtime, selectedProvider]);
 
   useEffect(() => {
     if (runtime === null || disconnected || selectedProviderId !== null || providers.length !== 1) return;
@@ -202,8 +222,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       installAccount(provider.provider, (values as string[])[0]);
       setEpoch((value) => value + 1);
     }).catch(() => undefined);
-    return () => { current = false; };
-  }, [disconnected, installAccount, providers, runtime, selectProvider, selectedProviderId]);
+    return () => { current = false; invalidateAccountChecks(); };
+  }, [disconnected, installAccount, invalidateAccountChecks, providers, runtime, selectProvider, selectedProviderId]);
 
   useEffect(() => {
     if (runtime === null || account === null) { setEthBalance(null); setWethBalance(null); return; }
@@ -216,6 +236,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [account, epoch, runtime]);
 
   const disconnect = useCallback(() => {
+    ++accountCheckRef.current;
     setDisconnected(true); selectProvider(null); setChooserOpen(false); setAccount(null); setWalletClient(null); setChainId(null); setEthBalance(null); setWethBalance(null); setError(null); setEpoch((value) => value + 1);
   }, [selectProvider]);
 
@@ -228,24 +249,4 @@ export function useWallet(): WalletState {
   const value = useContext(WalletContext);
   if (value === null) throw new Error("useWallet must be used inside WalletProvider");
   return value;
-}
-
-export async function switchToSepolia(provider: EthereumProvider, rpcUrl: string, explorerUrl?: string): Promise<void> {
-  try {
-    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xaa36a7" }] });
-  } catch (cause) {
-    const code = typeof cause === "object" && cause !== null && "code" in cause ? Number((cause as { code: unknown }).code) : undefined;
-    if (code !== 4902) throw cause;
-    await provider.request({
-      method: "wallet_addEthereumChain",
-      params: [{
-        chainId: "0xaa36a7",
-        chainName: "Sepolia",
-        nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
-        rpcUrls: [rpcUrl],
-        blockExplorerUrls: [explorerUrl ?? "https://sepolia.etherscan.io"],
-      }],
-    });
-    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xaa36a7" }] });
-  }
 }
