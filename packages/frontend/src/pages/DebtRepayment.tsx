@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useState} from "react";
-import {formatUnits,isAddress,parseUnits,toHex,type Address,type Hex} from "viem";
+import {formatUnits,isAddress,parseUnits,type Address,type Hex} from "viem";
 import {useRuntime,useWallet} from "../hooks/useRuntime";
+import {assertWalletNetwork} from "../lib/wallet-network";
 import {deserializeOrder,deserializeQuoteEnvelope} from "../lib/runtime";
 import {approveToken} from "@firmdepth/sdk/actions";
 import {validateFirmQuoteEnvelope,type FirmQuoteEnvelope} from "@firmdepth/sdk/quote-provider";
@@ -47,13 +48,7 @@ export function DebtRepayment(){
   try{
    await authenticateDebtRepayment(runtime.publicClient,config.address,{settlement:wrapper.address,...runtime.artifact.addresses});
    if(action!=="refund"){const reserve=await inspectAaveRepaymentReserve(runtime.publicClient,config.address);if(!reserve.active||reserve.paused)throw Error("Aave reserve is inactive or paused. Owner refunds remain available under the plan's expiry rules.");}
-   // Base forks share chain 8453 with mainnet. Confirm the wallet's RPC sees this deployment.
-   const walletCode=await wallet.walletClient.transport.request({method:"eth_getCode",params:[config.address,"latest"]});
-   const actualCode=await runtime.publicClient.getBytecode({address:config.address});
-   if(walletCode!==actualCode)throw Error("Connect your wallet to the local fork RPC containing this repayment deployment.");
-   const referenceBlock=await runtime.publicClient.getBlock();
-   const walletBlock=await wallet.walletClient.transport.request({method:"eth_getBlockByNumber",params:[toHex(referenceBlock.number),false]}) as {hash?:Hex}|null;
-   if(walletBlock?.hash!==referenceBlock.hash)throw Error("The wallet RPC does not match the local fork. Select the local fork RPC before submitting transactions.");
+   await assertWalletNetwork(wallet.walletClient.transport,runtime,[config.address]);
    const clients={publicClient:runtime.publicClient,walletClient:wallet.walletClient,account:wallet.account};
    const wait=async(hash:Hex)=>{setMessage(`Submitted ${hash}`);const r=await runtime.publicClient.waitForTransactionReceipt({hash});if(r.status!=="success")throw Error("Transaction reverted");};
    if(action==="create"){

@@ -86,6 +86,12 @@ Click **Connect wallet**, choose MetaMask or your other detected wallet, and app
 
 If your wallet already has Base saved and keeps its mainnet RPC selected, open the wallet's network settings and add/select the FirmDepth RPC above. The connection dialog also shows these settings. Chain ID alone is insufficient: the app checks the deployed router bytecode and a reference block hash before enabling its wallet client, including after account or network changes. A matching chain ID with a different RPC remains blocked.
 
+The Maker page displays the full configured-maker and connected-wallet addresses. The configured fork maker is `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`; connecting a trader/payer does not give access to that maker's Bond. Read-only collateral inspection and the Trade/Settle flows remain available. Matching maker addresses are compared without letter-case sensitivity, and writes require a verified wallet client on the correct network.
+
+Fork verification reads the reference block by hash and compares contract code at that explicit block number, including the repayment adapter before its actions. This avoids relying on wallet caches for `latest` code or numbered blocks. A failed RPC read is reported separately from an identity mismatch and does not trigger an unnecessary network-add request.
+
+MetaMask's external transaction-risk service can classify a fork-only deployment differently from the fork RPC because the fork shares Base's chain ID. A reported "untrusted EOA" approval was observed for the fork registry despite deployed code being present on the fork. This is an unresolved manual-wallet integration limitation, not a reason to disable security checks or claim the approval succeeded. Automated controlled-fork executions do not establish that the normal MetaMask flow is free of alerts.
+
 For public Sepolia trading and payouts, use [the Sepolia application](https://firmdepthpkg3207de.z29.web.core.windows.net/settlement) and chain **11155111** instead.
 
 Three browser checks passed against that deployed site: restricted public access, an actual 200-USDC Aqua repayment, and an actual 200-USDC covered-bond repayment following a sibling drain. The final proof separately verified a smaller remaining-debt close, 99.999952 USDC surplus, expiry, a mined refund failure reaching the Pool, rollback and successful retry. An unauthenticated visitor smoke check also verified the current adapter, real 600.000002-USDC debt display, evidence links and mobile layout.

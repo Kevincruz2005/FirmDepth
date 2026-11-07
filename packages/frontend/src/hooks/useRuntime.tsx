@@ -135,7 +135,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       try {
         await assertWalletNetwork(selected.provider, runtime);
       } catch (cause) {
-        if (!(cause instanceof WalletNetworkError)) throw cause;
+        if (!(cause instanceof WalletNetworkError) || cause.kind === "unavailable") throw cause;
         await switchToRuntimeNetwork(selected.provider, runtime);
       }
       const walletChainId = await assertWalletNetwork(selected.provider, runtime);

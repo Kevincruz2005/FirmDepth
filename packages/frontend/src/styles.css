@@ -300,7 +300,8 @@ button { color: inherit; }
 .bond-flow { display: flex; align-items: center; justify-content: center; gap: 10px; margin: -10px 0 20px; padding: 13px; background: #eeece5; font-size: 12px; }
 .bond-limits { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--muted); font-size: 12px; }
 .validation-message, .maker-access-note { margin: 10px 0 0; color: #a5331e; font-size: 13px; line-height: 1.45; }
-.maker-access-note { padding: 12px; background: #fff5f0; }
+.maker-access-panel { margin-top: 14px; padding: 14px; border: 1px solid var(--rule); background: var(--canvas); font-size: 13px; line-height: 1.5; }
+.maker-access-panel dl { margin: 0; }.maker-access-panel dl > div { margin-bottom: 8px; }.maker-access-panel dt { color: var(--muted); }.maker-access-panel dd { margin: 0; overflow-wrap: anywhere; }.maker-access-panel p { margin: 12px 0; }.maker-access-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }.maker-access-actions a { color: var(--blue); }
 .action-progress { color: var(--blue); font-size: 13px; }
 .technical-error { margin-top: 12px; }
 .technical-error summary { cursor: pointer; font-size: 12px; font-weight: 700; }

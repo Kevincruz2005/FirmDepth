@@ -12,9 +12,13 @@ test.describe("real Aave protected repayment",()=>{
   await installReadWriteForkWallet(page,runtime.rpcUrl,runtime.accounts.trader,true);
   await page.goto("/settlement");await page.getByRole("button",{name:"Debt Repayment",exact:true}).click();
   await expect(page.locator(".verified-debt")).toContainText("Verified borrower debt:",{timeout:45000});
-  await page.getByRole("button",{name:"Create repayment plan",exact:true}).click();
-  await expect(page.locator(".settlement-message")).toContainText("wallet RPC does not match the local fork",{timeout:30000});
+  await page.getByRole("button",{name:"Connect wallet",exact:true}).click();
+  await page.getByRole("button",{name:/Local Aave Fork Wallet/}).click();
+  await expect(page.locator(".wallet-dialog-error")).toContainText("cannot see this fork",{timeout:30000});
+  await expect(page.getByRole("button",{name:"Create repayment plan",exact:true})).toBeDisabled();
   await expect(page.getByRole("heading",{name:"CREATED",exact:true})).not.toBeVisible();
+  const methods=await page.evaluate(()=>(window as unknown as {forkWalletMethods:string[]}).forkWalletMethods);
+  expect(methods).not.toContain("eth_sendTransaction");
  });
  for(const path of ["Aqua","Bond","Partial","Expiry"]as const)test(`repays real Aave debt through ${path}`,async({page,context})=>{
   const runtime=JSON.parse(readFileSync(".runtime/firmdepth.json","utf8"));
@@ -69,10 +73,12 @@ test.describe("real Aave protected repayment",()=>{
 });
 async function installReadWriteForkWallet(page:Page,rpcUrl:string,account:string,wrongBlock=false){
  await page.addInitScript(({url,selectedAccount,mismatchedBlock})=>{
-  let id=0;const listeners=new Map<string,Set<(...args:unknown[])=>void>>();
+  let id=0;const methods:string[]=[];Object.assign(window,{forkWalletMethods:methods});const listeners=new Map<string,Set<(...args:unknown[])=>void>>();
   const provider={async request({method,params}:{method:string;params?:unknown[]|object}){
+   methods.push(method);
+   if(method==="wallet_addEthereumChain"||method==="wallet_switchEthereumChain")return null;
    if(method==="eth_accounts"||method==="eth_requestAccounts")return[selectedAccount];
-   if(method==="eth_getBlockByNumber"&&mismatchedBlock)return {hash:`0x${"ff".repeat(32)}`};
+   if(method==="eth_getBlockByHash"&&mismatchedBlock)return null;
    const response=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:++id,method,params:params??[]})});
    const payload=await response.json();if(payload.error)throw Error(payload.error.message);return payload.result;
   },on(event:string,listener:(...args:unknown[])=>void){const set=listeners.get(event)??new Set();set.add(listener);listeners.set(event,set);},removeListener(event:string,listener:(...args:unknown[])=>void){listeners.get(event)?.delete(listener);}};

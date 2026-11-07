@@ -23,8 +23,16 @@ test.describe("fork wallet connection", () => {
           rpcUrls: [new URL("/rpc", page.url()).href],
         }]);
         expect(calls.filter(call => /send|sign/i.test(call.method))).toEqual([]);
+        await page.getByRole("navigation", {name:"Primary navigation"}).getByRole("link", {name:"Maker",exact:true}).click();
+        const access = page.locator(".maker-access-panel");
+        await expect(access).toContainText("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+        await expect(access).toContainText("0x885a51365c30De518a1efAd46a28531B9ad9B509");
+        await expect(access).toContainText("Your connected wallet can use Trade and Settle");
+        await expect(page.getByRole("button", {name:"Deposit",exact:true})).toBeDisabled();
+        await page.setViewportSize({width:390,height:844});
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       } else {
-        await expect(dialog.getByRole("alert")).toContainText(scenario === "cancel" ? "Wallet connection cancelled." : "RPC does not match", { timeout: 60000 });
+        await expect(dialog.getByRole("alert")).toContainText(scenario === "cancel" ? "Wallet connection cancelled." : "cannot see this fork", { timeout: 60000 });
         await expect(dialog.getByText(new URL("/rpc", page.url()).href, { exact: true })).toBeVisible();
         await page.setViewportSize({ width: 390, height: 844 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -52,7 +60,7 @@ async function installReadOnlyWallet(page: Page, scenario: "switch" | "wrong-rpc
         }
         if (method === "wallet_switchEthereumChain") { chain = (params[0] as { chainId: string }).chainId; return null; }
         if (scenario === "wrong-rpc" && method === "eth_getCode") return "0x";
-        if (!/^eth_(getCode|getBlockByNumber)$/.test(method)) throw Error("Read-only connection test");
+        if (!/^eth_(getCode|getBlockByHash)$/.test(method)) throw Error("Read-only connection test");
         const response = await fetch("/rpc", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }) });
         const data = await response.json();
         if (data.error) throw Error("Fork read failed");

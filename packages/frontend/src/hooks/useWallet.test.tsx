@@ -85,7 +85,7 @@ describe("selected injected wallet lifecycle", () => {
     await screen.findByText("runtime-ready");
     announce("metamask-id", "MetaMask", "io.metamask", metamask.provider);
     fireEvent.click(await screen.findByRole("button", {name:"Connect MetaMask"}));
-    await screen.findByText(/RPC does not match/);
+    await screen.findByText(/cannot see this fork/);
     expect(screen.getByTestId("signer")).toHaveTextContent("no-signer");
     expect(metamask.requestedMethods()).not.toContain("eth_requestAccounts");
   });
@@ -100,10 +100,10 @@ describe("selected injected wallet lifecycle", () => {
     await screen.findByText("signer-ready");
     metamask.setCode("0x");
     act(() => metamask.emitChain("0x2105"));
-    await screen.findByText(/RPC does not match/);
+    await screen.findByText(/cannot see this fork/);
     expect(screen.getByTestId("signer")).toHaveTextContent("no-signer");
     act(() => metamask.emitAccounts(secondAccount));
-    await screen.findByText(/RPC does not match/);
+    await screen.findByText(/cannot see this fork/);
     expect(screen.getByTestId("signer")).toHaveTextContent("no-signer");
   });
 
@@ -142,7 +142,7 @@ function fakeEventProvider(rejectConnection = false) {
     if (method === "eth_chainId") return chain;
     if (method === "wallet_switchEthereumChain") { chain = (params as Array<{chainId:string}>)[0]!.chainId; return null; }
     if (method === "eth_getCode") return code;
-    if (method === "eth_getBlockByNumber") return {hash:`0x${"ab".repeat(32)}`};
+    if (method === "eth_getBlockByHash") return {hash:`0x${"ab".repeat(32)}`,number:"0x64"};
     if (method === "eth_accounts") return authorized ? [account] : [];
     if (method === "eth_requestAccounts") {
       if (rejectConnection) throw Object.assign(new Error("Internal provider rejection detail"), { code: 4001 });

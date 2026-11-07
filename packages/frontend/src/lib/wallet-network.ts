@@ -1,7 +1,9 @@
-import { toHex } from "viem";
+import { toHex, type Address } from "viem";
 import type { LoadedRuntime } from "./runtime";
 
-export class WalletNetworkError extends Error {}
+export class WalletNetworkError extends Error {
+  constructor(message: string, readonly kind: "mismatch" | "unavailable" = "mismatch") { super(message); }
+}
 
 export function walletNetworkDetails(runtime: LoadedRuntime) {
   const { artifact } = runtime;
@@ -15,22 +17,33 @@ export function walletNetworkDetails(runtime: LoadedRuntime) {
 }
 
 /** A chain ID alone cannot distinguish our fork from Base mainnet. */
-export async function assertWalletNetwork(provider: EthereumProvider, runtime: LoadedRuntime): Promise<number> {
+export async function assertWalletNetwork(provider: EthereumProvider, runtime: LoadedRuntime, additionalAddresses: readonly Address[] = []): Promise<number> {
   const network = walletNetworkDetails(runtime);
   const chainId = Number(BigInt(String(await provider.request({ method: "eth_chainId" }))));
   if (chainId !== network.chainId) throw new WalletNetworkError(`Select ${network.name} (chain ${network.chainId}) in your wallet, then reconnect.`);
   if (network.isFork) {
     try {
-      const address = runtime.artifact.addresses.firmRouter;
-      const [code, block, walletCode] = await Promise.all([
-        runtime.publicClient.getBytecode({ address }),
-        runtime.publicClient.getBlock(),
-        provider.request({ method: "eth_getCode", params: [address, "latest"] }),
+      const block = await runtime.publicClient.getBlock();
+      if (!block.hash || block.number === null) throw new Error("Reference block unavailable");
+      // Use an immutable hash and explicit block tags. Wallets can retain
+      // latest/code and block-number caches when RPCs share Base's chain ID.
+      const addresses = [...new Set([runtime.artifact.addresses.firmRouter, ...additionalAddresses])];
+      const [walletBlock, codes] = await Promise.all([
+        provider.request({ method: "eth_getBlockByHash", params: [block.hash, false] }) as Promise<{ hash?: string; number?: string } | null>,
+        Promise.all(addresses.map(async address => {
+          const [code, walletCode] = await Promise.all([
+            runtime.publicClient.getBytecode({ address, blockNumber: block.number! }),
+            provider.request({ method: "eth_getCode", params: [address, toHex(block.number!)] }),
+          ]);
+          return typeof code === "string" && code !== "0x" && typeof walletCode === "string" && code.toLowerCase() === walletCode.toLowerCase();
+        })),
       ]);
-      const walletBlock = await provider.request({ method: "eth_getBlockByNumber", params: [toHex(block.number), false] }) as { hash?: string } | null;
-      if (!code || code === "0x" || code !== walletCode || !block.hash || block.hash !== walletBlock?.hash) throw new Error("Fork mismatch");
-    } catch {
-      throw new WalletNetworkError("Your wallet RPC does not match this FirmDepth fork. Select the RPC URL shown below in your wallet's network settings, then reconnect. Base mainnet also uses chain 8453.");
+      if (walletBlock?.hash?.toLowerCase() !== block.hash.toLowerCase() || walletBlock?.number?.toLowerCase() !== toHex(block.number) || codes.some(valid => !valid)) {
+        throw new WalletNetworkError("The wallet cannot see this fork's deployed contracts and reference block. Select the FirmDepth fork RPC in the wallet, save the network change, then reload this page and reconnect. Base mainnet uses the same chain ID, 8453.");
+      }
+    } catch (cause) {
+      if (cause instanceof WalletNetworkError) throw cause;
+      throw new WalletNetworkError("Fork verification could not complete because an RPC read failed. Retry the connection. This does not establish that your selected RPC is wrong.", "unavailable");
     }
   }
   return chainId;
